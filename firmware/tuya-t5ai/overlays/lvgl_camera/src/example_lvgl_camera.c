@@ -12,10 +12,6 @@
 #include "tdl_camera_manage.h"
 #include "tdl_button_manage.h"
 
-#include "lvgl.h"
-#include "lv_port_disp.h"
-#include "lv_vendor.h"
-
 #include "board_com_api.h"
 
 /***********************************************************
@@ -40,7 +36,6 @@
 static bool sg_is_display_camera = false;
 static bool sg_motor_running = false;
 static bool sg_motor_ready   = false;
-static THREAD_HANDLE sg_lvgl_thrd = NULL;
 static TDL_CAMERA_HANDLE_T sg_camera_hdl = NULL;
 static TDL_DISP_HANDLE_T sg_tdl_disp_hdl = NULL;
 static TDL_DISP_DEV_INFO_T sg_display_info;
@@ -191,54 +186,6 @@ static OPERATE_RET __example_camera_init(void)
     return rt;
 }
 
-static void __example_lvgl_task(void *arg)
-{
-    (void)arg;
-
-    uint32_t timer_count = 0;
-
-    lv_vendor_init(DISPLAY_NAME);
-
-    lv_vendor_start(THREAD_PRIO_0, 1024 * 8);
-
-    // lock display, because this task is not lvgl task
-    lv_vendor_disp_lock();
-    lv_obj_t *screen = lv_obj_create(lv_scr_act());
-    lv_obj_set_size(screen, LV_HOR_RES, LV_VER_RES);
-    lv_obj_set_style_bg_color(screen, lv_color_white(), LV_PART_MAIN);
-
-    lv_obj_t *label = lv_label_create(screen);
-    lv_label_set_text_fmt(label, "Hello World! %u", timer_count);
-    lv_obj_align(label, LV_ALIGN_CENTER, 0, 0);
-    lv_vendor_disp_unlock();
-
-    while (1) {
-        timer_count++;
-        lv_vendor_disp_lock();
-        lv_label_set_text_fmt(label, "Hello World! %u", timer_count);
-        lv_vendor_disp_unlock();
-
-        tal_system_sleep(1000);
-    }
-
-    return;
-}
-
-static OPERATE_RET __example_lvgl_init(void)
-{
-    OPERATE_RET rt = OPRT_OK;
-
-    THREAD_CFG_T thrd_hdl = {0};
-    thrd_hdl.stackDepth   = 1024 * 4;
-    thrd_hdl.priority     = THREAD_PRIO_0;
-    thrd_hdl.thrdname     = "example_lvgl_task";
-
-    TUYA_CALL_ERR_LOG(tal_thread_create_and_start(&sg_lvgl_thrd, NULL, NULL,\
-                                                  __example_lvgl_task, NULL, &thrd_hdl));
-
-    return rt;
-}
-
 static void __example_button_function_cb(char *name, TDL_BUTTON_TOUCH_EVENT_E event, void *argc)
 {
     (void)name;
@@ -321,13 +268,10 @@ void user_main(void)
 
     TUYA_CALL_ERR_LOG(__example_button_init());
 
-    TUYA_CALL_ERR_LOG(__example_lvgl_init());
-
     TUYA_CALL_ERR_LOG(__example_camera_init());
 
     TUYA_CALL_ERR_LOG(__example_camera_display_init());
 
-    disp_disable_update(NULL);
     sg_is_display_camera = true;
     PR_NOTICE("camera preview enabled");
 

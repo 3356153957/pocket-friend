@@ -17,7 +17,6 @@ $required = @(
     '__example_motor_stop'
     '[motor] started'
     '[motor] stopped'
-    'disp_disable_update(NULL);'
     'sg_is_display_camera = true;'
 )
 
@@ -33,6 +32,18 @@ if ($source -notmatch 'static OPERATE_RET __example_motor_init\(void\)\s*\{\s*OP
 
 if ($source.Contains('disp_enable_update(NULL);')) {
     throw 'Button callback still contains the old camera toggle'
+}
+
+if ($source.Contains('TUYA_CALL_ERR_LOG(__example_lvgl_init());')) {
+    throw 'Hello World LVGL task must not start in camera-only motor test firmware'
+}
+
+if ($source.Contains('disp_disable_update(NULL);')) {
+    throw 'Camera-only firmware must not toggle an uninitialized LVGL display'
+}
+
+if ($source.Contains('Hello World') -or $source.Contains('sg_lvgl_thrd')) {
+    throw 'Camera-only firmware must not retain the competing Hello World task'
 }
 
 Write-Host 'PASS: button toggles motor and camera preview starts automatically.'
