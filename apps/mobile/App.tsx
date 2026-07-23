@@ -18,11 +18,17 @@ import {
   type PlayerProfile,
   type PresenceSnapshot,
 } from "../../packages/nearby-core/src/index.ts";
+import {
+  createDemoProfile,
+  DISCOVERY_RADIUS_OPTIONS,
+  DISTANCE_PRECISION_OPTIONS,
+  getLocationModes,
+  type DemoDiscoverySettings,
+  type LocationMode,
+} from "./src/demoSettings.ts";
 import { createNearbyGameState } from "./src/nearbyGame.ts";
 
-type LocationMode = "simulated" | "native" | "jacoo";
-
-const currentPlayer: PlayerProfile = {
+const baseCurrentPlayer: PlayerProfile = {
   id: "me",
   displayName: "你",
   avatar: "mint",
@@ -31,6 +37,11 @@ const currentPlayer: PlayerProfile = {
   discoveryRadiusMeters: 800,
   distancePrecision: "100m",
 };
+
+const locationModes = getLocationModes({
+  jacooEnabled: process.env.EXPO_PUBLIC_ENABLE_JACOO === "true",
+  production: process.env.NODE_ENV === "production",
+});
 
 const demoProvider = SimulatedLocationProvider.fromMap(HUPAN_PIXEL_MAP, {
   capturedAt: () => new Date().toISOString(),
@@ -125,11 +136,40 @@ async function nativeLocation(): Promise<GeoPoint> {
   };
 }
 
+async function jacooLocation(): Promise<GeoPoint> {
+  const gatewayUrl = process.env.EXPO_PUBLIC_GATEWAY_URL?.replace(/\/+$/u, "");
+  if (!gatewayUrl) {
+    throw new Error("尚未配置 JACOO Gateway");
+  }
+
+  const response = await fetch(`${gatewayUrl}/api/location/jacoo/latest`);
+  const body = await response.json() as {
+    location?: GeoPoint;
+    error?: { message?: string };
+  };
+
+  if (!response.ok || !body.location) {
+    throw new Error(body.error?.message ?? "JACOO 定位读取失败");
+  }
+
+  return body.location;
+}
+
 export default function App() {
   const [mode, setMode] = useState<LocationMode>("simulated");
   const [location, setLocation] = useState<GeoPoint | null>(null);
   const [loading, setLoading] = useState(false);
   const [message, setMessage] = useState("点击定位，进入湖畔像素地图");
+  const [selectedPlayerId, setSelectedPlayerId] = useState<string | null>(null);
+  const [settings, setSettings] = useState<DemoDiscoverySettings>({
+    discoverable: true,
+    discoveryRadiusMeters: 800,
+    distancePrecision: "100m",
+  });
+  const currentPlayer = useMemo(
+    () => createDemoProfile(baseCurrentPlayer, settings),
+    [settings],
+  );
 
   const state = useMemo(() => {
     if (!location) {
@@ -144,7 +184,10 @@ export default function App() {
         location: { ...presence.location, capturedAt: new Date().toISOString() },
       })),
     });
-  }, [location]);
+  }, [currentPlayer, location]);
+  const selectedMatch = state?.nearbyMatches.find(
+    (match) => match.player.id === selectedPlayerId,
+  ) ?? null;
 
   async function locate(selectedMode = mode): Promise<void> {
     setMode(selectedMode);
@@ -154,18 +197,11 @@ export default function App() {
       const nextLocation = selectedMode === "native"
         ? await nativeLocation()
         : selectedMode === "jacoo"
-          ? {
-              latitude: 30.289153,
-              longitude: 120.008285,
-              accuracyMeters: 68,
-              capturedAt: new Date().toISOString(),
-              coordinateSystem: "wgs84",
-              source: "jacoo",
-            } satisfies GeoPoint
+          ? await jacooLocation()
           : await demoProvider.advance();
 
       setLocation(nextLocation);
-      setMessage(selectedMode === "native" ? "已读取手机定位" : selectedMode === "jacoo" ? "已载入 JACOO iPhone 位置样本" : "模拟玩家移动了一格");
+      setMessage(selectedMode === "native" ? "已读取手机定位" : selectedMode === "jacoo" ? "已从 Gateway 读取 JACOO 位置" : "模拟定位 · 玩家移动了一格");
 
       await Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
     } catch (error) {
@@ -185,11 +221,11 @@ export default function App() {
       <ScrollView contentContainerStyle={styles.screen}>
         <View style={styles.header}>
           <Text style={styles.title}>POCKET FRIEND</Text>
-          <Text style={styles.subtitle}>{state?.statusText ?? message}</Text>
+          <Text style={styles.subtitle}>{state ? `${message} · ${state.statusText}` : message}</Text>
         </View>
 
         <View style={styles.controls}>
-          {(["simulated", "native", "jacoo"] as LocationMode[]).map((item) => (
+          {locationModes.map((item) => (
             <Pressable
               key={item}
               accessibilityRole="button"
@@ -201,6 +237,95 @@ export default function App() {
               </Text>
             </Pressable>
           ))}
+        </View>
+
+        <View style={styles.settingsPanel}>
+          <View style={styles.settingHeader}>
+            <View>
+              <Text style={styles.settingTitle}>相遇设置</Text>
+              <Text style={styles.settingHint}>设置会立即影响附近候选</Text>
+            </View>
+            <Pressable
+              accessibilityRole="switch"
+              accessibilityState={{ checked: settings.discoverable }}
+              onPress={() => {
+                setSettings((previous) => ({
+                  ...previous,
+                  discoverable: !previous.discoverable,
+                }));
+                setSelectedPlayerId(null);
+              }}
+              style={[
+                styles.discoveryToggle,
+                settings.discoverable && styles.discoveryToggleActive,
+              ]}
+            >
+              <Text
+                style={[
+                  styles.discoveryToggleText,
+                  settings.discoverable && styles.discoveryToggleTextActive,
+                ]}
+              >
+                {settings.discoverable ? "可被发现：开" : "可被发现：关"}
+              </Text>
+            </Pressable>
+          </View>
+
+          <Text style={styles.settingLabel}>发现范围</Text>
+          <View style={styles.segmentRow}>
+            {DISCOVERY_RADIUS_OPTIONS.map((radius) => (
+              <Pressable
+                key={radius}
+                accessibilityRole="button"
+                accessibilityState={{ selected: settings.discoveryRadiusMeters === radius }}
+                onPress={() => setSettings((previous) => ({
+                  ...previous,
+                  discoveryRadiusMeters: radius,
+                }))}
+                style={[
+                  styles.segmentButton,
+                  settings.discoveryRadiusMeters === radius && styles.segmentButtonActive,
+                ]}
+              >
+                <Text
+                  style={[
+                    styles.segmentText,
+                    settings.discoveryRadiusMeters === radius && styles.segmentTextActive,
+                  ]}
+                >
+                  {radius >= 1_000 ? `${radius / 1_000} km` : `${radius} m`}
+                </Text>
+              </Pressable>
+            ))}
+          </View>
+
+          <Text style={styles.settingLabel}>距离精度</Text>
+          <View style={styles.segmentRow}>
+            {DISTANCE_PRECISION_OPTIONS.map((precision) => (
+              <Pressable
+                key={precision}
+                accessibilityRole="button"
+                accessibilityState={{ selected: settings.distancePrecision === precision }}
+                onPress={() => setSettings((previous) => ({
+                  ...previous,
+                  distancePrecision: precision,
+                }))}
+                style={[
+                  styles.segmentButton,
+                  settings.distancePrecision === precision && styles.segmentButtonActive,
+                ]}
+              >
+                <Text
+                  style={[
+                    styles.segmentText,
+                    settings.distancePrecision === precision && styles.segmentTextActive,
+                  ]}
+                >
+                  {precision === "region" ? "区域" : precision}
+                </Text>
+              </Pressable>
+            ))}
+          </View>
         </View>
 
         <View style={[styles.map, { width: mapWidth, height: mapHeight }]}>
@@ -247,7 +372,16 @@ export default function App() {
             <Text style={styles.emptyText}>{message}</Text>
           ) : (
             state?.nearbyMatches.map((match) => (
-              <View key={match.player.id} style={styles.matchRow}>
+              <Pressable
+                key={match.player.id}
+                accessibilityRole="button"
+                accessibilityState={{ selected: selectedPlayerId === match.player.id }}
+                onPress={() => setSelectedPlayerId(match.player.id)}
+                style={[
+                  styles.matchRow,
+                  selectedPlayerId === match.player.id && styles.matchRowSelected,
+                ]}
+              >
                 <View style={[styles.matchAvatar, { backgroundColor: avatarColors[match.player.avatar] }]}>
                   <Text style={styles.avatarText}>{match.player.displayName.slice(0, 1)}</Text>
                 </View>
@@ -256,9 +390,22 @@ export default function App() {
                   <Text style={styles.matchReason}>{match.reason}</Text>
                 </View>
                 <Text style={styles.distance}>{match.displayDistance}</Text>
-              </View>
+              </Pressable>
             ))
           )}
+
+          {selectedMatch ? (
+            <View style={styles.matchDetail}>
+              <Text style={styles.detailTitle}>
+                {selectedMatch.player.displayName} · 匹配度 {selectedMatch.score}
+              </Text>
+              <Text style={styles.detailText}>
+                共同兴趣：{selectedMatch.sharedInterests.join("、")}
+              </Text>
+              <Text style={styles.detailText}>{selectedMatch.reason}</Text>
+              <Text style={styles.detailDistance}>{selectedMatch.displayDistance}</Text>
+            </View>
+          ) : null}
         </View>
       </ScrollView>
     </SafeAreaView>
@@ -297,6 +444,82 @@ const styles = StyleSheet.create({
     alignSelf: "stretch",
     flexDirection: "row",
     gap: 8,
+  },
+  settingsPanel: {
+    alignSelf: "stretch",
+    borderColor: "#f8f1c2",
+    borderWidth: 4,
+    backgroundColor: "#26384f",
+    gap: 8,
+    padding: 10,
+  },
+  settingHeader: {
+    alignItems: "center",
+    flexDirection: "row",
+    gap: 10,
+    justifyContent: "space-between",
+  },
+  settingTitle: {
+    color: "#ffd84d",
+    fontSize: 17,
+    fontWeight: "900",
+  },
+  settingHint: {
+    color: "#e7f6ff",
+    fontSize: 11,
+    marginTop: 2,
+  },
+  discoveryToggle: {
+    alignItems: "center",
+    backgroundColor: "#4b5868",
+    borderColor: "#f8f1c2",
+    borderWidth: 3,
+    justifyContent: "center",
+    minHeight: 44,
+    paddingHorizontal: 10,
+  },
+  discoveryToggleActive: {
+    backgroundColor: "#50e3a4",
+  },
+  discoveryToggleText: {
+    color: "#f8f1c2",
+    fontSize: 12,
+    fontWeight: "900",
+  },
+  discoveryToggleTextActive: {
+    color: "#18232f",
+  },
+  settingLabel: {
+    color: "#e7f6ff",
+    fontSize: 12,
+    fontWeight: "800",
+  },
+  segmentRow: {
+    flexDirection: "row",
+    flexWrap: "wrap",
+    gap: 6,
+  },
+  segmentButton: {
+    alignItems: "center",
+    backgroundColor: "#31445c",
+    borderColor: "#f8f1c2",
+    borderWidth: 2,
+    flexGrow: 1,
+    justifyContent: "center",
+    minHeight: 44,
+    minWidth: 68,
+    paddingHorizontal: 8,
+  },
+  segmentButtonActive: {
+    backgroundColor: "#ffd84d",
+  },
+  segmentText: {
+    color: "#f8f1c2",
+    fontSize: 12,
+    fontWeight: "900",
+  },
+  segmentTextActive: {
+    color: "#18232f",
   },
   modeButton: {
     flex: 1,
@@ -416,6 +639,10 @@ const styles = StyleSheet.create({
     padding: 8,
     backgroundColor: "#ffffff",
   },
+  matchRowSelected: {
+    backgroundColor: "#e7f6ff",
+    borderColor: "#245f96",
+  },
   matchAvatar: {
     width: 30,
     height: 30,
@@ -440,6 +667,28 @@ const styles = StyleSheet.create({
   distance: {
     color: "#26384f",
     fontSize: 12,
+    fontWeight: "900",
+  },
+  matchDetail: {
+    backgroundColor: "#26384f",
+    borderColor: "#1c1c1c",
+    borderWidth: 3,
+    gap: 4,
+    padding: 10,
+  },
+  detailTitle: {
+    color: "#ffd84d",
+    fontSize: 15,
+    fontWeight: "900",
+  },
+  detailText: {
+    color: "#e7f6ff",
+    fontSize: 12,
+    lineHeight: 18,
+  },
+  detailDistance: {
+    color: "#50e3a4",
+    fontSize: 13,
     fontWeight: "900",
   },
 });
