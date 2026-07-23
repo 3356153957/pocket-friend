@@ -70,6 +70,7 @@ static OPERATE_RET __example_motor_start(void)
 
 static OPERATE_RET __example_motor_init(void)
 {
+    OPERATE_RET rt = OPRT_OK;
     TUYA_GPIO_BASE_CFG_T motor_gpio_cfg = {
         .mode   = TUYA_GPIO_PUSH_PULL,
         .direct = TUYA_GPIO_OUTPUT,
