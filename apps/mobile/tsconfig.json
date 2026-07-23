@@ -4,8 +4,8 @@
     "allowImportingTsExtensions": true,
     "composite": true,
     "exactOptionalPropertyTypes": true,
-    "module": "NodeNext",
-    "moduleResolution": "NodeNext",
+    "module": "ESNext",
+    "moduleResolution": "Bundler",
     "noEmit": true,
     "noUncheckedIndexedAccess": true,
     "strict": true,
@@ -14,8 +14,6 @@
   "include": [
     "**/*.ts",
     "**/*.tsx",
-    ".expo/types/**/*.ts",
-    "expo-env.d.ts",
     "../../packages/nearby-core/src/**/*.ts"
   ]
 }

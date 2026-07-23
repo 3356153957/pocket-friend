@@ -1,12 +1,12 @@
 import assert from "node:assert/strict";
 import { describe, test } from "node:test";
 
-import { createNearbyGameState, HUPAN_FIXED_SELF_LOCATION } from "../src/nearbyGame.ts";
+import { createNearbyGameState } from "../src/nearbyGame.ts";
 
 const now = new Date("2026-07-23T10:00:00.000+08:00");
 
 describe("createNearbyGameState", () => {
-  test("keeps the self player fixed at Hupan regardless of reported GPS location", () => {
+  test("keeps the normalized reported location for the self player", () => {
     const state = createNearbyGameState({
       now,
       currentPlayer: {
@@ -31,8 +31,9 @@ describe("createNearbyGameState", () => {
 
     const self = state.visiblePlayers.find((player) => player.isSelf);
 
-    assert.equal(self?.location.latitude, HUPAN_FIXED_SELF_LOCATION.latitude);
-    assert.equal(self?.location.longitude, HUPAN_FIXED_SELF_LOCATION.longitude);
+    assert.equal(self?.location.latitude, 30.2708);
+    assert.equal(self?.location.longitude, 120.0185);
+    assert.equal(self?.location.source, "native");
   });
 
   test("projects local and remote players onto the Hupan pixel map with distance labels", () => {
