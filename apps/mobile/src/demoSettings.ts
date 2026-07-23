@@ -3,7 +3,7 @@ import type {
   PlayerProfile,
 } from "../../../packages/nearby-core/src/index.ts";
 
-export type LocationMode = "simulated" | "native" | "jacoo";
+export type LocationMode = "simulated" | "native";
 
 export interface DemoDiscoverySettings {
   discoverable: boolean;
@@ -29,15 +29,6 @@ export function createDemoProfile(
   };
 }
 
-export function getLocationModes(input: {
-  jacooEnabled: boolean;
-  production: boolean;
-}): LocationMode[] {
-  const modes: LocationMode[] = ["simulated", "native"];
-
-  if (input.jacooEnabled && !input.production) {
-    modes.push("jacoo");
-  }
-
-  return modes;
+export function getLocationModes(): LocationMode[] {
+  return ["simulated", "native"];
 }

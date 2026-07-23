@@ -10,6 +10,15 @@ import {
   type PresenceSnapshot,
 } from "../../../packages/nearby-core/src/index.ts";
 
+export const HUPAN_FIXED_SELF_LOCATION: GeoPoint = {
+  latitude: 30.293312,
+  longitude: 120.007986,
+  accuracyMeters: 10,
+  capturedAt: "2026-07-23T00:00:00.000+08:00",
+  coordinateSystem: "gcj02",
+  source: "native",
+};
+
 export interface CreateNearbyGameStateInput {
   currentPlayer: PlayerProfile;
   currentLocation: GeoPoint;
@@ -35,12 +44,8 @@ export interface NearbyGameState {
 }
 
 function sourceLabel(source: GeoPoint["source"]): string {
-  if (source === "native") {
+  if (source === "native" || source === "jacoo") {
     return "GPS";
-  }
-
-  if (source === "jacoo") {
-    return "JACOO";
   }
 
   return "SIM";
@@ -69,7 +74,11 @@ function visiblePlayer(profile: PlayerProfile, location: GeoPoint, isSelf: boole
 
 export function createNearbyGameState(input: CreateNearbyGameStateInput): NearbyGameState {
   const now = input.now ?? new Date();
-  const normalizedSelfLocation = toGcj02(input.currentLocation);
+  const normalizedSelfLocation: GeoPoint = {
+    ...HUPAN_FIXED_SELF_LOCATION,
+    capturedAt: input.currentLocation.capturedAt,
+    source: input.currentLocation.source,
+  };
   const normalizedPresences = input.presences.map(normalizeSnapshot);
   const nearbyMatches = findNearbyMatches({
     me: input.currentPlayer,

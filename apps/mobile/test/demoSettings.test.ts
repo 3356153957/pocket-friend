@@ -33,19 +33,7 @@ describe("demo discovery settings", () => {
     assert.equal(baseProfile.discoverable, true);
   });
 
-  test("only exposes JACOO in explicitly enabled non-production builds", () => {
-    assert.deepEqual(getLocationModes({ jacooEnabled: false, production: false }), [
-      "simulated",
-      "native",
-    ]);
-    assert.deepEqual(getLocationModes({ jacooEnabled: true, production: true }), [
-      "simulated",
-      "native",
-    ]);
-    assert.deepEqual(getLocationModes({ jacooEnabled: true, production: false }), [
-      "simulated",
-      "native",
-      "jacoo",
-    ]);
+  test("only exposes demo and GPS location modes", () => {
+    assert.deepEqual(getLocationModes(), ["simulated", "native"]);
   });
 });

@@ -1,11 +1,40 @@
 import assert from "node:assert/strict";
 import { describe, test } from "node:test";
 
-import { createNearbyGameState } from "../src/nearbyGame.ts";
+import { createNearbyGameState, HUPAN_FIXED_SELF_LOCATION } from "../src/nearbyGame.ts";
 
 const now = new Date("2026-07-23T10:00:00.000+08:00");
 
 describe("createNearbyGameState", () => {
+  test("keeps the self player fixed at Hupan regardless of reported GPS location", () => {
+    const state = createNearbyGameState({
+      now,
+      currentPlayer: {
+        id: "me",
+        displayName: "我",
+        avatar: "mint",
+        interests: ["8bit", "coffee"],
+        discoverable: true,
+        discoveryRadiusMeters: 800,
+        distancePrecision: "100m",
+      },
+      currentLocation: {
+        latitude: 30.2708,
+        longitude: 120.0185,
+        accuracyMeters: 18,
+        capturedAt: "2026-07-23T09:59:30.000+08:00",
+        coordinateSystem: "gcj02",
+        source: "native",
+      },
+      presences: [],
+    });
+
+    const self = state.visiblePlayers.find((player) => player.isSelf);
+
+    assert.equal(self?.location.latitude, HUPAN_FIXED_SELF_LOCATION.latitude);
+    assert.equal(self?.location.longitude, HUPAN_FIXED_SELF_LOCATION.longitude);
+  });
+
   test("projects local and remote players onto the Hupan pixel map with distance labels", () => {
     const state = createNearbyGameState({
       now,
@@ -57,7 +86,7 @@ describe("createNearbyGameState", () => {
     assert.equal(state.visiblePlayers.every((player) => player.pixel.x >= 0 && player.pixel.y >= 0), true);
   });
 
-  test("normalizes WGS84 JACOO locations before map projection", () => {
+  test("normalizes WGS84 bridge locations before map projection", () => {
     const state = createNearbyGameState({
       now,
       currentPlayer: {
@@ -80,7 +109,7 @@ describe("createNearbyGameState", () => {
       presences: [
         {
           profile: {
-            id: "jacoo",
+            id: "bridge",
             displayName: "iPhone",
             avatar: "sky",
             interests: ["hardware"],
@@ -100,9 +129,9 @@ describe("createNearbyGameState", () => {
       ],
     });
 
-    const jacoo = state.visiblePlayers.find((player) => player.id === "jacoo");
+    const bridge = state.visiblePlayers.find((player) => player.id === "bridge");
 
-    assert.equal(jacoo?.location.coordinateSystem, "gcj02");
-    assert.equal(jacoo?.sourceLabel, "JACOO");
+    assert.equal(bridge?.location.coordinateSystem, "gcj02");
+    assert.equal(bridge?.sourceLabel, "GPS");
   });
 });

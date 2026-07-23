@@ -3,6 +3,7 @@ import * as Haptics from "expo-haptics";
 import * as Location from "expo-location";
 import {
   ActivityIndicator,
+  Image,
   Pressable,
   SafeAreaView,
   ScrollView,
@@ -26,7 +27,8 @@ import {
   type DemoDiscoverySettings,
   type LocationMode,
 } from "./src/demoSettings.ts";
-import { createNearbyGameState } from "./src/nearbyGame.ts";
+import { createNearbyGameState, HUPAN_FIXED_SELF_LOCATION } from "./src/nearbyGame.ts";
+import { createSatelliteTiles } from "./src/satelliteTiles.ts";
 
 const baseCurrentPlayer: PlayerProfile = {
   id: "me",
@@ -38,14 +40,17 @@ const baseCurrentPlayer: PlayerProfile = {
   distancePrecision: "100m",
 };
 
-const locationModes = getLocationModes({
-  jacooEnabled: process.env.EXPO_PUBLIC_ENABLE_JACOO === "true",
-  production: process.env.NODE_ENV === "production",
-});
+const locationModes = getLocationModes();
 
 const demoProvider = SimulatedLocationProvider.fromMap(HUPAN_PIXEL_MAP, {
   capturedAt: () => new Date().toISOString(),
   accuracyMeters: 16,
+});
+const satelliteTiles = createSatelliteTiles({
+  center: HUPAN_FIXED_SELF_LOCATION,
+  zoom: 17,
+  tileSize: 256,
+  gridSize: 3,
 });
 
 const demoPlayers: PresenceSnapshot[] = [
@@ -136,25 +141,6 @@ async function nativeLocation(): Promise<GeoPoint> {
   };
 }
 
-async function jacooLocation(): Promise<GeoPoint> {
-  const gatewayUrl = process.env.EXPO_PUBLIC_GATEWAY_URL?.replace(/\/+$/u, "");
-  if (!gatewayUrl) {
-    throw new Error("尚未配置 JACOO Gateway");
-  }
-
-  const response = await fetch(`${gatewayUrl}/api/location/jacoo/latest`);
-  const body = await response.json() as {
-    location?: GeoPoint;
-    error?: { message?: string };
-  };
-
-  if (!response.ok || !body.location) {
-    throw new Error(body.error?.message ?? "JACOO 定位读取失败");
-  }
-
-  return body.location;
-}
-
 export default function App() {
   const [mode, setMode] = useState<LocationMode>("simulated");
   const [location, setLocation] = useState<GeoPoint | null>(null);
@@ -196,12 +182,10 @@ export default function App() {
     try {
       const nextLocation = selectedMode === "native"
         ? await nativeLocation()
-        : selectedMode === "jacoo"
-          ? await jacooLocation()
-          : await demoProvider.advance();
+        : await demoProvider.advance();
 
       setLocation(nextLocation);
-      setMessage(selectedMode === "native" ? "已读取手机定位" : selectedMode === "jacoo" ? "已从 Gateway 读取 JACOO 位置" : "模拟定位 · 玩家移动了一格");
+      setMessage(selectedMode === "native" ? "已读取手机定位 · 你的地图头像固定在湖畔" : "模拟定位 · 你的地图头像固定在湖畔");
 
       await Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
     } catch (error) {
@@ -233,7 +217,7 @@ export default function App() {
               style={[styles.modeButton, mode === item && styles.modeButtonActive]}
             >
               <Text style={[styles.modeText, mode === item && styles.modeTextActive]}>
-                {item === "simulated" ? "SIM" : item === "native" ? "GPS" : "JACOO"}
+                {item === "simulated" ? "SIM" : "GPS"}
               </Text>
             </Pressable>
           ))}
@@ -329,9 +313,32 @@ export default function App() {
         </View>
 
         <View style={[styles.map, { width: mapWidth, height: mapHeight }]}>
-          <View style={[styles.road, styles.roadNorth]} />
-          <View style={[styles.road, styles.roadWest]} />
-          <View style={[styles.water]} />
+          <View
+            style={[
+              styles.satelliteLayer,
+              {
+                left: -(satelliteTiles[0]!.size * 3 - mapWidth) / 2,
+                top: -(satelliteTiles[0]!.size * 3 - mapHeight) / 2,
+              },
+            ]}
+          >
+            {satelliteTiles.map((tile) => (
+              <Image
+                key={tile.id}
+                source={{ uri: tile.url }}
+                style={[
+                  styles.satelliteTile,
+                  {
+                    left: tile.left,
+                    top: tile.top,
+                    width: tile.size,
+                    height: tile.size,
+                  },
+                ]}
+              />
+            ))}
+          </View>
+          <View style={styles.satelliteTint} />
           {HUPAN_PIXEL_MAP.landmarks.map((landmark) => {
             const x = (landmark.longitude - HUPAN_PIXEL_MAP.bounds.west)
               / (HUPAN_PIXEL_MAP.bounds.east - HUPAN_PIXEL_MAP.bounds.west) * mapWidth;
@@ -544,7 +551,23 @@ const styles = StyleSheet.create({
     overflow: "hidden",
     borderColor: "#f8f1c2",
     borderWidth: 5,
-    backgroundColor: "#67c474",
+    backgroundColor: "#1d2c28",
+  },
+  satelliteLayer: {
+    position: "absolute",
+    width: 768,
+    height: 768,
+  },
+  satelliteTile: {
+    position: "absolute",
+  },
+  satelliteTint: {
+    position: "absolute",
+    bottom: 0,
+    left: 0,
+    right: 0,
+    top: 0,
+    backgroundColor: "rgba(24, 35, 47, 0.22)",
   },
   road: {
     position: "absolute",
