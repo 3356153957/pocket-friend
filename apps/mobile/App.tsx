@@ -9,6 +9,7 @@ import * as Haptics from "expo-haptics";
 import * as Location from "expo-location";
 import {
   ActivityIndicator,
+  Platform,
   Pressable,
   SafeAreaView,
   ScrollView,
@@ -32,6 +33,10 @@ import {
   type DemoDiscoverySettings,
   type LocationMode,
 } from "./src/demoSettings.ts";
+import {
+  watchBrowserPosition,
+  type BrowserGeolocation,
+} from "./src/location/browserGeolocation.ts";
 import {
   LOCATION_EMPTY_TIMEOUT_MESSAGE,
   LOCATION_SAMPLE_TIMEOUT_MS,
@@ -264,30 +269,40 @@ export default function App() {
         LOCATION_SAMPLE_TIMEOUT_MS,
       );
 
-      void Location.watchPositionAsync(
-        {
-          accuracy: Location.Accuracy.Highest,
-          distanceInterval: 0,
-        },
-        (sample) => {
-          if (sessionId !== locationSessionRef.current) {
-            return;
-          }
+      const onSample = (sample: Parameters<typeof toNativeGeoPoint>[0]) => {
+        if (sessionId !== locationSessionRef.current) {
+          return;
+        }
 
-          const candidate = toNativeGeoPoint(sample);
-          const nextBest = selectBestLocationSample(best, candidate);
-          if (nextBest !== best) {
-            best = nextBest;
-            setLocation(nextBest);
-            setMessage(formatLocationAccuracy(nextBest, "sampling"));
-          }
+        const candidate = toNativeGeoPoint(sample);
+        const nextBest = selectBestLocationSample(best, candidate);
+        if (nextBest !== best) {
+          best = nextBest;
+          setLocation(nextBest);
+          setMessage(formatLocationAccuracy(nextBest, "sampling"));
+        }
 
-          if (hasReachedTargetAccuracy(nextBest)) {
-            finish();
-          }
-        },
-        (reason) => finish(new Error(reason)),
-      ).then((subscription) => {
+        if (hasReachedTargetAccuracy(nextBest)) {
+          finish();
+        }
+      };
+      const onError = (reason: string) => finish(new Error(reason));
+      const subscriptionPromise = Platform.OS === "web"
+        ? Promise.resolve(watchBrowserPosition(
+          navigator.geolocation as BrowserGeolocation,
+          onSample,
+          onError,
+        ))
+        : Location.watchPositionAsync(
+          {
+            accuracy: Location.Accuracy.Highest,
+            distanceInterval: 0,
+          },
+          onSample,
+          onError,
+        );
+
+      void subscriptionPromise.then((subscription) => {
         if (settled || sessionId !== locationSessionRef.current) {
           subscription.remove();
         } else {
