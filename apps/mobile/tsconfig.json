@@ -3,5 +3,5 @@
   "compilerOptions": {
     "composite": true
   },
-  "include": ["src/**/*.ts", "App.tsx"]
+  "include": ["src/**/*.ts", "App.tsx", "../../packages/nearby-core/src/**/*.ts"]
 }

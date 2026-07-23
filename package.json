@@ -8,7 +8,7 @@
     "packages/*"
   ],
   "scripts": {
-    "test": "node --experimental-strip-types --test packages/nearby-core/test/*.test.ts apps/gateway/test/*.test.ts",
+    "test": "node --experimental-strip-types --test packages/nearby-core/test/*.test.ts apps/gateway/test/*.test.ts apps/mobile/test/*.test.ts",
     "test:core": "node --experimental-strip-types --test packages/nearby-core/test/*.test.ts",
     "typecheck": "tsc -b",
     "dev:mobile": "npm run start --workspace @pf/mobile",
