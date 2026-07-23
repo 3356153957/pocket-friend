@@ -1,0 +1,8 @@
+{
+  "files": [],
+  "references": [
+    { "path": "packages/nearby-core" },
+    { "path": "apps/gateway" },
+    { "path": "apps/mobile" }
+  ]
+}

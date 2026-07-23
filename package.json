@@ -1,0 +1,23 @@
+{
+  "name": "pocket-friend",
+  "version": "0.1.0",
+  "private": true,
+  "workspaces": [
+    "apps/*",
+    "packages/*"
+  ],
+  "scripts": {
+    "test": "node --experimental-strip-types --test packages/nearby-core/test/*.test.ts apps/gateway/test/*.test.ts",
+    "test:core": "node --experimental-strip-types --test packages/nearby-core/test/*.test.ts",
+    "typecheck": "tsc -b",
+    "dev:mobile": "npm run start --workspace @pf/mobile",
+    "dev:gateway": "npm run dev --workspace @pf/gateway",
+    "build:web": "npm run build:web --workspace @pf/mobile"
+  },
+  "engines": {
+    "node": ">=22.18"
+  },
+  "devDependencies": {
+    "typescript": "5.5.4"
+  }
+}
