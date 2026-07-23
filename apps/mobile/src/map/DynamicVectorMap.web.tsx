@@ -24,6 +24,7 @@ import {
   diffMapMarkers,
 } from "./mapModel.ts";
 import { readAmapConfig } from "./mapConfig.ts";
+import { createMarkerSelectionHandlers } from "./mapInteraction.ts";
 
 export interface DynamicVectorMapProps {
   markers: DynamicMapMarker[];
@@ -55,7 +56,11 @@ const AVATAR_COLORS: Record<DynamicMapMarker["avatar"], string> = {
 function createMarkerElement(
   marker: DynamicMapMarker,
   onSelectPlayer: (playerId: string) => void,
-): { element: HTMLButtonElement; dispose: () => void } {
+): {
+  element: HTMLButtonElement;
+  onMarkerClick: () => void;
+  dispose: () => void;
+} {
   const button = document.createElement("button");
   const dot = document.createElement("span");
   const label = document.createElement("span");
@@ -92,15 +97,18 @@ function createMarkerElement(
   label.textContent = marker.isSelf ? "我" : marker.displayName;
   button.append(dot, label);
 
-  const handleClick = (event: MouseEvent) => {
-    event.stopPropagation();
-    onSelectPlayer(marker.id);
-  };
-  button.addEventListener("click", handleClick);
+  const selectionHandlers = createMarkerSelectionHandlers(
+    marker.id,
+    onSelectPlayer,
+  );
+  button.addEventListener("click", selectionHandlers.onDomClick);
 
   return {
     element: button,
-    dispose: () => button.removeEventListener("click", handleClick),
+    onMarkerClick: selectionHandlers.onMarkerClick,
+    dispose: () => {
+      button.removeEventListener("click", selectionHandlers.onDomClick);
+    },
   };
 }
 
@@ -231,19 +239,27 @@ export default function DynamicVectorMap({
     }
 
     for (const markerModel of [...diff.add, ...diff.update]) {
-      const { element, dispose } = createMarkerElement(
+      const { element, onMarkerClick, dispose: disposeElement } = createMarkerElement(
         markerModel,
         onSelectPlayer,
       );
       const marker = new runtime.Marker({
         position: markerModel.position,
+        offset: markerModel.visualOffset,
         content: element,
         anchor: "bottom-center",
         title: markerModel.accessibilityLabel,
         zIndex: markerModel.selected ? 120 : markerModel.isSelf ? 110 : 100,
       });
+      marker.on("click", onMarkerClick);
       map.add(marker);
-      mountedMarkersRef.current.set(markerModel.id, { marker, dispose });
+      mountedMarkersRef.current.set(markerModel.id, {
+        marker,
+        dispose: () => {
+          marker.off("click", onMarkerClick);
+          disposeElement();
+        },
+      });
     }
 
     previousMarkersRef.current = markers;

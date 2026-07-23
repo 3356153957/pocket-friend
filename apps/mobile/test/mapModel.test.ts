@@ -95,4 +95,16 @@ describe("dynamic map model", () => {
     assert.deepEqual(diff.add.map((marker) => marker.id), ["lin"]);
     assert.deepEqual(diff.update.map((marker) => marker.id), ["me"]);
   });
+
+  test("separates markers that share the same coordinates", () => {
+    const markers = buildMapMarkers([
+      player("me", 120.00487, 30.292227, true),
+      player("ada", 120.00487, 30.292227),
+    ], null);
+
+    assert.deepEqual(
+      markers.map((marker) => marker.visualOffset),
+      [[0, -48], [0, 48]],
+    );
+  });
 });
