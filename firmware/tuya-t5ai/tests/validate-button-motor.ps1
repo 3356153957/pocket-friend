@@ -27,6 +27,10 @@ foreach ($item in $required) {
     }
 }
 
+if ($source -notmatch 'static OPERATE_RET __example_motor_init\(void\)\s*\{\s*OPERATE_RET rt = OPRT_OK;') {
+    throw 'Motor init must declare rt for TUYA_CALL_ERR_RETURN'
+}
+
 if ($source.Contains('disp_enable_update(NULL);')) {
     throw 'Button callback still contains the old camera toggle'
 }
