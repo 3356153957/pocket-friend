@@ -3,6 +3,9 @@ import { describe, test } from "node:test";
 
 import {
   DEFAULT_MAP_LAYER_MODE,
+  MAP_LAYER_FALLBACK_MESSAGE,
+  applyMapLayerMode,
+  createMapLayerRegistry,
   getMapLayerKeys,
   getMapLayerToggleLabel,
   toggleMapLayerMode,
@@ -29,5 +32,44 @@ describe("map layer mode", () => {
   test("labels the button with the target layer mode", () => {
     assert.equal(getMapLayerToggleLabel("satellite"), "切换到标准地图");
     assert.equal(getMapLayerToggleLabel("standard"), "切换到卫星地图");
+  });
+
+  test("keeps the standard layer when satellite layer creation fails", () => {
+    const registry = createMapLayerRegistry({
+      createStandard: () => "standard",
+      createSatellite: () => {
+        throw new Error("satellite unavailable");
+      },
+      createRoadnet: () => "roadnet",
+    });
+
+    assert.deepEqual(registry, { standard: "standard" });
+  });
+
+  test("falls back to the standard layer when satellite switching fails", () => {
+    const layerCalls: string[][] = [];
+    const map = {
+      setLayers(layers: string[]) {
+        layerCalls.push(layers);
+        if (layers.includes("satellite")) {
+          throw new Error("satellite unavailable");
+        }
+      },
+    };
+
+    const result = applyMapLayerMode(map, {
+      standard: "standard",
+      satellite: "satellite",
+      roadnet: "roadnet",
+    }, "satellite");
+
+    assert.deepEqual(layerCalls, [
+      ["satellite", "roadnet"],
+      ["standard"],
+    ]);
+    assert.deepEqual(result, {
+      mode: "standard",
+      errorMessage: MAP_LAYER_FALLBACK_MESSAGE,
+    });
   });
 });

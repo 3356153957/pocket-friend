@@ -27,10 +27,11 @@ import { readAmapConfig } from "./mapConfig.ts";
 import { createMarkerSelectionHandlers } from "./mapInteraction.ts";
 import {
   DEFAULT_MAP_LAYER_MODE,
-  getMapLayerKeys,
+  applyMapLayerMode,
+  createMapLayerRegistry,
   getMapLayerToggleLabel,
   toggleMapLayerMode,
-  type MapLayerKey,
+  type MapLayerRegistry,
 } from "./mapLayers.ts";
 
 export interface DynamicVectorMapProps {
@@ -140,11 +141,12 @@ export default function DynamicVectorMap({
   const mapRef = useRef<AMap.Map | null>(null);
   const runtimeRef = useRef<AmapRuntime | null>(null);
   const mapLayersRef =
-    useRef<Record<MapLayerKey, AmapMapLayer> | null>(null);
+    useRef<MapLayerRegistry<AmapMapLayer> | null>(null);
   const mountedMarkersRef = useRef(new Map<string, MountedMarker>());
   const previousMarkersRef = useRef<DynamicMapMarker[]>([]);
   const [status, setStatus] = useState<MapStatus>("loading");
   const [errorMessage, setErrorMessage] = useState("");
+  const [layerMessage, setLayerMessage] = useState("");
   const [zoom, setZoom] = useState(16);
   const [layerMode, setLayerMode] = useState(DEFAULT_MAP_LAYER_MODE);
   const [retryNonce, setRetryNonce] = useState(0);
@@ -167,6 +169,7 @@ export default function DynamicVectorMap({
     let zoomChangeHandler: (() => void) | undefined;
     setStatus("loading");
     setErrorMessage("");
+    setLayerMessage("");
 
     window._AMapSecurityConfig = {
       securityJsCode: config.securityJsCode,
@@ -183,13 +186,11 @@ export default function DynamicVectorMap({
         }
 
         const runtime = loadedRuntime as AmapRuntime;
-        const mapLayers: Record<MapLayerKey, AmapMapLayer> = {
-          standard: runtime.createDefaultLayer(),
-          satellite: new runtime.TileLayer.Satellite(),
-          roadnet: new runtime.TileLayer.RoadNet(),
-        };
-        const initialLayers = getMapLayerKeys(DEFAULT_MAP_LAYER_MODE)
-          .map((key) => mapLayers[key]);
+        const mapLayers = createMapLayerRegistry<AmapMapLayer>({
+          createStandard: () => runtime.createDefaultLayer(),
+          createSatellite: () => new runtime.TileLayer.Satellite(),
+          createRoadnet: () => new runtime.TileLayer.RoadNet(),
+        });
         const map = new runtime.Map(containerId, {
           center: HUPAN_MAP_CENTER,
           zoom: 16,
@@ -202,14 +203,27 @@ export default function DynamicVectorMap({
           scrollWheel: true,
           touchZoom: true,
           keyboardEnable: true,
-          layers: initialLayers,
+          layers: [mapLayers.standard],
         });
+        let initialLayerResult;
+        try {
+          initialLayerResult = applyMapLayerMode(
+            map,
+            mapLayers,
+            DEFAULT_MAP_LAYER_MODE,
+          );
+        } catch (error) {
+          map.destroy();
+          throw error;
+        }
 
         zoomChangeHandler = () => setZoom(Math.round(map.getZoom() * 10) / 10);
         map.on("zoomchange", zoomChangeHandler);
         mapRef.current = map;
         runtimeRef.current = runtime;
         mapLayersRef.current = mapLayers;
+        setLayerMode(initialLayerResult.mode);
+        setLayerMessage(initialLayerResult.errorMessage);
         setZoom(map.getZoom());
         setStatus("ready");
       })
@@ -252,7 +266,16 @@ export default function DynamicVectorMap({
       return;
     }
 
-    map.setLayers(getMapLayerKeys(layerMode).map((key) => layers[key]));
+    try {
+      const result = applyMapLayerMode(map, layers, layerMode);
+      setLayerMessage(result.errorMessage);
+      if (result.mode !== layerMode) {
+        setLayerMode(result.mode);
+      }
+    } catch {
+      setErrorMessage("地图图层切换失败，请重新加载地图");
+      setStatus("error");
+    }
   }, [layerMode, status]);
 
   useEffect(() => {
@@ -377,6 +400,11 @@ export default function DynamicVectorMap({
 
       {status === "ready" ? (
         <>
+          {layerMessage ? (
+            <View accessibilityLiveRegion="polite" style={styles.layerWarning}>
+              <Text style={styles.layerWarningText}>{layerMessage}</Text>
+            </View>
+          ) : null}
           <View style={styles.zoomControls}>
             <MapControl
               label="放大地图"
@@ -498,6 +526,24 @@ const styles = StyleSheet.create({
     color: "#aab7c4",
     fontSize: 13,
     lineHeight: 20,
+    textAlign: "center",
+  },
+  layerWarning: {
+    alignSelf: "center",
+    backgroundColor: "rgba(255, 216, 77, 0.96)",
+    borderColor: "#111922",
+    borderRadius: 12,
+    borderWidth: 2,
+    maxWidth: "62%",
+    paddingHorizontal: 12,
+    paddingVertical: 8,
+    position: "absolute",
+    top: 12,
+  },
+  layerWarningText: {
+    color: "#111922",
+    fontSize: 12,
+    fontWeight: "900",
     textAlign: "center",
   },
   retryButton: {
