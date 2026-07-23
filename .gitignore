@@ -26,6 +26,7 @@ logs/
 
 # Temporary files and caches
 .cache/
+.worktrees/
 tmp/
 temp/
 *.tmp
