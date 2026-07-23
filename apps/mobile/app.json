@@ -1,0 +1,21 @@
+{
+  "expo": {
+    "name": "Pocket Friend",
+    "slug": "pocket-friend",
+    "version": "0.1.0",
+    "orientation": "portrait",
+    "userInterfaceStyle": "light",
+    "plugins": [
+      [
+        "expo-location",
+        {
+          "locationWhenInUsePermission": "允许 Pocket Friend 在你使用相遇功能时读取位置。"
+        }
+      ]
+    ],
+    "web": {
+      "bundler": "metro",
+      "output": "single"
+    }
+  }
+}
