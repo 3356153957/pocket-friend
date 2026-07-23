@@ -12,3 +12,7 @@ export function getMapLayerKeys(mode: MapLayerMode): MapLayerKey[] {
 export function toggleMapLayerMode(mode: MapLayerMode): MapLayerMode {
   return mode === "satellite" ? "standard" : "satellite";
 }
+
+export function getMapLayerToggleLabel(mode: MapLayerMode): string {
+  return mode === "satellite" ? "切换到标准地图" : "切换到卫星地图";
+}

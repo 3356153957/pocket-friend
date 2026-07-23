@@ -25,6 +25,13 @@ import {
 } from "./mapModel.ts";
 import { readAmapConfig } from "./mapConfig.ts";
 import { createMarkerSelectionHandlers } from "./mapInteraction.ts";
+import {
+  DEFAULT_MAP_LAYER_MODE,
+  getMapLayerKeys,
+  getMapLayerToggleLabel,
+  toggleMapLayerMode,
+  type MapLayerKey,
+} from "./mapLayers.ts";
 
 export interface DynamicVectorMapProps {
   markers: DynamicMapMarker[];
@@ -38,7 +45,14 @@ type MapStatus = "loading" | "ready" | "missing-config" | "error";
 interface AmapRuntime {
   Map: typeof AMap.Map;
   Marker: typeof AMap.Marker;
+  TileLayer: typeof AMap.TileLayer;
+  createDefaultLayer: typeof AMap.createDefaultLayer;
 }
+
+type AmapMapLayer =
+  | ReturnType<typeof AMap.createDefaultLayer>
+  | InstanceType<typeof AMap.TileLayer.Satellite>
+  | InstanceType<typeof AMap.TileLayer.RoadNet>;
 
 interface MountedMarker {
   marker: AMap.Marker;
@@ -125,11 +139,14 @@ export default function DynamicVectorMap({
   );
   const mapRef = useRef<AMap.Map | null>(null);
   const runtimeRef = useRef<AmapRuntime | null>(null);
+  const mapLayersRef =
+    useRef<Record<MapLayerKey, AmapMapLayer> | null>(null);
   const mountedMarkersRef = useRef(new Map<string, MountedMarker>());
   const previousMarkersRef = useRef<DynamicMapMarker[]>([]);
   const [status, setStatus] = useState<MapStatus>("loading");
   const [errorMessage, setErrorMessage] = useState("");
   const [zoom, setZoom] = useState(16);
+  const [layerMode, setLayerMode] = useState(DEFAULT_MAP_LAYER_MODE);
   const [retryNonce, setRetryNonce] = useState(0);
   const config = useMemo(
     () => readAmapConfig({
@@ -166,6 +183,13 @@ export default function DynamicVectorMap({
         }
 
         const runtime = loadedRuntime as AmapRuntime;
+        const mapLayers: Record<MapLayerKey, AmapMapLayer> = {
+          standard: runtime.createDefaultLayer(),
+          satellite: new runtime.TileLayer.Satellite(),
+          roadnet: new runtime.TileLayer.RoadNet(),
+        };
+        const initialLayers = getMapLayerKeys(DEFAULT_MAP_LAYER_MODE)
+          .map((key) => mapLayers[key]);
         const map = new runtime.Map(containerId, {
           center: HUPAN_MAP_CENTER,
           zoom: 16,
@@ -178,12 +202,14 @@ export default function DynamicVectorMap({
           scrollWheel: true,
           touchZoom: true,
           keyboardEnable: true,
+          layers: initialLayers,
         });
 
         zoomChangeHandler = () => setZoom(Math.round(map.getZoom() * 10) / 10);
         map.on("zoomchange", zoomChangeHandler);
         mapRef.current = map;
         runtimeRef.current = runtime;
+        mapLayersRef.current = mapLayers;
         setZoom(map.getZoom());
         setStatus("ready");
       })
@@ -215,8 +241,19 @@ export default function DynamicVectorMap({
       mapRef.current?.destroy();
       mapRef.current = null;
       runtimeRef.current = null;
+      mapLayersRef.current = null;
     };
   }, [config, containerId, retryNonce]);
+
+  useEffect(() => {
+    const map = mapRef.current;
+    const layers = mapLayersRef.current;
+    if (status !== "ready" || !map || !layers) {
+      return;
+    }
+
+    map.setLayers(getMapLayerKeys(layerMode).map((key) => layers[key]));
+  }, [layerMode, status]);
 
   useEffect(() => {
     const map = mapRef.current;
@@ -354,6 +391,12 @@ export default function DynamicVectorMap({
           </View>
           <View style={styles.locationControls}>
             <MapControl
+              label={getMapLayerToggleLabel(layerMode)}
+              selected={layerMode === "satellite"}
+              text={layerMode === "satellite" ? "卫星" : "标准"}
+              onPress={() => setLayerMode(toggleMapLayerMode)}
+            />
+            <MapControl
               label="回到湖畔中心"
               text="湖畔"
               onPress={() => {
@@ -389,16 +432,24 @@ interface MapControlProps {
   label: string;
   text: string;
   onPress: () => void;
+  selected?: boolean;
 }
 
-function MapControl({ label, text, onPress }: MapControlProps) {
+function MapControl({
+  label,
+  text,
+  onPress,
+  selected = false,
+}: MapControlProps) {
   return (
     <Pressable
       accessibilityLabel={label}
       accessibilityRole="button"
+      accessibilityState={{ selected }}
       onPress={onPress}
       style={({ pressed }) => [
         styles.control,
+        selected && styles.controlSelected,
         pressed && styles.controlPressed,
       ]}
     >
@@ -488,6 +539,10 @@ const styles = StyleSheet.create({
   controlPressed: {
     opacity: 0.72,
     transform: [{ scale: 0.97 }],
+  },
+  controlSelected: {
+    backgroundColor: "rgba(36, 95, 150, 0.94)",
+    borderColor: "#69f0ae",
   },
   controlText: {
     color: "#f8fbff",
