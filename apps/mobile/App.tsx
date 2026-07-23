@@ -1,4 +1,10 @@
-import { useMemo, useState } from "react";
+import {
+  useCallback,
+  useEffect,
+  useMemo,
+  useRef,
+  useState,
+} from "react";
 import * as Haptics from "expo-haptics";
 import * as Location from "expo-location";
 import {
@@ -26,6 +32,14 @@ import {
   type DemoDiscoverySettings,
   type LocationMode,
 } from "./src/demoSettings.ts";
+import {
+  LOCATION_EMPTY_TIMEOUT_MESSAGE,
+  LOCATION_SAMPLE_TIMEOUT_MS,
+  formatLocationAccuracy,
+  hasReachedTargetAccuracy,
+  selectBestLocationSample,
+  toNativeGeoPoint,
+} from "./src/location/locationSampling.ts";
 import DynamicVectorMap from "./src/map/DynamicVectorMap";
 import {
   buildMapMarkers,
@@ -117,26 +131,6 @@ const avatarColors: Record<PlayerProfile["avatar"], string> = {
   violet: "#9b78ff",
 };
 
-async function nativeLocation(): Promise<GeoPoint> {
-  const permission = await Location.requestForegroundPermissionsAsync();
-  if (permission.status !== "granted") {
-    throw new Error("定位权限未开启");
-  }
-
-  const location = await Location.getCurrentPositionAsync({
-    accuracy: Location.Accuracy.High,
-  });
-
-  return {
-    latitude: location.coords.latitude,
-    longitude: location.coords.longitude,
-    accuracyMeters: location.coords.accuracy ?? 50,
-    capturedAt: new Date(location.timestamp).toISOString(),
-    coordinateSystem: "wgs84",
-    source: "native",
-  };
-}
-
 export default function App() {
   const [mode, setMode] = useState<LocationMode>("simulated");
   const [location, setLocation] = useState<GeoPoint | null>(null);
@@ -152,6 +146,33 @@ export default function App() {
     discoveryRadiusMeters: 800,
     distancePrecision: "100m",
   });
+  const locationSubscriptionRef =
+    useRef<Location.LocationSubscription | null>(null);
+  const locationTimerRef =
+    useRef<ReturnType<typeof setTimeout> | null>(null);
+  const locationAbortRef = useRef<(() => void) | null>(null);
+  const locationSessionRef = useRef(0);
+  const locateRequestRef = useRef(0);
+  const stopNativeSampling = useCallback(() => {
+    locationSessionRef.current += 1;
+    locationSubscriptionRef.current?.remove();
+    locationSubscriptionRef.current = null;
+
+    if (locationTimerRef.current) {
+      clearTimeout(locationTimerRef.current);
+      locationTimerRef.current = null;
+    }
+
+    const abort = locationAbortRef.current;
+    locationAbortRef.current = null;
+    abort?.();
+  }, []);
+
+  useEffect(() => () => {
+    locateRequestRef.current += 1;
+    stopNativeSampling();
+  }, [stopNativeSampling]);
+
   const currentPlayer = useMemo(
     () => createDemoProfile(baseCurrentPlayer, settings),
     [settings],
@@ -196,28 +217,130 @@ export default function App() {
     }));
   }
 
+  async function sampleNativeLocation(): Promise<GeoPoint> {
+    stopNativeSampling();
+    const sessionId = locationSessionRef.current;
+
+    const permission = await Location.requestForegroundPermissionsAsync();
+    if (sessionId !== locationSessionRef.current) {
+      throw new Error("定位已取消");
+    }
+    if (permission.status !== "granted") {
+      throw new Error("定位权限未开启");
+    }
+
+    return new Promise<GeoPoint>((resolve, reject) => {
+      let best: GeoPoint | null = null;
+      let settled = false;
+
+      const finish = (error?: Error) => {
+        if (settled) {
+          return;
+        }
+        settled = true;
+
+        if (sessionId === locationSessionRef.current) {
+          locationSubscriptionRef.current?.remove();
+          locationSubscriptionRef.current = null;
+          if (locationTimerRef.current) {
+            clearTimeout(locationTimerRef.current);
+            locationTimerRef.current = null;
+          }
+          locationAbortRef.current = null;
+        }
+
+        if (error) {
+          reject(error);
+        } else if (best) {
+          resolve(best);
+        } else {
+          reject(new Error(LOCATION_EMPTY_TIMEOUT_MESSAGE));
+        }
+      };
+
+      locationAbortRef.current = () => finish(new Error("定位已取消"));
+      locationTimerRef.current = setTimeout(
+        () => finish(),
+        LOCATION_SAMPLE_TIMEOUT_MS,
+      );
+
+      void Location.watchPositionAsync(
+        {
+          accuracy: Location.Accuracy.Highest,
+          distanceInterval: 0,
+        },
+        (sample) => {
+          if (sessionId !== locationSessionRef.current) {
+            return;
+          }
+
+          const candidate = toNativeGeoPoint(sample);
+          const nextBest = selectBestLocationSample(best, candidate);
+          if (nextBest !== best) {
+            best = nextBest;
+            setLocation(nextBest);
+            setMessage(formatLocationAccuracy(nextBest, "sampling"));
+          }
+
+          if (hasReachedTargetAccuracy(nextBest)) {
+            finish();
+          }
+        },
+        (reason) => finish(new Error(reason)),
+      ).then((subscription) => {
+        if (settled || sessionId !== locationSessionRef.current) {
+          subscription.remove();
+        } else {
+          locationSubscriptionRef.current = subscription;
+        }
+      }).catch((error: unknown) => {
+        finish(error instanceof Error ? error : new Error("定位失败"));
+      });
+    });
+  }
+
   async function locate(selectedMode = mode): Promise<void> {
+    const requestId = locateRequestRef.current + 1;
+    locateRequestRef.current = requestId;
     setMode(selectedMode);
     setLoading(true);
+    if (selectedMode !== "native") {
+      stopNativeSampling();
+    } else {
+      setMessage("正在提高定位精度…");
+    }
 
     try {
       const nextLocation = selectedMode === "native"
-        ? await nativeLocation()
+        ? await sampleNativeLocation()
         : await demoProvider.advance();
 
+      if (requestId !== locateRequestRef.current) {
+        return;
+      }
       setLocation(nextLocation);
       setMessage(
         selectedMode === "native"
-          ? "已读取网页定位 · 地图已更新"
+          ? formatLocationAccuracy(nextLocation, "complete")
           : "模拟定位 · 地图已更新",
       );
 
       await Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
     } catch (error) {
-      setMessage(error instanceof Error ? error.message : "定位失败");
-      await Haptics.notificationAsync(Haptics.NotificationFeedbackType.Warning);
+      if (requestId !== locateRequestRef.current) {
+        return;
+      }
+      const errorMessage = error instanceof Error ? error.message : "定位失败";
+      if (errorMessage !== "定位已取消") {
+        setMessage(errorMessage);
+        await Haptics.notificationAsync(
+          Haptics.NotificationFeedbackType.Warning,
+        );
+      }
     } finally {
-      setLoading(false);
+      if (requestId === locateRequestRef.current) {
+        setLoading(false);
+      }
     }
   }
 

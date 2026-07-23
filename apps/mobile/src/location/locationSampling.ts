@@ -2,6 +2,8 @@ import type { GeoPoint } from "../../../../packages/nearby-core/src/index.ts";
 
 export const LOCATION_TARGET_ACCURACY_METERS = 30;
 export const LOCATION_SAMPLE_TIMEOUT_MS = 15_000;
+export const LOCATION_EMPTY_TIMEOUT_MESSAGE =
+  "暂时无法获取位置，请检查浏览器定位权限";
 
 const COARSE_LOCATION_ACCURACY_METERS = 100;
 const UNKNOWN_LOCATION_ACCURACY_METERS = 5_000;

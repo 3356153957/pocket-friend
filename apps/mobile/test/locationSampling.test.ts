@@ -3,6 +3,7 @@ import { describe, test } from "node:test";
 
 import type { GeoPoint } from "../../../packages/nearby-core/src/index.ts";
 import {
+  LOCATION_EMPTY_TIMEOUT_MESSAGE,
   LOCATION_SAMPLE_TIMEOUT_MS,
   LOCATION_TARGET_ACCURACY_METERS,
   formatLocationAccuracy,
@@ -61,6 +62,13 @@ describe("browser location sampling", () => {
     assert.equal(
       formatLocationAccuracy(point(80), "sampling"),
       "正在提高定位精度 · 当前 ±80 米",
+    );
+  });
+
+  test("defines a clear timeout message when no sample arrives", () => {
+    assert.equal(
+      LOCATION_EMPTY_TIMEOUT_MESSAGE,
+      "暂时无法获取位置，请检查浏览器定位权限",
     );
   });
 });
