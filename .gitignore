@@ -1,0 +1,39 @@
+# Operating system files
+.DS_Store
+._*
+Thumbs.db
+Desktop.ini
+$RECYCLE.BIN/
+.Spotlight-V100/
+.Trashes/
+
+# Editor and IDE files
+.idea/
+.vscode/
+*.swp
+*.swo
+*~
+
+# Local environment variables
+.env
+.env.*
+!.env.example
+!.env.*.example
+
+# Logs
+*.log
+logs/
+
+# Temporary files and caches
+.cache/
+tmp/
+temp/
+*.tmp
+*.temp
+
+# Local credentials and signing keys
+*.key
+*.pem
+*.p12
+*.pfx
+*.jks
