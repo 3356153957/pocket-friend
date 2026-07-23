@@ -31,6 +31,7 @@ import {
   createMapLayerRegistry,
   getMapLayerToggleLabel,
   toggleMapLayerMode,
+  updateMapLayerMessage,
   type MapLayerRegistry,
 } from "./mapLayers.ts";
 
@@ -223,7 +224,9 @@ export default function DynamicVectorMap({
         runtimeRef.current = runtime;
         mapLayersRef.current = mapLayers;
         setLayerMode(initialLayerResult.mode);
-        setLayerMessage(initialLayerResult.errorMessage);
+        setLayerMessage((current) => (
+          updateMapLayerMessage(current, initialLayerResult)
+        ));
         setZoom(map.getZoom());
         setStatus("ready");
       })
@@ -268,7 +271,7 @@ export default function DynamicVectorMap({
 
     try {
       const result = applyMapLayerMode(map, layers, layerMode);
-      setLayerMessage(result.errorMessage);
+      setLayerMessage((current) => updateMapLayerMessage(current, result));
       if (result.mode !== layerMode) {
         setLayerMode(result.mode);
       }

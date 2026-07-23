@@ -85,3 +85,14 @@ export function applyMapLayerMode<T>(
       requestedMode === "satellite" ? MAP_LAYER_FALLBACK_MESSAGE : "",
   };
 }
+
+export function updateMapLayerMessage(
+  currentMessage: string,
+  result: MapLayerApplicationResult,
+): string {
+  if (result.errorMessage) {
+    return result.errorMessage;
+  }
+
+  return result.mode === "satellite" ? "" : currentMessage;
+}

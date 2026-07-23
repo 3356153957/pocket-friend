@@ -8,6 +8,7 @@ import {
   createMapLayerRegistry,
   getMapLayerKeys,
   getMapLayerToggleLabel,
+  updateMapLayerMessage,
   toggleMapLayerMode,
 } from "../src/map/mapLayers.ts";
 
@@ -71,5 +72,22 @@ describe("map layer mode", () => {
       mode: "standard",
       errorMessage: MAP_LAYER_FALLBACK_MESSAGE,
     });
+  });
+
+  test("keeps a fallback warning until satellite mode succeeds", () => {
+    assert.equal(
+      updateMapLayerMessage(MAP_LAYER_FALLBACK_MESSAGE, {
+        mode: "standard",
+        errorMessage: "",
+      }),
+      MAP_LAYER_FALLBACK_MESSAGE,
+    );
+    assert.equal(
+      updateMapLayerMessage(MAP_LAYER_FALLBACK_MESSAGE, {
+        mode: "satellite",
+        errorMessage: "",
+      }),
+      "",
+    );
   });
 });
