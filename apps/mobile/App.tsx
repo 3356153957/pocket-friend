@@ -3,7 +3,6 @@ import * as Haptics from "expo-haptics";
 import * as Location from "expo-location";
 import {
   ActivityIndicator,
-  Image,
   Pressable,
   SafeAreaView,
   ScrollView,
@@ -27,8 +26,12 @@ import {
   type DemoDiscoverySettings,
   type LocationMode,
 } from "./src/demoSettings.ts";
-import { createNearbyGameState, HUPAN_FIXED_SELF_LOCATION } from "./src/nearbyGame.ts";
-import { createSatelliteTiles } from "./src/satelliteTiles.ts";
+import DynamicVectorMap from "./src/map/DynamicVectorMap";
+import {
+  buildMapMarkers,
+  type MapFocusRequest,
+} from "./src/map/mapModel.ts";
+import { createNearbyGameState } from "./src/nearbyGame.ts";
 
 const baseCurrentPlayer: PlayerProfile = {
   id: "me",
@@ -46,13 +49,6 @@ const demoProvider = SimulatedLocationProvider.fromMap(HUPAN_PIXEL_MAP, {
   capturedAt: () => new Date().toISOString(),
   accuracyMeters: 16,
 });
-const satelliteTiles = createSatelliteTiles({
-  center: HUPAN_FIXED_SELF_LOCATION,
-  zoom: 17,
-  tileSize: 256,
-  gridSize: 3,
-});
-
 const demoPlayers: PresenceSnapshot[] = [
   {
     profile: {
@@ -147,6 +143,10 @@ export default function App() {
   const [loading, setLoading] = useState(false);
   const [message, setMessage] = useState("点击定位，进入湖畔像素地图");
   const [selectedPlayerId, setSelectedPlayerId] = useState<string | null>(null);
+  const [mapFocusRequest, setMapFocusRequest] = useState<MapFocusRequest>({
+    kind: "hupan",
+    nonce: 0,
+  });
   const [settings, setSettings] = useState<DemoDiscoverySettings>({
     discoverable: true,
     discoveryRadiusMeters: 800,
@@ -174,6 +174,27 @@ export default function App() {
   const selectedMatch = state?.nearbyMatches.find(
     (match) => match.player.id === selectedPlayerId,
   ) ?? null;
+  const mapMarkers = useMemo(
+    () => buildMapMarkers(state?.visiblePlayers ?? [], selectedPlayerId),
+    [selectedPlayerId, state?.visiblePlayers],
+  );
+
+  function selectPlayer(playerId: string): void {
+    if (playerId === currentPlayer.id) {
+      setMapFocusRequest((previous) => ({
+        kind: "self",
+        nonce: (previous.nonce ?? 0) + 1,
+      }));
+      return;
+    }
+
+    setSelectedPlayerId(playerId);
+    setMapFocusRequest((previous) => ({
+      kind: "player",
+      playerId,
+      nonce: (previous.nonce ?? 0) + 1,
+    }));
+  }
 
   async function locate(selectedMode = mode): Promise<void> {
     setMode(selectedMode);
@@ -185,7 +206,11 @@ export default function App() {
         : await demoProvider.advance();
 
       setLocation(nextLocation);
-      setMessage(selectedMode === "native" ? "已读取手机定位 · 你的地图头像固定在湖畔" : "模拟定位 · 你的地图头像固定在湖畔");
+      setMessage(
+        selectedMode === "native"
+          ? "已读取网页定位 · 地图已更新"
+          : "模拟定位 · 地图已更新",
+      );
 
       await Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
     } catch (error) {
@@ -195,10 +220,6 @@ export default function App() {
       setLoading(false);
     }
   }
-
-  const mapScale = 0.86;
-  const mapWidth = HUPAN_PIXEL_MAP.width * mapScale;
-  const mapHeight = HUPAN_PIXEL_MAP.height * mapScale;
 
   return (
     <SafeAreaView style={styles.container}>
@@ -312,62 +333,12 @@ export default function App() {
           </View>
         </View>
 
-        <View style={[styles.map, { width: mapWidth, height: mapHeight }]}>
-          <View
-            style={[
-              styles.satelliteLayer,
-              {
-                left: -(satelliteTiles[0]!.size * 3 - mapWidth) / 2,
-                top: -(satelliteTiles[0]!.size * 3 - mapHeight) / 2,
-              },
-            ]}
-          >
-            {satelliteTiles.map((tile) => (
-              <Image
-                key={tile.id}
-                source={{ uri: tile.url }}
-                style={[
-                  styles.satelliteTile,
-                  {
-                    left: tile.left,
-                    top: tile.top,
-                    width: tile.size,
-                    height: tile.size,
-                  },
-                ]}
-              />
-            ))}
-          </View>
-          <View style={styles.satelliteTint} />
-          {HUPAN_PIXEL_MAP.landmarks.map((landmark) => {
-            const x = (landmark.longitude - HUPAN_PIXEL_MAP.bounds.west)
-              / (HUPAN_PIXEL_MAP.bounds.east - HUPAN_PIXEL_MAP.bounds.west) * mapWidth;
-            const y = (HUPAN_PIXEL_MAP.bounds.north - landmark.latitude)
-              / (HUPAN_PIXEL_MAP.bounds.north - HUPAN_PIXEL_MAP.bounds.south) * mapHeight;
-
-            return (
-              <View key={landmark.id} style={[styles.landmark, { left: x - 16, top: y - 12 }]}>
-                <Text style={styles.landmarkText}>{landmark.shortName}</Text>
-              </View>
-            );
-          })}
-          {state?.visiblePlayers.map((player) => (
-            <View
-              key={player.id}
-              style={[
-                styles.avatar,
-                {
-                  backgroundColor: avatarColors[player.avatar],
-                  left: player.pixel.x * mapScale - 12,
-                  top: player.pixel.y * mapScale - 12,
-                },
-                player.isSelf && styles.selfAvatar,
-              ]}
-            >
-              <Text style={styles.avatarText}>{player.isSelf ? "你" : player.displayName.slice(0, 1)}</Text>
-            </View>
-          ))}
-        </View>
+        <DynamicVectorMap
+          focusRequest={mapFocusRequest}
+          markers={mapMarkers}
+          onSelectPlayer={selectPlayer}
+          sourceLabel={location?.source === "native" ? "GPS" : "SIM"}
+        />
 
         <View style={styles.panel}>
           <View style={styles.panelHeader}>
@@ -383,7 +354,7 @@ export default function App() {
                 key={match.player.id}
                 accessibilityRole="button"
                 accessibilityState={{ selected: selectedPlayerId === match.player.id }}
-                onPress={() => setSelectedPlayerId(match.player.id)}
+                onPress={() => selectPlayer(match.player.id)}
                 style={[
                   styles.matchRow,
                   selectedPlayerId === match.player.id && styles.matchRowSelected,
@@ -546,83 +517,6 @@ const styles = StyleSheet.create({
   },
   modeTextActive: {
     color: "#18232f",
-  },
-  map: {
-    overflow: "hidden",
-    borderColor: "#f8f1c2",
-    borderWidth: 5,
-    backgroundColor: "#1d2c28",
-  },
-  satelliteLayer: {
-    position: "absolute",
-    width: 768,
-    height: 768,
-  },
-  satelliteTile: {
-    position: "absolute",
-  },
-  satelliteTint: {
-    position: "absolute",
-    bottom: 0,
-    left: 0,
-    right: 0,
-    top: 0,
-    backgroundColor: "rgba(24, 35, 47, 0.22)",
-  },
-  road: {
-    position: "absolute",
-    backgroundColor: "#d7cf9a",
-    borderColor: "#8a7b55",
-    borderWidth: 2,
-  },
-  roadNorth: {
-    left: 0,
-    right: 0,
-    top: 58,
-    height: 28,
-  },
-  roadWest: {
-    left: 48,
-    top: 0,
-    bottom: 0,
-    width: 28,
-  },
-  water: {
-    position: "absolute",
-    right: 18,
-    bottom: 42,
-    width: 90,
-    height: 120,
-    backgroundColor: "#4fb4ff",
-    borderColor: "#245f96",
-    borderWidth: 4,
-  },
-  landmark: {
-    position: "absolute",
-    maxWidth: 72,
-    borderColor: "#1c1c1c",
-    borderWidth: 2,
-    backgroundColor: "#ffd84d",
-    paddingHorizontal: 4,
-    paddingVertical: 3,
-  },
-  landmarkText: {
-    color: "#1c1c1c",
-    fontSize: 10,
-    fontWeight: "900",
-  },
-  avatar: {
-    position: "absolute",
-    width: 24,
-    height: 24,
-    alignItems: "center",
-    justifyContent: "center",
-    borderColor: "#1c1c1c",
-    borderWidth: 3,
-  },
-  selfAvatar: {
-    borderColor: "#ffffff",
-    borderWidth: 4,
   },
   avatarText: {
     color: "#1c1c1c",
