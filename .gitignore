@@ -30,6 +30,7 @@ dist/
 web-build/
 .expo/
 .expo-shared/
+*.tsbuildinfo
 
 # Temporary files and caches
 .cache/
