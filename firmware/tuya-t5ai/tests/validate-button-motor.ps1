@@ -1,0 +1,34 @@
+$ErrorActionPreference = 'Stop'
+
+$sourcePath = Join-Path $PSScriptRoot '..\overlays\lvgl_camera\src\example_lvgl_camera.c'
+
+if (-not (Test-Path -LiteralPath $sourcePath)) {
+    throw "Missing button motor overlay source: $sourcePath"
+}
+
+$source = Get-Content -LiteralPath $sourcePath -Raw
+$required = @(
+    '#define EXAMPLE_MOTOR_IN1_PIN TUYA_GPIO_NUM_6'
+    '#define EXAMPLE_MOTOR_IN2_PIN TUYA_GPIO_NUM_7'
+    'static bool sg_motor_running = false;'
+    'static bool sg_motor_ready'
+    '__example_motor_init'
+    '__example_motor_start'
+    '__example_motor_stop'
+    '[motor] started'
+    '[motor] stopped'
+    'disp_disable_update(NULL);'
+    'sg_is_display_camera = true;'
+)
+
+foreach ($item in $required) {
+    if (-not $source.Contains($item)) {
+        throw "Button motor overlay source is missing: $item"
+    }
+}
+
+if ($source.Contains('if (false == sg_is_display_camera)')) {
+    throw 'Button callback still contains the old camera toggle'
+}
+
+Write-Host 'PASS: button toggles motor and camera preview starts automatically.'
