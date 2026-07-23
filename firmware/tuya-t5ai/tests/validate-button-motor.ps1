@@ -27,7 +27,7 @@ foreach ($item in $required) {
     }
 }
 
-if ($source.Contains('if (false == sg_is_display_camera)')) {
+if ($source.Contains('disp_enable_update(NULL);')) {
     throw 'Button callback still contains the old camera toggle'
 }
 
