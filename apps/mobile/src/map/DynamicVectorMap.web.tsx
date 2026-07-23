@@ -77,7 +77,8 @@ function createMarkerElement(
   button.style.display = "flex";
   button.style.font = "700 12px/1 system-ui, sans-serif";
   button.style.gap = "6px";
-  button.style.minHeight = "40px";
+  button.style.minHeight = "44px";
+  button.style.minWidth = "44px";
   button.style.padding = "5px 9px 5px 6px";
   button.style.whiteSpace = "nowrap";
 

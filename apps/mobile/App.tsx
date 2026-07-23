@@ -141,7 +141,7 @@ export default function App() {
   const [mode, setMode] = useState<LocationMode>("simulated");
   const [location, setLocation] = useState<GeoPoint | null>(null);
   const [loading, setLoading] = useState(false);
-  const [message, setMessage] = useState("点击定位，进入湖畔像素地图");
+  const [message, setMessage] = useState("点击定位，进入附近地图");
   const [selectedPlayerId, setSelectedPlayerId] = useState<string | null>(null);
   const [mapFocusRequest, setMapFocusRequest] = useState<MapFocusRequest>({
     kind: "hupan",
@@ -397,8 +397,11 @@ const styles = StyleSheet.create({
   },
   screen: {
     alignItems: "center",
+    alignSelf: "center",
     gap: 14,
+    maxWidth: 960,
     padding: 18,
+    width: "100%",
   },
   header: {
     alignSelf: "stretch",
@@ -505,6 +508,7 @@ const styles = StyleSheet.create({
     borderColor: "#f8f1c2",
     borderWidth: 3,
     backgroundColor: "#31445c",
+    minHeight: 44,
     paddingVertical: 10,
   },
   modeButtonActive: {
