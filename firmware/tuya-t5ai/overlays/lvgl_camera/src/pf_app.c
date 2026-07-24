@@ -311,7 +311,8 @@ static void pf_refresh_ui(PF_STATE_E previous_state)
     case PF_STATE_RECONNECTING:
     default:
         pf_input_set_mode(PF_INPUT_MODE_LOCKED);
-        pf_ui_show_page(PF_UI_PAGE_IDLE);
+        pf_ui_show_page(pf_ui_is_started() ? PF_UI_PAGE_IDLE
+                                           : PF_UI_PAGE_START);
         break;
     }
 }

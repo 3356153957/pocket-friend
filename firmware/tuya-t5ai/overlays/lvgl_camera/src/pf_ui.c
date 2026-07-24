@@ -228,7 +228,8 @@ static lv_obj_t *pf_ui_draw_pet_device(lv_obj_t *parent, bool asleep)
     lv_obj_set_style_border_width(body, 4, 0);
     lv_obj_set_style_shadow_width(body, 0, 0);
     lv_obj_set_style_pad_all(body, 0, 0);
-    lv_obj_clear_flag(body, LV_OBJ_FLAG_SCROLLABLE);
+    lv_obj_clear_flag(body,
+                      LV_OBJ_FLAG_SCROLLABLE | LV_OBJ_FLAG_CLICKABLE);
 
     screen = lv_obj_create(body);
     lv_obj_set_size(screen, 64, 56);
@@ -240,7 +241,8 @@ static lv_obj_t *pf_ui_draw_pet_device(lv_obj_t *parent, bool asleep)
     lv_obj_set_style_border_color(screen, lv_color_hex(PF_UI_COLOR_INK), 0);
     lv_obj_set_style_border_width(screen, 3, 0);
     lv_obj_set_style_pad_all(screen, 0, 0);
-    lv_obj_clear_flag(screen, LV_OBJ_FLAG_SCROLLABLE);
+    lv_obj_clear_flag(screen,
+                      LV_OBJ_FLAG_SCROLLABLE | LV_OBJ_FLAG_CLICKABLE);
 
     pet = lv_label_create(screen);
     lv_label_set_text(pet, asleep ? "(-_-)" : "(o_o)");
@@ -258,7 +260,8 @@ static lv_obj_t *pf_ui_draw_pet_device(lv_obj_t *parent, bool asleep)
         lv_obj_set_style_border_color(btn, lv_color_hex(PF_UI_COLOR_INK), 0);
         lv_obj_set_style_border_width(btn, 2, 0);
         lv_obj_set_style_pad_all(btn, 0, 0);
-        lv_obj_clear_flag(btn, LV_OBJ_FLAG_SCROLLABLE);
+        lv_obj_clear_flag(btn,
+                          LV_OBJ_FLAG_SCROLLABLE | LV_OBJ_FLAG_CLICKABLE);
         lv_obj_align(btn, LV_ALIGN_BOTTOM_MID, (int32_t)((i - 1) * 22),
                      i == 1 ? -22 : -28);
     }

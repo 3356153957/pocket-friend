@@ -658,6 +658,33 @@ foreach ($symbol in $appRequired) {
     }
 }
 
+$connectingRoute = [regex]::Match(
+    $app,
+    'case PF_STATE_CONNECTING:[\s\S]*?case PF_STATE_RECONNECTING:[\s\S]*?break;'
+)
+if (-not $connectingRoute.Success -or
+    $connectingRoute.Value -notmatch 'pf_ui_is_started\(\)' -or
+    $connectingRoute.Value -notmatch 'PF_UI_PAGE_START' -or
+    $connectingRoute.Value -notmatch 'PF_UI_PAGE_IDLE') {
+    throw 'Connecting state must preserve the START page until the user begins'
+}
+
+$petDeviceMatch = [regex]::Match(
+    $ui,
+    'static lv_obj_t \*pf_ui_draw_pet_device\([\s\S]*?(?=static void pf_ui_create_start_page)'
+)
+if (-not $petDeviceMatch.Success) {
+    throw 'Missing pet device drawing function'
+}
+foreach ($decorativeObject in @('body', 'screen', 'btn')) {
+    if ($petDeviceMatch.Value -notmatch (
+        'lv_obj_clear_flag\(' + $decorativeObject +
+        ',\s*LV_OBJ_FLAG_SCROLLABLE\s*\|\s*LV_OBJ_FLAG_CLICKABLE\);'
+    )) {
+        throw "Sleep-page decoration must not intercept wake taps: $decorativeObject"
+    }
+}
+
 if (-not $app.Contains('sg_wifi_selected >= sg_wifi_ap_count')) {
     throw 'Wi-Fi connect and retry must reject a stale AP selection'
 }
