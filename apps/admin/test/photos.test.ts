@@ -45,3 +45,37 @@ test("photo history persists across store instances", async () => {
     await rm(directory, { recursive: true, force: true });
   }
 });
+
+test("photo history merges new in-memory photos with existing disk history", async () => {
+  const directory = await mkdtemp(join(tmpdir(), "pf-admin-photos-"));
+  try {
+    const first = new LatestPhotoStore({ directory });
+    await first.put(
+      "board-a",
+      Uint8Array.from([0xff, 0xd8, 0x01, 0xff, 0xd9]),
+      Date.parse("2026-07-24T22:55:00.000+08:00"),
+    );
+    await first.put(
+      "board-a",
+      Uint8Array.from([0xff, 0xd8, 0x02, 0xff, 0xd9]),
+      Date.parse("2026-07-24T23:00:00.000+08:00"),
+    );
+
+    const restarted = new LatestPhotoStore({ directory });
+    await restarted.put(
+      "board-a",
+      Uint8Array.from([0xff, 0xd8, 0x03, 0xff, 0xd9]),
+      Date.parse("2026-07-24T23:05:00.000+08:00"),
+    );
+
+    const history = await restarted.listHistory("board-a");
+
+    assert.deepEqual(history.map(({ capturedAt }) => capturedAt), [
+      "2026-07-24T15:05:00.000Z",
+      "2026-07-24T15:00:00.000Z",
+      "2026-07-24T14:55:00.000Z",
+    ]);
+  } finally {
+    await rm(directory, { recursive: true, force: true });
+  }
+});

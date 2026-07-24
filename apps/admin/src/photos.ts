@@ -104,12 +104,12 @@ export class LatestPhotoStore {
 
   async listHistory(deviceId: BoardDeviceId, limit = 24): Promise<ArchivedPhotoSummary[]> {
     const cached = this.history.get(deviceId);
-    if (cached?.length) {
-      return cached
-        .map((photo) => ({ id: photo.id, capturedAt: photo.capturedAt, bytes: photo.bytes.byteLength }))
-        .slice(0, limit);
-    }
-    if (!this.directory) return [];
+    const cachedPhotos = cached?.map((photo) => ({
+      id: photo.id,
+      capturedAt: photo.capturedAt,
+      bytes: photo.bytes.byteLength,
+    })) ?? [];
+    if (!this.directory) return cachedPhotos.slice(0, limit);
 
     try {
       const entries = await readdir(this.historyDirectory(deviceId));
@@ -128,12 +128,16 @@ export class LatestPhotoStore {
             return undefined;
           }
         }));
-      return photos
+      const diskPhotos = photos
         .filter((photo): photo is ArchivedPhotoSummary => Boolean(photo))
+      const byId = new Map<string, ArchivedPhotoSummary>();
+      for (const photo of diskPhotos) byId.set(photo.id, photo);
+      for (const photo of cachedPhotos) byId.set(photo.id, photo);
+      return [...byId.values()]
         .sort((a, b) => b.capturedAt.localeCompare(a.capturedAt))
         .slice(0, limit);
     } catch {
-      return [];
+      return cachedPhotos.slice(0, limit);
     }
   }
 
