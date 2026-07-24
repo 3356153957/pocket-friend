@@ -95,7 +95,7 @@ function isDeviceId(value: unknown): value is DeviceId {
 }
 
 function isBoardDeviceId(value: unknown): value is BoardDeviceId {
-  return value === "board-a" || value === "board-b";
+  return value === "board-a";
 }
 
 function isJpeg(bytes: Uint8Array): boolean {
@@ -214,7 +214,30 @@ export function createAdminRouter(options: AdminRouterOptions): AdminRouter {
     if (url.pathname === "/api/status") {
       return json(options.registry.snapshot(now()));
     }
-    const photoMatch = /^\/api\/photos\/(board-a|board-b)\/latest$/u.exec(url.pathname);
+    const photoHistoryMatch = /^\/api\/photos\/(board-a)\/history$/u.exec(url.pathname);
+    if (photoHistoryMatch) {
+      const deviceId = photoHistoryMatch[1] as BoardDeviceId;
+      return json({
+        photos: (await photos.listHistory(deviceId)).map((photo) => ({
+          ...photo,
+          url: `/api/photos/${deviceId}/history/${encodeURIComponent(photo.id)}`,
+        })),
+      });
+    }
+
+    const archivedPhotoMatch = /^\/api\/photos\/(board-a)\/history\/([^/]+)$/u.exec(url.pathname);
+    if (archivedPhotoMatch) {
+      const photo = await photos.getHistoryPhoto(
+        archivedPhotoMatch[1] as BoardDeviceId,
+        decodeURIComponent(archivedPhotoMatch[2] ?? ""),
+      );
+      if (!photo) return json({ error: { code: "PHOTO_NOT_FOUND", message: "No photo has been uploaded." } }, 404);
+      const result = response(photo.bytes, 200, "image/jpeg");
+      result.headers.set("X-Captured-At", photo.capturedAt);
+      return result;
+    }
+
+    const photoMatch = /^\/api\/photos\/(board-a)\/latest$/u.exec(url.pathname);
     if (photoMatch) {
       const photo = await photos.get(photoMatch[1] as BoardDeviceId);
       if (!photo) return json({ error: { code: "PHOTO_NOT_FOUND", message: "No photo has been uploaded." } }, 404);

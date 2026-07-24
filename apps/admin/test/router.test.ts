@@ -24,7 +24,7 @@ describe("admin router", () => {
       headers: { Authorization: `Basic ${credentials}` },
     }));
     assert.equal(status.status, 200);
-    assert.equal((await status.json()).devices.length, 3);
+    assert.equal((await status.json()).devices.length, 2);
   });
 
   test("accepts authenticated board heartbeats and rejects a bad token", async () => {
@@ -38,7 +38,7 @@ describe("admin router", () => {
         "Content-Type": "application/json",
       },
       body: JSON.stringify({
-        deviceId: "board-b",
+        deviceId: "board-a",
         firmwareVersion: "0.4.0",
         batteryPercent: 78,
       }),
@@ -47,7 +47,7 @@ describe("admin router", () => {
     assert.equal((await route(request("wrong"))).status, 401);
     assert.equal((await route(request("board-secret"))).status, 204);
     now = 20_000;
-    const board = registry.snapshot(now).devices[2];
+    const board = registry.snapshot(now).devices[1];
     assert.equal(board?.online, true);
     assert.equal(board?.batteryPercent, 78);
   });
@@ -72,6 +72,41 @@ describe("admin router", () => {
     assert.equal(photo.status, 200);
     assert.equal(photo.headers.get("content-type"), "image/jpeg");
     assert.deepEqual(new Uint8Array(await photo.arrayBuffer()), jpeg);
+  });
+
+  test("lists archived board A photos for the admin history view", async () => {
+    let now = 10_000;
+    const route = createAdminRouter({ env, registry: new DeviceStatusRegistry(), now: () => now });
+    const uploadPhoto = (marker: number) => route(new Request("http://localhost/api/photos?deviceId=board-a", {
+      method: "POST",
+      headers: {
+        Authorization: "Bearer board-secret",
+        "Content-Type": "image/jpeg",
+      },
+      body: Uint8Array.from([0xff, 0xd8, marker, 0xff, 0xd9]),
+    }));
+
+    assert.equal((await uploadPhoto(0x01)).status, 204);
+    now = 20_000;
+    assert.equal((await uploadPhoto(0x02)).status, 204);
+
+    const history = await route(new Request("http://localhost/api/photos/board-a/history", {
+      headers: { Authorization: `Basic ${credentials}` },
+    }));
+    assert.equal(history.status, 200);
+    const body = await history.json() as { photos: Array<{ id: string; capturedAt: string; bytes: number; url: string }> };
+    assert.deepEqual(body.photos.map(({ bytes }) => bytes), [5, 5]);
+    assert.deepEqual(body.photos.map(({ capturedAt }) => capturedAt), [
+      new Date(20_000).toISOString(),
+      new Date(10_000).toISOString(),
+    ]);
+    assert.match(body.photos[0]?.url ?? "", /^\/api\/photos\/board-a\/history\//);
+
+    const archived = await route(new Request(`http://localhost${body.photos[0]?.url}`, {
+      headers: { Authorization: `Basic ${credentials}` },
+    }));
+    assert.equal(archived.status, 200);
+    assert.deepEqual(new Uint8Array(await archived.arrayBuffer()), Uint8Array.from([0xff, 0xd8, 0x02, 0xff, 0xd9]));
   });
 
   test("rejects unauthenticated, invalid, and non-JPEG photo uploads", async () => {
@@ -134,13 +169,15 @@ describe("admin router", () => {
     const html = await page.text();
     assert.match(html, /设备在线状态/);
     assert.match(html, /最新拍照/);
+    assert.doesNotMatch(html, /开发板 B/);
 
     const script = await route(new Request("http://localhost/assets/admin.js", { headers: authorized }));
     assert.equal(script.status, 200);
     const javascript = await script.text();
     assert.match(javascript, /api\/status/);
     assert.match(javascript, /api\/photos\/board-a\/latest/);
-    assert.match(javascript, /api\/photos\/board-b\/latest/);
+    assert.match(javascript, /api\/photos\/board-a\/history/);
+    assert.doesNotMatch(javascript, /api\/photos\/board-b\/latest/);
     assert.match(javascript, /rotate-180/);
   });
 });

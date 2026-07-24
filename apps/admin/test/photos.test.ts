@@ -22,3 +22,26 @@ test("latest photos persist across store instances", async () => {
     await rm(directory, { recursive: true, force: true });
   }
 });
+
+test("photo history persists across store instances", async () => {
+  const directory = await mkdtemp(join(tmpdir(), "pf-admin-photos-"));
+  try {
+    const older = Uint8Array.from([0xff, 0xd8, 0x01, 0xff, 0xd9]);
+    const newer = Uint8Array.from([0xff, 0xd8, 0x02, 0xff, 0xd9]);
+    const first = new LatestPhotoStore({ directory });
+    await first.put("board-a", older, Date.parse("2026-07-24T22:55:00.000+08:00"));
+    await first.put("board-a", newer, Date.parse("2026-07-24T23:00:00.000+08:00"));
+
+    const second = new LatestPhotoStore({ directory });
+    const history = await second.listHistory("board-a");
+    const photo = await second.getHistoryPhoto("board-a", history[0]?.id ?? "");
+
+    assert.deepEqual(history.map(({ capturedAt }) => capturedAt), [
+      "2026-07-24T15:00:00.000Z",
+      "2026-07-24T14:55:00.000Z",
+    ]);
+    assert.deepEqual(photo?.bytes, newer);
+  } finally {
+    await rm(directory, { recursive: true, force: true });
+  }
+});

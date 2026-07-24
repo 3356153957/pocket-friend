@@ -1,7 +1,7 @@
-import { mkdir, readFile, writeFile } from "node:fs/promises";
+import { mkdir, readFile, readdir, writeFile } from "node:fs/promises";
 import { join } from "node:path";
 
-export type BoardDeviceId = "board-a" | "board-b";
+export type BoardDeviceId = "board-a";
 
 export const MAX_PHOTO_BYTES = 512 * 1024;
 
@@ -10,12 +10,23 @@ export interface LatestPhoto {
   capturedAt: string;
 }
 
+export interface ArchivedPhoto extends LatestPhoto {
+  id: string;
+}
+
+export interface ArchivedPhotoSummary {
+  id: string;
+  capturedAt: string;
+  bytes: number;
+}
+
 export interface LatestPhotoStoreOptions {
   directory?: string;
 }
 
 export class LatestPhotoStore {
   private readonly photos = new Map<BoardDeviceId, LatestPhoto>();
+  private readonly history = new Map<BoardDeviceId, ArchivedPhoto[]>();
   private readonly directory: string | undefined;
 
   constructor(options: LatestPhotoStoreOptions = {}) {
@@ -30,17 +41,45 @@ export class LatestPhotoStore {
     return join(this.directory ?? "", `${deviceId}.json`);
   }
 
+  private historyDirectory(deviceId: BoardDeviceId): string {
+    return join(this.directory ?? "", "history", deviceId);
+  }
+
+  private historyPhotoPath(deviceId: BoardDeviceId, id: string): string {
+    return join(this.historyDirectory(deviceId), id);
+  }
+
+  private historyMetadataPath(deviceId: BoardDeviceId, id: string): string {
+    return join(this.historyDirectory(deviceId), `${id}.json`);
+  }
+
+  private archiveId(capturedAt: string): string {
+    return `${capturedAt.replace(/[^0-9A-Za-z-]/gu, "-")}.jpg`;
+  }
+
   async put(deviceId: BoardDeviceId, bytes: Uint8Array, capturedAtMs = Date.now()): Promise<void> {
     const photo = {
       bytes: Uint8Array.from(bytes),
       capturedAt: new Date(capturedAtMs).toISOString(),
     };
     this.photos.set(deviceId, photo);
+    const archived = {
+      ...photo,
+      id: this.archiveId(photo.capturedAt),
+    };
+    const history = this.history.get(deviceId) ?? [];
+    history.unshift(archived);
+    this.history.set(deviceId, history);
 
     if (!this.directory) return;
     await mkdir(this.directory, { recursive: true });
     await writeFile(this.photoPath(deviceId), photo.bytes);
     await writeFile(this.metadataPath(deviceId), JSON.stringify({ capturedAt: photo.capturedAt }));
+    await mkdir(this.historyDirectory(deviceId), { recursive: true });
+    await writeFile(this.historyPhotoPath(deviceId, archived.id), archived.bytes);
+    await writeFile(this.historyMetadataPath(deviceId, archived.id), JSON.stringify({
+      capturedAt: archived.capturedAt,
+    }));
   }
 
   async get(deviceId: BoardDeviceId): Promise<LatestPhoto | undefined> {
@@ -58,6 +97,59 @@ export class LatestPhotoStore {
       const stored = { bytes: Uint8Array.from(bytes), capturedAt: parsed.capturedAt };
       this.photos.set(deviceId, stored);
       return stored;
+    } catch {
+      return undefined;
+    }
+  }
+
+  async listHistory(deviceId: BoardDeviceId, limit = 24): Promise<ArchivedPhotoSummary[]> {
+    const cached = this.history.get(deviceId);
+    if (cached?.length) {
+      return cached
+        .map((photo) => ({ id: photo.id, capturedAt: photo.capturedAt, bytes: photo.bytes.byteLength }))
+        .slice(0, limit);
+    }
+    if (!this.directory) return [];
+
+    try {
+      const entries = await readdir(this.historyDirectory(deviceId));
+      const photos = await Promise.all(entries
+        .filter((entry) => entry.endsWith(".jpg"))
+        .map(async (id): Promise<ArchivedPhotoSummary | undefined> => {
+          try {
+            const [bytes, metadata] = await Promise.all([
+              readFile(this.historyPhotoPath(deviceId, id)),
+              readFile(this.historyMetadataPath(deviceId, id), "utf8"),
+            ]);
+            const parsed = JSON.parse(metadata) as { capturedAt?: unknown };
+            if (typeof parsed.capturedAt !== "string") return undefined;
+            return { id, capturedAt: parsed.capturedAt, bytes: bytes.byteLength };
+          } catch {
+            return undefined;
+          }
+        }));
+      return photos
+        .filter((photo): photo is ArchivedPhotoSummary => Boolean(photo))
+        .sort((a, b) => b.capturedAt.localeCompare(a.capturedAt))
+        .slice(0, limit);
+    } catch {
+      return [];
+    }
+  }
+
+  async getHistoryPhoto(deviceId: BoardDeviceId, id: string): Promise<ArchivedPhoto | undefined> {
+    const cached = this.history.get(deviceId)?.find((photo) => photo.id === id);
+    if (cached) return cached;
+    if (!this.directory || !id.endsWith(".jpg") || id.includes("/") || id.includes("\\")) return undefined;
+
+    try {
+      const [bytes, metadata] = await Promise.all([
+        readFile(this.historyPhotoPath(deviceId, id)),
+        readFile(this.historyMetadataPath(deviceId, id), "utf8"),
+      ]);
+      const parsed = JSON.parse(metadata) as { capturedAt?: unknown };
+      if (typeof parsed.capturedAt !== "string") return undefined;
+      return { id, bytes: Uint8Array.from(bytes), capturedAt: parsed.capturedAt };
     } catch {
       return undefined;
     }

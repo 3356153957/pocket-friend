@@ -4,7 +4,7 @@ import { describe, test } from "node:test";
 import { DeviceStatusRegistry } from "../src/status.ts";
 
 describe("DeviceStatusRegistry", () => {
-  test("returns the web client and two boards in a stable order", () => {
+  test("returns the web client and board A in a stable order", () => {
     const registry = new DeviceStatusRegistry({ offlineAfterMs: 45_000 });
 
     assert.deepEqual(
@@ -12,7 +12,6 @@ describe("DeviceStatusRegistry", () => {
       [
         { id: "web", online: false },
         { id: "board-a", online: false },
-        { id: "board-b", online: false },
       ],
     );
   });
