@@ -1,15 +1,13 @@
-import type { Step } from "../app/appFlow.ts";
+import type { OnboardingStep } from "../app/appFlow.ts";
 
 interface TopBarProps {
-  step: Step;
+  step: OnboardingStep;
   onHome: () => void;
 }
 
-const steps: Array<{ key: Exclude<Step, "welcome">; label: string }> = [
+const steps: Array<{ key: Exclude<OnboardingStep, "welcome">; label: string }> = [
   { key: "quiz", label: "偏好问卷" },
   { key: "pendant", label: "挂坠设置" },
-  { key: "matching", label: "附近匹配" },
-  { key: "home", label: "小家园" },
 ];
 
 export function PendantLogo() {

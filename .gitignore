@@ -34,6 +34,7 @@ web-build/
 
 # Temporary files and caches
 .cache/
+.playwright-cli/
 .worktrees/
 tmp/
 temp/

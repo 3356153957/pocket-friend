@@ -1,4 +1,5 @@
-export type Step = "welcome" | "quiz" | "pendant" | "matching" | "home";
+export type OnboardingStep = "welcome" | "quiz" | "pendant";
+export type AppTab = "map" | "pals" | "settings";
 
 export interface Prefs {
   vibe?: string;

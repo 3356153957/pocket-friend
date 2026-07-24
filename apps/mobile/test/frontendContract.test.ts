@@ -22,18 +22,36 @@ describe("Spark Connect frontend contract", () => {
     assert.doesNotMatch(combined, /Orbit/);
   });
 
-  test("keeps all five demo stages as dedicated components", async () => {
-    const app = await read("src/App.tsx");
+  test("uses the latest pixel phone shell with the three app tabs", async () => {
+    const sources = await Promise.all([
+      read("src/App.tsx"),
+      read("src/components/AppShell.tsx"),
+    ]);
+    const combined = sources.join("\n");
 
     for (const component of [
+      "PhoneFrame",
       "Welcome",
       "Quiz",
       "PendantSetup",
       "MatchingMap",
       "HomeWorld",
+      "Settings",
+      "BottomTabs",
     ]) {
-      assert.match(app, new RegExp(component));
+      assert.match(combined, new RegExp(component));
     }
+
+    assert.match(combined, /label: "MAP"/);
+    assert.match(combined, /label: "PALS"/);
+    assert.match(combined, /label: "SET"/);
+  });
+
+  test("keeps the real AMap and nearby controller inside the pixel map tab", async () => {
+    const matchingMap = await read("src/components/MatchingMap.tsx");
+
+    assert.match(matchingMap, /AmapNearbyMap/);
+    assert.match(matchingMap, /NearbyDemoController/);
   });
 
   test("defines small-screen and reduced-motion behavior", async () => {
@@ -42,6 +60,8 @@ describe("Spark Connect frontend contract", () => {
     assert.match(styles, /@media \(max-width: 480px\)/);
     assert.match(styles, /prefers-reduced-motion: reduce/);
     assert.match(styles, /min-height: 44px/);
+    assert.match(styles, /\.pixel-border/);
+    assert.match(styles, /Press Start 2P/);
   });
 
   test("clips the animated pendant hero within the mobile viewport", async () => {

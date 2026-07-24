@@ -2,27 +2,30 @@
 
 **日期：** 2026-07-24  
 **目标分支：** `codex/dynamic-vector-map`  
-**视觉来源：** `Birdy-Lin/spark-connect@22a3668`
+**视觉来源：** `Birdy-Lin/spark-connect@0f0d6b2`
 
 ## 目标
 
-用 `spark-connect` 的完整用户流程替换现有 Expo Web 页面，同时保留 Pocket Friend 已有的高德动态地图、浏览器定位、附近的人匹配、环境变量和静态自动部署能力。页面品牌统一为 `Pocket Friend`。
+用 `spark-connect` 最新的 8-bit 手机应用壳替换现有页面，同时保留 Pocket Friend 已有的高德动态地图、浏览器定位、附近的人匹配、环境变量和静态自动部署能力。页面品牌统一为 `Pocket Friend`。
 
 ## 用户流程
 
-应用保留一个单页、五阶段的演示流程：
+应用保留一个单页演示流程。首次进入包含三个引导阶段：
 
 1. 欢迎页介绍 Pocket Friend 和感应挂坠。
 2. 偏好问卷收集性格、兴趣和见面方式。
 3. 挂坠设置选择震动方式、发现半径与免打扰。
-4. 附近匹配展示真实高德地图、当前位置与附近人物。
-5. 小家园展示已相遇人物的演示状态。
+完成引导后进入三个常驻标签：
+
+1. `MAP` 展示真实高德地图、当前位置与附近人物。
+2. `PALS` 展示已相遇人物的像素小家园。
+3. `SET` 调整震动方式、感应半径、安静模式和隐私入口。
 
 问卷、挂坠和小家园暂时只保存在浏览器内存中；刷新页面后重置。本次不增加数据库和服务端接口。
 
 ## 技术架构
 
-`apps/mobile` 改为 React 19 + Vite + Tailwind CSS 4 的静态 SPA。迁移 `spark-connect` 的页面结构、文案层级、色彩、字体与交互，但不引入 TanStack Start 的 SSR 层，避免改变现有 Nginx 和 GitHub Actions 部署模型。
+`apps/mobile` 继续使用 React 19 + Vite + Tailwind CSS 4 的静态 SPA。迁移 `spark-connect` 的手机框、像素字体、颜色、边框、引导流程和底部标签导航，但不引入 TanStack Start 的 SSR 层，避免改变现有 Nginx 和 GitHub Actions 部署模型。上游 `.asset.json` 指向临时托管地址，因此网页继续使用仓库内可部署的 Pocket Friend 图标。
 
 已有 `packages/nearby-core`、`apps/gateway` 和部署脚本保持原位。Vite 仍将网页输出到 `dist/web`，`scripts/prepare-sites-static.mjs` 再生成服务器使用的 `dist/client` 和 Worker 回退入口。
 
