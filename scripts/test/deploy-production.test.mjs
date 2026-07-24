@@ -1,5 +1,5 @@
 import assert from "node:assert/strict";
-import { mkdtemp, mkdir, rm, writeFile } from "node:fs/promises";
+import { mkdtemp, mkdir, readFile, rm, writeFile } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import path from "node:path";
 import test from "node:test";
@@ -175,5 +175,32 @@ test("validateDeployConfig 只接受服务器内的绝对路径和本机健康�
       workspace: "/tmp/workspace",
     }),
     /loopback/,
+  );
+});
+
+test("生产工作流只允许 master 和人工触发并使用受限 Runner", async () => {
+  const workflow = await readFile(
+    path.resolve(".github/workflows/deploy-production.yml"),
+    "utf8",
+  );
+
+  assert.match(workflow, /^name:\s*Deploy production$/mu);
+  assert.match(workflow, /\bpush:\s*\n\s+branches:\s*\[master\]/u);
+  assert.match(workflow, /\bworkflow_dispatch:\s*$/mu);
+  assert.doesNotMatch(workflow, /\bpull_request(?:_target)?:/u);
+  assert.match(workflow, /permissions:\s*\n\s+contents:\s+read/u);
+  assert.match(
+    workflow,
+    /runs-on:\s*\[self-hosted,\s*linux,\s*x64,\s*pocket-friend-prod\]/u,
+  );
+  assert.match(workflow, /if:\s*github\.ref == 'refs\/heads\/master'/u);
+  assert.match(
+    workflow,
+    /flock[\s\S]*?deploy\.lock[\s\S]*?node scripts\/deploy-production\.mjs/u,
+  );
+  assert.match(workflow, /PF_DEPLOY_ROOT:\s*\/srv\/pocket-friend/u);
+  assert.match(
+    workflow,
+    /PF_DEPLOY_ENV_FILE:\s*\/etc\/pocket-friend\/mobile\.env/u,
   );
 });

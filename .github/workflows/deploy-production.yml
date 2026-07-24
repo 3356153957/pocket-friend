@@ -1,0 +1,35 @@
+name: Deploy production
+
+on:
+  push:
+    branches: [master]
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: pocket-friend-production
+  cancel-in-progress: false
+
+jobs:
+  deploy:
+    if: github.ref == 'refs/heads/master'
+    runs-on: [self-hosted, linux, x64, pocket-friend-prod]
+    timeout-minutes: 30
+    env:
+      PF_DEPLOY_ROOT: /srv/pocket-friend
+      PF_DEPLOY_ENV_FILE: /etc/pocket-friend/mobile.env
+      PF_DEPLOY_SERVICE: pocket-friend.service
+      PF_DEPLOY_HEALTH_URL: http://127.0.0.1/
+    steps:
+      - name: Check out the triggering commit
+        uses: actions/checkout@v7
+        with:
+          persist-credentials: false
+
+      - name: Build, publish, and verify production
+        run: >-
+          flock --exclusive --wait 1800
+          /srv/pocket-friend/deploy.lock
+          node scripts/deploy-production.mjs
