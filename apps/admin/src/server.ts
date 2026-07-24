@@ -1,4 +1,4 @@
-import { createServer, type IncomingMessage, type Server } from "node:http";
+﻿import { createServer, type IncomingMessage, type Server } from "node:http";
 import { pathToFileURL } from "node:url";
 import { realpathSync } from "node:fs";
 
@@ -29,6 +29,22 @@ async function readBody(request: IncomingMessage): Promise<Uint8Array | undefine
   return Buffer.concat(chunks);
 }
 
+function clientIp(incoming: IncomingMessage): string {
+  const forwarded = incoming.headers["x-forwarded-for"];
+  if (typeof forwarded === "string") {
+    const first = forwarded.split(",")[0];
+    if (first) return first.trim();
+  }
+  if (Array.isArray(forwarded) && forwarded.length > 0) {
+    const first = forwarded[0];
+    if (typeof first === "string") {
+      const ip = first.split(",")[0];
+      if (ip) return ip.trim();
+    }
+  }
+  return incoming.socket.remoteAddress ?? "Unknown";
+}
+
 export function createAdminServer(options: AdminServerOptions = {}): Server {
   const env = options.env ?? process.env;
   const route = createAdminRouter({
@@ -44,6 +60,7 @@ export function createAdminServer(options: AdminServerOptions = {}): Server {
         if (Array.isArray(value)) value.forEach((item) => headers.append(name, item));
         else if (value !== undefined) headers.set(name, value);
       }
+      headers.set("x-real-ip", clientIp(incoming));
       const host = incoming.headers.host ?? "127.0.0.1";
       const body = await readBody(incoming);
       const routed = await route(new Request(`http://${host}${incoming.url ?? "/"}`, {

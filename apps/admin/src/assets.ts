@@ -1,4 +1,4 @@
-export const adminHtml = `<!doctype html>
+﻿export const adminHtml = `<!doctype html>
 <html lang="zh-CN">
   <head>
     <meta charset="UTF-8" />
@@ -19,8 +19,8 @@ export const adminHtml = `<!doctype html>
 
     <main>
       <section class="summary" aria-label="在线概览">
-        <div><strong id="online-count">--</strong><span>在线</span></div>
-        <div><strong id="offline-count">--</strong><span>离线</span></div>
+        <div><strong id="online-count">--</strong><span>在线设备</span></div>
+        <div><strong id="offline-count">--</strong><span>离线设备</span></div>
         <div><strong id="total-count">3</strong><span>设备总数</span></div>
       </section>
 
@@ -79,6 +79,16 @@ h2 { margin: 0; font-size: 16px; letter-spacing: 0; }
 .detail { display: flex; justify-content: space-between; gap: 16px; padding-top: 10px; border-top: 1px solid #edf0ee; font-size: 12px; }
 .detail dt { color: #737e79; }
 .detail dd { margin: 0; min-width: 0; color: #2b3732; font-weight: 700; text-align: right; overflow-wrap: anywhere; }
+.session-list { margin: 18px 0 0; }
+.session-item { padding: 10px 0; border-top: 1px solid #edf0ee; display: flex; align-items: center; gap: 10px; font-size: 12px; }
+.session-item:first-child { border-top: 0; padding-top: 0; }
+.session-browser { flex: 1; min-width: 0; display: flex; align-items: center; gap: 6px; }
+.session-browser-icon { flex: 0 0 auto; font-size: 15px; line-height: 1; }
+.session-browser-name { font-weight: 700; color: #2b3732; }
+.session-browser-os { color: #737e79; margin-left: 4px; }
+.session-ip { flex: 0 0 auto; color: #737e79; font-family: "SF Mono", "Consolas", monospace; font-size: 11px; }
+.session-time { flex: 0 0 auto; color: #737e79; }
+.no-sessions { margin: 18px 0 0; padding: 14px; text-align: center; color: #8a9590; font-size: 12px; background: #f8f9f8; }
 .load-error { margin-top: 12px; padding: 12px 14px; color: #8f271f; background: #fff0ee; border-left: 4px solid #cf4437; font-size: 13px; }
 footer { width: min(1040px, calc(100% - 32px)); margin: 0 auto 28px; color: #7a8580; font-size: 11px; text-align: right; }
 @media (max-width: 760px) { .device-grid { grid-template-columns: 1fr; } .device-card { min-height: 0; } }
@@ -93,67 +103,110 @@ const offlineCount = document.querySelector("#offline-count");
 const totalCount = document.querySelector("#total-count");
 const updatedAt = document.querySelector("#updated-at");
 
+var browserIcons = { "Chrome": "\u{1F310}", "Firefox": "\u{1F525}", "Edge": "\u{1F310}", "Safari": "\u{1F34E}", "Unknown": "\u{1F310}" };
+
 function relativeTime(ageMs) {
   if (ageMs === null) return "从未连接";
-  const seconds = Math.max(0, Math.floor(ageMs / 1000));
-  if (seconds < 5) return "刚刚";
-  if (seconds < 60) return seconds + " 秒前";
-  const minutes = Math.floor(seconds / 60);
-  return minutes < 60 ? minutes + " 分钟前" : Math.floor(minutes / 60) + " 小时前";
+  var seconds = Math.max(0, Math.floor(ageMs / 1000));
+  if (seconds < 5) return "\u521A\u521A";
+  if (seconds < 60) return seconds + " \u79D2\u524D";
+  var minutes = Math.floor(seconds / 60);
+  return minutes < 60 ? minutes + " \u5206\u949F\u524D" : Math.floor(minutes / 60) + " \u5C0F\u65F6\u524D";
 }
 
 function detail(label, value) {
-  const row = document.createElement("div");
+  var row = document.createElement("div");
   row.className = "detail";
-  const term = document.createElement("dt");
+  var term = document.createElement("dt");
   term.textContent = label;
-  const description = document.createElement("dd");
-  description.textContent = value;
-  row.append(term, description);
+  var desc = document.createElement("dd");
+  desc.textContent = value;
+  row.append(term, desc);
   return row;
 }
 
+function renderSessions(sessions) {
+  var container = document.createElement("div");
+  if (!sessions || sessions.length === 0) {
+    container.className = "no-sessions";
+    container.textContent = "\u65E0\u6D3B\u8DC3\u9875\u9762";
+    return container;
+  }
+  container.className = "session-list";
+  sessions.forEach(function(s) {
+    var item = document.createElement("div");
+    item.className = "session-item";
+
+    var browserDiv = document.createElement("div");
+    browserDiv.className = "session-browser";
+    var icon = document.createElement("span");
+    icon.className = "session-browser-icon";
+    icon.textContent = browserIcons[s.browser] || browserIcons["Unknown"];
+    var name = document.createElement("span");
+    name.className = "session-browser-name";
+    name.textContent = s.browser;
+    var os = document.createElement("span");
+    os.className = "session-browser-os";
+    os.textContent = s.os;
+    browserDiv.append(icon, name, os);
+
+    var ip = document.createElement("span");
+    ip.className = "session-ip";
+    ip.textContent = s.ip;
+
+    var time = document.createElement("span");
+    time.className = "session-time";
+    time.textContent = relativeTime(s.ageMs);
+
+    item.append(browserDiv, ip, time);
+    container.append(item);
+  });
+  return container;
+}
+
 function renderDevice(device) {
-  const article = document.createElement("article");
+  var article = document.createElement("article");
   article.className = "device-card " + (device.online ? "online" : "offline");
-  const head = document.createElement("div");
+
+  var head = document.createElement("div");
   head.className = "device-head";
-  const identity = document.createElement("div");
-  const kind = document.createElement("p");
+  var identity = document.createElement("div");
+  var kind = document.createElement("p");
   kind.className = "device-kind";
   kind.textContent = device.kind === "web" ? "WEB CLIENT" : "T5AI BOARD";
-  const name = document.createElement("h3");
+  var name = document.createElement("h3");
   name.className = "device-name";
   name.textContent = device.label;
   identity.append(kind, name);
-  const status = document.createElement("span");
+  var status = document.createElement("span");
   status.className = "status";
-  status.textContent = device.online ? "在线" : "离线";
+  status.textContent = device.online ? "\u5728\u7EBF" : "\u79BB\u7EBF";
   head.append(identity, status);
 
-  const details = document.createElement("dl");
-  details.className = "device-details";
-  details.append(detail("最近心跳", relativeTime(device.ageMs)));
   if (device.kind === "web") {
-    details.append(detail("活跃页面", String(device.activeSessions ?? 0)));
+    article.append(head, renderSessions(device.sessions));
   } else {
-    details.append(detail("固件版本", device.firmwareVersion ?? "--"));
-    details.append(detail("电量", device.batteryPercent === undefined ? "--" : device.batteryPercent + "%"));
+    var details = document.createElement("dl");
+    details.className = "device-details";
+    details.append(detail("\u6700\u8FD1\u5FC3\u8DF3", relativeTime(device.ageMs)));
+    details.append(detail("\u56FA\u4EF6\u7248\u672C", device.firmwareVersion ?? "--"));
+    details.append(detail("\u7535\u91CF", device.batteryPercent === undefined ? "--" : device.batteryPercent + "%"));
+    article.append(head, details);
   }
-  article.append(head, details);
   return article;
 }
 
 async function refresh() {
   try {
-    const response = await fetch("/api/status", { cache: "no-store" });
+    var response = await fetch("/api/status", { cache: "no-store" });
     if (!response.ok) throw new Error("status " + response.status);
-    const snapshot = await response.json();
+    var snapshot = await response.json();
     grid.replaceChildren(...snapshot.devices.map(renderDevice));
-    onlineCount.textContent = String(snapshot.summary.online);
-    offlineCount.textContent = String(snapshot.summary.total - snapshot.summary.online);
+    var online = snapshot.summary.online;
+    onlineCount.textContent = String(online);
+    offlineCount.textContent = String(snapshot.summary.total - online);
     totalCount.textContent = String(snapshot.summary.total);
-    updatedAt.textContent = "更新于 " + new Date(snapshot.generatedAt).toLocaleTimeString("zh-CN", { hour12: false });
+    updatedAt.textContent = "\u66F4\u65B0\u4E8E " + new Date(snapshot.generatedAt).toLocaleTimeString("zh-CN", { hour12: false });
     errorBox.hidden = true;
   } catch {
     errorBox.hidden = false;

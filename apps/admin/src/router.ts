@@ -1,10 +1,10 @@
-import { createHash, timingSafeEqual } from "node:crypto";
+﻿import { createHash, timingSafeEqual } from "node:crypto";
 
 import { adminCss, adminHtml, adminJavaScript } from "./assets.ts";
 import {
   DeviceStatusRegistry,
   type DeviceId,
-  type Heartbeat,
+  type Heartbeat
 } from "./status.ts";
 
 export type AdminEnvironment = Record<string, string | undefined>;
@@ -108,6 +108,7 @@ function parseHeartbeat(value: unknown): Heartbeat | null {
   };
 }
 
+
 export function createAdminRouter(options: AdminRouterOptions): AdminRouter {
   const now = options.now ?? Date.now;
   return async (request) => {
@@ -141,13 +142,14 @@ export function createAdminRouter(options: AdminRouterOptions): AdminRouter {
       if (heartbeat.deviceId === "web") {
         origin = allowedWebOrigin(request, options.env);
         if (!origin) return json({ error: { code: "ORIGIN_DENIED", message: "Origin not allowed." } }, 403);
+        heartbeat.userAgent = request.headers.get("user-agent") ?? undefined; heartbeat.ip = request.headers.get("x-real-ip") ?? undefined; options.registry.record(heartbeat, now());
       } else {
         const expected = options.env.PF_DEVICE_HEARTBEAT_TOKEN;
         const supplied = request.headers.get("authorization")?.replace(/^Bearer\s+/u, "") ?? "";
         if (!expected || !supplied || !constantTimeEqual(supplied, expected)) return unauthorized();
+        options.registry.record(heartbeat, now());
       }
 
-      options.registry.record(heartbeat, now());
       const result = response(null, 204, "text/plain; charset=utf-8");
       if (origin) {
         result.headers.set("Access-Control-Allow-Origin", origin);

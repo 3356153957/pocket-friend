@@ -1,4 +1,4 @@
-import assert from "node:assert/strict";
+﻿import assert from "node:assert/strict";
 import { describe, test } from "node:test";
 
 import { createAdminRouter } from "../src/router.ts";
@@ -65,7 +65,7 @@ describe("admin router", () => {
     const accepted = await route(heartbeat("http://status.example"));
     assert.equal(accepted.status, 204);
     assert.equal(accepted.headers.get("access-control-allow-origin"), "http://status.example");
-    assert.equal(registry.snapshot(10_001).devices[0]?.activeSessions, 1);
+    assert.equal(registry.snapshot(10_001).devices[0]?.sessions.length, 1);
   });
 
   test("serves self-contained admin assets after authentication", async () => {

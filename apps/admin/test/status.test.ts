@@ -1,4 +1,4 @@
-import assert from "node:assert/strict";
+﻿import assert from "node:assert/strict";
 import { describe, test } from "node:test";
 
 import { DeviceStatusRegistry } from "../src/status.ts";
@@ -33,7 +33,7 @@ describe("DeviceStatusRegistry", () => {
 
     const web = registry.snapshot(60_000).devices[0];
     assert.equal(web?.online, true);
-    assert.equal(web?.activeSessions, 1);
+    assert.equal(web?.sessions.length, 1);
     assert.equal(web?.lastSeenAt, new Date(40_000).toISOString());
   });
 });
