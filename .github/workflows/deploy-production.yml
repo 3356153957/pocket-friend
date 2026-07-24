@@ -27,7 +27,7 @@ jobs:
       PF_ADMIN_SERVICE: pocket-friend-admin.service
       PF_ADMIN_HEALTH_URL: http://127.0.0.1:4311/health
     steps:
-      - name: Repair self-hosted workspace permissions
+      - name: Repair self-hosted workspace
         run: |
           echo "workspace=$GITHUB_WORKSPACE"
           echo "runner_temp=$RUNNER_TEMP"
@@ -46,11 +46,15 @@ jobs:
           esac
 
       - name: Check out the triggering commit
-        # actions/checkout v7.0.1
-        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1
-        with:
-          clean: false
-          persist-credentials: false
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          cd "$GITHUB_WORKSPACE"
+          git init
+          git remote add origin "https://x-access-token:${GH_TOKEN}@github.com/${GITHUB_REPOSITORY}.git"
+          git -c protocol.version=2 fetch --no-tags --depth=1 origin "$GITHUB_SHA"
+          git checkout --detach FETCH_HEAD
+          git remote set-url origin "https://github.com/${GITHUB_REPOSITORY}.git"
 
       - name: Build, publish, and verify production
         run: >-
