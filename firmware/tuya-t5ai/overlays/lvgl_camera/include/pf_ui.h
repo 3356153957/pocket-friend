@@ -29,6 +29,7 @@ void pf_ui_show_page(PF_UI_PAGE_E page);
 void pf_ui_set_peer(char peer_id, bool online);
 void pf_ui_set_confirmed(bool local, bool peer);
 void pf_ui_set_countdown(uint8_t seconds);
+void pf_ui_show_preview_countdown(uint8_t seconds);
 OPERATE_RET pf_ui_preview_start(uint16_t width, uint16_t height);
 void pf_ui_preview_flush(uint16_t width, uint16_t height, uint8_t *yuv);
 void pf_ui_preview_stop(void);

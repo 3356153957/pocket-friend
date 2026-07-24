@@ -405,19 +405,28 @@ static void pf_handle_input(const PF_INPUT_EVENT_T *input)
     case PF_INPUT_OPEN_CAMERA:
         pf_dispatch(PF_EVENT_OPEN_CAMERA);
         break;
-    case PF_INPUT_PHOTO_NAME_SUBMIT:
+    case PF_INPUT_PHOTO_NAME_SUBMIT: {
+        OPERATE_RET preview_rt;
+
         if (sg_state.state == PF_STATE_CAMERA_PREVIEW &&
             !sg_manual_capture_requested) {
             pf_app_build_photo_filename(input->text, sg_photo_filename,
                                         sizeof(sg_photo_filename));
+            preview_rt = pf_ui_preview_start(PF_CAMERA_WIDTH, PF_CAMERA_HEIGHT);
+            if (preview_rt != OPRT_OK &&
+                preview_rt != OPRT_INIT_MORE_THAN_ONCE) {
+                pf_ui_show_error("Camera preview failed. Try again.");
+                break;
+            }
             sg_manual_capture_requested = true;
             sg_manual_result_visible = false;
             pf_input_set_mode(PF_INPUT_MODE_LOCKED);
-            pf_ui_show_page(PF_UI_PAGE_COUNTDOWN);
             pf_camera_prepare_capture_stream();
             pf_start_countdown();
+            pf_ui_show_preview_countdown(sg_countdown_remaining);
         }
         break;
+    }
     case PF_INPUT_PHOTO_NAME_BACK:
         if (sg_state.state == PF_STATE_CAMERA_PREVIEW &&
             !sg_manual_capture_requested) {
@@ -645,7 +654,7 @@ static void pf_handle_timer(PF_EVENT_E timer_event)
         sg_countdown_remaining > 0U) {
         --sg_countdown_remaining;
         if (sg_countdown_remaining > 0U) {
-            pf_ui_set_countdown(sg_countdown_remaining);
+            pf_ui_show_preview_countdown(sg_countdown_remaining);
             if (sg_countdown_remaining == 1U) {
                 (void)pf_motor_play(PF_MOTOR_PATTERN_LOCAL_CONFIRMED);
             }

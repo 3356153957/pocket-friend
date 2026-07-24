@@ -11,6 +11,8 @@
 #include "tal_api.h"
 #include "tal_image.h"
 
+LV_FONT_DECLARE(pf_font_names_16);
+
 #define PF_UI_WIDTH          320
 #define PF_UI_HEIGHT         480
 #define PF_UI_TOUCH_TARGET   64
@@ -37,6 +39,7 @@ typedef struct {
     lv_obj_t *match_status_label;
     lv_obj_t *waiting_status_label;
     lv_obj_t *countdown_label;
+    lv_obj_t *preview_countdown_label;
     lv_obj_t *error_label;
     lv_obj_t *wifi_status_label;
     lv_obj_t *wifi_list;
@@ -543,9 +546,7 @@ static void pf_ui_style_pinyin_candidate_panel(lv_obj_t *cand_panel)
     lv_obj_set_style_pad_all(cand_panel, 4, 0);
     lv_obj_set_style_pad_gap(cand_panel, 0, 0);
     lv_obj_set_style_text_color(cand_panel, lv_color_black(), 0);
-#if LV_FONT_SIMSUN_16_CJK
-    lv_obj_set_style_text_font(cand_panel, &lv_font_simsun_16_cjk, 0);
-#endif
+    lv_obj_set_style_text_font(cand_panel, &pf_font_names_16, 0);
 }
 
 static void pf_ui_create_idle_page(void)
@@ -598,10 +599,8 @@ static void pf_ui_create_photo_name_input_page(void)
     lv_obj_align(sg_ui.photo_name_textarea, LV_ALIGN_TOP_MID, 0, 82);
     lv_textarea_set_one_line(sg_ui.photo_name_textarea, true);
     lv_textarea_set_max_length(sg_ui.photo_name_textarea, 48U);
-#if LV_FONT_SIMSUN_16_CJK
     lv_obj_set_style_text_font(sg_ui.photo_name_textarea,
-                               &lv_font_simsun_16_cjk, 0);
-#endif
+                               &pf_font_names_16, 0);
 
     button = pf_ui_create_button(sg_ui.pages[PF_UI_PAGE_PHOTO_NAME_INPUT],
                                  "Start", PF_INPUT_PHOTO_NAME_SUBMIT,
@@ -625,10 +624,8 @@ static void pf_ui_create_photo_name_input_page(void)
                                sg_ui.photo_name_keyboard);
     lv_ime_pinyin_set_dict(sg_ui.photo_name_ime, sg_pinyin_name_dict);
     lv_ime_pinyin_set_mode(sg_ui.photo_name_ime, LV_IME_PINYIN_MODE_K26);
-#if LV_FONT_SIMSUN_16_CJK
     lv_obj_set_style_text_font(sg_ui.photo_name_ime,
-                               &lv_font_simsun_16_cjk, 0);
-#endif
+                               &pf_font_names_16, 0);
     cand_panel = lv_ime_pinyin_get_cand_panel(sg_ui.photo_name_ime);
     lv_obj_set_parent(cand_panel, sg_ui.pages[PF_UI_PAGE_PHOTO_NAME_INPUT]);
     lv_obj_set_size(cand_panel, PF_UI_PINYIN_CAND_WIDTH,
@@ -661,10 +658,8 @@ static void pf_ui_create_pinyin_input_page(void)
     lv_obj_align(sg_ui.pinyin_textarea, LV_ALIGN_TOP_MID, 0, 82);
     lv_textarea_set_one_line(sg_ui.pinyin_textarea, false);
     lv_textarea_set_max_length(sg_ui.pinyin_textarea, 120U);
-#if LV_FONT_SIMSUN_16_CJK
     lv_obj_set_style_text_font(sg_ui.pinyin_textarea,
-                               &lv_font_simsun_16_cjk, 0);
-#endif
+                               &pf_font_names_16, 0);
 
     sg_ui.pinyin_keyboard =
         lv_keyboard_create(sg_ui.pages[PF_UI_PAGE_PINYIN_INPUT]);
@@ -677,10 +672,8 @@ static void pf_ui_create_pinyin_input_page(void)
     lv_ime_pinyin_set_keyboard(sg_ui.pinyin_ime, sg_ui.pinyin_keyboard);
     lv_ime_pinyin_set_dict(sg_ui.pinyin_ime, sg_pinyin_name_dict);
     lv_ime_pinyin_set_mode(sg_ui.pinyin_ime, LV_IME_PINYIN_MODE_K26);
-#if LV_FONT_SIMSUN_16_CJK
     lv_obj_set_style_text_font(sg_ui.pinyin_ime,
-                               &lv_font_simsun_16_cjk, 0);
-#endif
+                               &pf_font_names_16, 0);
     cand_panel = lv_ime_pinyin_get_cand_panel(sg_ui.pinyin_ime);
     lv_obj_set_parent(cand_panel, sg_ui.pages[PF_UI_PAGE_PINYIN_INPUT]);
     lv_obj_set_size(cand_panel, PF_UI_PINYIN_CAND_WIDTH,
@@ -784,6 +777,24 @@ static void pf_ui_create_preview_page(void)
     sg_ui.preview_canvas = lv_canvas_create(sg_ui.pages[PF_UI_PAGE_PREVIEW]);
     lv_obj_add_flag(sg_ui.preview_canvas, LV_OBJ_FLAG_HIDDEN);
     lv_obj_align(sg_ui.preview_canvas, LV_ALIGN_CENTER, 0, 0);
+
+    sg_ui.preview_countdown_label =
+        lv_label_create(sg_ui.pages[PF_UI_PAGE_PREVIEW]);
+    lv_label_set_text(sg_ui.preview_countdown_label, "3");
+    lv_obj_set_size(sg_ui.preview_countdown_label, 112, 112);
+    lv_obj_set_style_radius(sg_ui.preview_countdown_label, 56, 0);
+    lv_obj_set_style_bg_color(sg_ui.preview_countdown_label,
+                              lv_color_black(), 0);
+    lv_obj_set_style_bg_opa(sg_ui.preview_countdown_label, LV_OPA_70, 0);
+    lv_obj_set_style_text_color(sg_ui.preview_countdown_label,
+                                lv_color_white(), 0);
+    lv_obj_set_style_text_font(sg_ui.preview_countdown_label,
+                               &lv_font_montserrat_24, 0);
+    lv_obj_set_style_text_align(sg_ui.preview_countdown_label,
+                                LV_TEXT_ALIGN_CENTER, 0);
+    lv_obj_set_style_pad_top(sg_ui.preview_countdown_label, 40, 0);
+    lv_obj_align(sg_ui.preview_countdown_label, LV_ALIGN_CENTER, 0, 0);
+    lv_obj_add_flag(sg_ui.preview_countdown_label, LV_OBJ_FLAG_HIDDEN);
 
     button = pf_ui_create_button(sg_ui.pages[PF_UI_PAGE_PREVIEW],
                                  LV_SYMBOL_LEFT, PF_INPUT_CLOSE_CAMERA,
@@ -968,6 +979,19 @@ void pf_ui_set_countdown(uint8_t seconds)
     lv_vendor_disp_unlock();
 }
 
+void pf_ui_show_preview_countdown(uint8_t seconds)
+{
+    if (!sg_ui_initialized) {
+        return;
+    }
+    lv_vendor_disp_lock();
+    lv_label_set_text_fmt(sg_ui.preview_countdown_label, "%u", seconds);
+    lv_obj_clear_flag(sg_ui.preview_countdown_label, LV_OBJ_FLAG_HIDDEN);
+    lv_obj_move_foreground(sg_ui.preview_countdown_label);
+    lv_screen_load(sg_ui.pages[PF_UI_PAGE_PREVIEW]);
+    lv_vendor_disp_unlock();
+}
+
 static void pf_ui_camera_frame_cb(uint8_t *yuv, uint16_t width,
                                   uint16_t height)
 {
@@ -1039,9 +1063,11 @@ OPERATE_RET pf_ui_preview_start(uint16_t width, uint16_t height)
     lv_obj_set_size(sg_ui.preview_canvas, width, height);
     lv_obj_align(sg_ui.preview_canvas, LV_ALIGN_CENTER, 0, 0);
     lv_obj_clear_flag(sg_ui.preview_canvas, LV_OBJ_FLAG_HIDDEN);
+    lv_obj_add_flag(sg_ui.preview_countdown_label, LV_OBJ_FLAG_HIDDEN);
     lv_screen_load(sg_ui.pages[PF_UI_PAGE_PREVIEW]);
     lv_vendor_disp_unlock();
     pf_camera_set_frame_cb(pf_ui_camera_frame_cb);
+    pf_camera_preview_enable(true);
     tal_mutex_unlock(sg_preview_mutex);
     return OPRT_OK;
 }
@@ -1102,6 +1128,7 @@ void pf_ui_preview_stop(void)
     }
     lv_vendor_disp_lock();
     lv_obj_add_flag(sg_ui.preview_canvas, LV_OBJ_FLAG_HIDDEN);
+    lv_obj_add_flag(sg_ui.preview_countdown_label, LV_OBJ_FLAG_HIDDEN);
     lv_vendor_disp_unlock();
     tal_mutex_unlock(sg_preview_mutex);
     tal_psram_free(buffer);

@@ -277,17 +277,22 @@ foreach ($captureStreamContract in @(
 
 $uiHeaderPath = Join-Path $root 'overlays\lvgl_camera\include\pf_ui.h'
 $uiSourcePath = Join-Path $root 'overlays\lvgl_camera\src\pf_ui.c'
+$nameFontPath = Join-Path $root 'overlays\lvgl_camera\src\pf_font_names_16.c'
 
 foreach ($path in @($uiHeaderPath, $uiSourcePath)) {
     if (-not (Test-Path -LiteralPath $path)) {
         throw "Missing UI source file: $path"
     }
 }
+if (-not (Test-Path -LiteralPath $nameFontPath)) {
+    throw "Missing generated pinyin name font: $nameFontPath"
+}
 
 $ui = @(
-    Get-Content -LiteralPath $uiHeaderPath -Raw
-    Get-Content -LiteralPath $uiSourcePath -Raw
+    Get-Content -LiteralPath $uiHeaderPath -Raw -Encoding utf8
+    Get-Content -LiteralPath $uiSourcePath -Raw -Encoding utf8
 ) -join "`n"
+$nameFont = Get-Content -LiteralPath $nameFontPath -Raw -Encoding utf8
 
 $uiRequired = @(
     'lv_vendor_init(DISPLAY_NAME)'
@@ -321,7 +326,9 @@ $uiRequired = @(
     'lv_ime_pinyin_create'
     'lv_ime_pinyin_set_keyboard'
     'lv_ime_pinyin_get_cand_panel'
-    'lv_font_simsun_16_cjk'
+    'LV_FONT_DECLARE(pf_font_names_16)'
+    '&pf_font_names_16'
+    'pf_ui_show_preview_countdown'
     'pf_ui_create_pinyin_input_page'
     'pf_ui_wifi_set_results'
     'pf_ui_wifi_show_connecting'
@@ -340,6 +347,9 @@ $rotationUseCount = ([regex]::Matches(
 )).Count
 if ($rotationUseCount -lt 3) {
     throw 'A-board rotation must cover both preview and decoded photo output'
+}
+if ($ui -notmatch 'pf_camera_set_frame_cb\(pf_ui_camera_frame_cb\);[\s\S]*pf_camera_preview_enable\(true\);') {
+    throw 'Live preview start must enable camera frame delivery after installing the frame callback'
 }
 
 if ($ui -notmatch '#define\s+PF_UI_TOUCH_TARGET\s+64') {
@@ -393,6 +403,22 @@ if ($candPanelSizeUseCount -ne 2) {
 
 if ($ui -notmatch 'lv_obj_set_style_pad_all\(\s*cand_panel,\s*4,\s*0\s*\)') {
     throw 'Pinyin candidate panel must use compact padding so more candidates fit'
+}
+
+$dictMatches = [regex]::Matches($ui, '\{\s*"[^"]+",\s*"([^"]*)"\s*\}')
+$dictChars = New-Object 'System.Collections.Generic.HashSet[string]'
+foreach ($match in $dictMatches) {
+    foreach ($ch in $match.Groups[1].Value.ToCharArray()) {
+        if ([int][char]$ch -ge 0x4E00) {
+            [void]$dictChars.Add([string]$ch)
+        }
+    }
+}
+foreach ($ch in $dictChars) {
+    $code = 'U+{0:X4}' -f [int][char]$ch
+    if (-not $nameFont.Contains($code)) {
+        throw "Pinyin name font is missing glyph $code $ch"
+    }
 }
 
 $configPath = Join-Path $root 'config\TUYA_T5AI_BOARD_LCD_3.5.config'
@@ -588,6 +614,20 @@ $manualCountdownIndex = $app.IndexOf(
 if ($photoNameSubmitIndex -lt 0 -or $photoFilenameIndex -lt 0 -or
     $manualCountdownIndex -lt 0) {
     throw 'Photo name submit must build the filename and start a countdown before capture'
+}
+$uploadIndex = $app.IndexOf(
+    'pf_server_photo_upload(jpeg, len, sg_photo_filename)')
+if ($uploadIndex -lt 0) {
+    throw 'Manual photo upload filename must come from the submitted photographer name'
+}
+if ($app -notmatch 'case PF_INPUT_PHOTO_NAME_SUBMIT:[\s\S]*pf_ui_preview_start\(PF_CAMERA_WIDTH,\s*PF_CAMERA_HEIGHT\)[\s\S]*pf_start_countdown\(\);') {
+    throw 'Manual name capture must start the live preview before the visible countdown'
+}
+if ($app -match 'case PF_INPUT_PHOTO_NAME_SUBMIT:[\s\S]*pf_ui_show_page\(PF_UI_PAGE_COUNTDOWN\);[\s\S]*pf_camera_prepare_capture_stream\(\);') {
+    throw 'Manual name capture countdown must keep the live preview visible'
+}
+if ($app -notmatch 'case PF_INPUT_PHOTO_NAME_SUBMIT:[\s\S]*pf_ui_show_preview_countdown\(sg_countdown_remaining\);') {
+    throw 'Manual name capture must show countdown over the live preview'
 }
 if ($app -notmatch 'sg_manual_capture_requested &&[\s\S]*sg_state\.state == PF_STATE_CAMERA_PREVIEW[\s\S]*tal_semaphore_post\(sg_capture_request\);') {
     throw 'Manual capture must be triggered only after the countdown reaches zero'
