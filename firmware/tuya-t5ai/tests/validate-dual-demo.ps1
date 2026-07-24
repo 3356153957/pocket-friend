@@ -127,4 +127,37 @@ foreach ($symbol in $motorInputSymbols) {
     }
 }
 
+$cameraHeaderPath = Join-Path $root 'overlays\lvgl_camera\include\pf_camera.h'
+$cameraSourcePath = Join-Path $root 'overlays\lvgl_camera\src\pf_camera.c'
+
+foreach ($path in @($cameraHeaderPath, $cameraSourcePath)) {
+    if (-not (Test-Path -LiteralPath $path)) {
+        throw "Missing camera source file: $path"
+    }
+}
+
+$camera = @(
+    Get-Content -LiteralPath $cameraHeaderPath -Raw
+    Get-Content -LiteralPath $cameraSourcePath -Raw
+) -join "`n"
+
+$cameraRequired = @(
+    'TDL_CAMERA_FMT_JPEG_YUV422_BOTH'
+    'pf_camera_preview_enable'
+    'pf_camera_set_frame_cb'
+    'pf_camera_capture_jpeg'
+    'pf_camera_release_jpeg'
+    'PF_CAPTURE_TIMEOUT_MS'
+    'tal_semaphore_wait'
+    'tal_mutex_lock'
+    'tal_psram_malloc'
+    'tal_psram_free'
+)
+
+foreach ($symbol in $cameraRequired) {
+    if (-not $camera.Contains($symbol)) {
+        throw "Missing camera lifecycle contract: $symbol"
+    }
+}
+
 Write-Host 'PASS: dual-demo source contract.'
