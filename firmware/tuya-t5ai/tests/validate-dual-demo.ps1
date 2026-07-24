@@ -315,4 +315,31 @@ foreach ($forbidden in @('tkl_gpio_', 'tdl_camera_', 'tdl_disp_',
     }
 }
 
+$buildScriptPath = Join-Path $root 'scripts\build-dual-demo.ps1'
+if (-not (Test-Path -LiteralPath $buildScriptPath)) {
+    throw "Missing dual-demo build script: $buildScriptPath"
+}
+
+$buildScript = Get-Content -LiteralPath $buildScriptPath -Raw
+$buildRequired = @(
+    "param([string]`$TuyaOpenRoot = 'D:\TuyaOpen')"
+    'PF_WIFI_SSID'
+    'PF_WIFI_PASSWORD'
+    "-DeviceId `$deviceId"
+    'tos.py clean -f'
+    'tos.py build'
+    'lvgl_camera_QIO_1.0.0.bin'
+    'pocket-friend-demo'
+    'device-a.bin'
+    'device-b.bin'
+    '1048576'
+    'Remove-Item -LiteralPath $destination'
+)
+
+foreach ($symbol in $buildRequired) {
+    if (-not $buildScript.Contains($symbol)) {
+        throw "Missing dual build contract: $symbol"
+    }
+}
+
 Write-Host 'PASS: dual-demo source contract.'
