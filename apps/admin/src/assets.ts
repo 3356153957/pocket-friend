@@ -119,6 +119,7 @@ h2 { margin: 0; font-size: 16px; letter-spacing: 0; }
 .photo-frame { position: relative; display: grid; place-items: center; aspect-ratio: 4 / 3; background: #eef2ef; border: 1px solid #d9e0dc; overflow: hidden; }
 .photo-frame img { width: 100%; height: 100%; object-fit: contain; display: none; background: #111; }
 .photo-frame.has-photo img { display: block; }
+.photo-frame.rotate-180 img { transform: rotate(180deg); }
 .photo-empty { color: #87928d; font-size: 13px; font-weight: 700; }
 .photo-frame.has-photo .photo-empty { display: none; }
 .load-error { margin-top: 12px; padding: 12px 14px; color: #8f271f; background: #fff0ee; border-left: 4px solid #cf4437; font-size: 13px; }
@@ -136,7 +137,7 @@ const totalCount = document.querySelector("#total-count");
 const updatedAt = document.querySelector("#updated-at");
 const photoUpdatedAt = document.querySelector("#photo-updated-at");
 const photoViews = [
-  { endpoint: "/api/photos/board-a/latest", img: document.querySelector("#photo-board-a"), empty: document.querySelector("#photo-board-a-empty") },
+  { endpoint: "/api/photos/board-a/latest", img: document.querySelector("#photo-board-a"), empty: document.querySelector("#photo-board-a-empty"), className: "rotate-180" },
   { endpoint: "/api/photos/board-b/latest", img: document.querySelector("#photo-board-b"), empty: document.querySelector("#photo-board-b-empty") }
 ];
 
@@ -235,6 +236,7 @@ function renderDevice(device) {
 
 function refreshPhoto(view, timestamp) {
   var frame = view.img.parentElement;
+  if (view.className) frame.classList.add(view.className);
   view.img.onload = function() {
     frame.classList.add("has-photo");
   };

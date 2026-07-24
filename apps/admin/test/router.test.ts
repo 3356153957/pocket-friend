@@ -141,5 +141,6 @@ describe("admin router", () => {
     assert.match(javascript, /api\/status/);
     assert.match(javascript, /api\/photos\/board-a\/latest/);
     assert.match(javascript, /api\/photos\/board-b\/latest/);
+    assert.match(javascript, /rotate-180/);
   });
 });
