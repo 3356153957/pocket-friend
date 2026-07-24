@@ -10,7 +10,8 @@ extern "C" {
 OPERATE_RET pf_server_heartbeat_init(void);
 void pf_server_heartbeat_network_up(void);
 void pf_server_heartbeat_network_down(void);
-OPERATE_RET pf_server_photo_upload(const uint8_t *jpeg, uint32_t len);
+OPERATE_RET pf_server_photo_upload(const uint8_t *jpeg, uint32_t len,
+                                   const char *filename);
 
 #ifdef __cplusplus
 }

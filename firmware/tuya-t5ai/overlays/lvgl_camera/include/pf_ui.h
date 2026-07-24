@@ -17,6 +17,7 @@ typedef enum {
     PF_UI_PAGE_RESULT,
     PF_UI_PAGE_DND,
     PF_UI_PAGE_ERROR,
+    PF_UI_PAGE_PHOTO_NAME_INPUT,
     PF_UI_PAGE_PINYIN_INPUT,
     PF_UI_PAGE_WIFI_SCAN,
     PF_UI_PAGE_WIFI_PASSWORD,
@@ -41,6 +42,7 @@ void pf_ui_wifi_show_password(const char *ssid);
 void pf_ui_wifi_show_connecting(const char *ssid);
 void pf_ui_wifi_show_connected(const char *ip);
 void pf_ui_wifi_show_failed(const char *message);
+void pf_ui_show_photo_name_input(void);
 
 #ifdef __cplusplus
 }

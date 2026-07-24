@@ -7,6 +7,43 @@
 #define PF_SERVER_HEARTBEAT_TIMEOUT_MS 5000U
 #define PF_SERVER_PHOTO_TIMEOUT_MS 10000U
 #define PF_SERVER_HEARTBEAT_STACK_SIZE 4096U
+#define PF_SERVER_FILENAME_ENCODED_MAX 384U
+
+static bool pf_server_url_is_unreserved(char ch)
+{
+    return (ch >= 'A' && ch <= 'Z') ||
+           (ch >= 'a' && ch <= 'z') ||
+           (ch >= '0' && ch <= '9') ||
+           ch == '-' || ch == '_' || ch == '.' || ch == '~';
+}
+
+static void pf_server_url_encode(const char *src, char *dst, size_t dst_size)
+{
+    static const char hex[] = "0123456789ABCDEF";
+    size_t out = 0U;
+
+    if (dst == NULL || dst_size == 0U) {
+        return;
+    }
+    if (src == NULL) {
+        dst[0] = '\0';
+        return;
+    }
+
+    while (*src != '\0' && out + 1U < dst_size) {
+        unsigned char ch = (unsigned char)*src++;
+        if (pf_server_url_is_unreserved((char)ch)) {
+            dst[out++] = (char)ch;
+        } else if (out + 3U < dst_size) {
+            dst[out++] = '%';
+            dst[out++] = hex[(ch >> 4) & 0x0FU];
+            dst[out++] = hex[ch & 0x0FU];
+        } else {
+            break;
+        }
+    }
+    dst[out] = '\0';
+}
 
 #if PF_SERVER_HEARTBEAT_ENABLED
 static THREAD_HANDLE sg_server_heartbeat_thread;
@@ -125,11 +162,13 @@ void pf_server_heartbeat_network_down(void)
     sg_server_heartbeat_network_ready = false;
 }
 
-OPERATE_RET pf_server_photo_upload(const uint8_t *jpeg, uint32_t len)
+OPERATE_RET pf_server_photo_upload(const uint8_t *jpeg, uint32_t len,
+                                   const char *filename)
 {
 #if PF_SERVER_HEARTBEAT_ENABLED
     char authorization[160];
-    char path[48];
+    char encoded_filename[PF_SERVER_FILENAME_ENCODED_MAX];
+    char path[448];
     http_client_response_t response = {0};
     http_client_status_t status;
     http_client_header_t headers[] = {
@@ -146,8 +185,10 @@ OPERATE_RET pf_server_photo_upload(const uint8_t *jpeg, uint32_t len)
     }
     snprintf(authorization, sizeof(authorization), "Bearer %s",
              PF_DEVICE_HEARTBEAT_TOKEN);
-    snprintf(path, sizeof(path), "/api/photos?deviceId=board-%c",
-             (char)(PF_DEVICE_ID + ('a' - 'A')));
+    pf_server_url_encode(filename != NULL ? filename : "photo.jpg",
+                         encoded_filename, sizeof(encoded_filename));
+    snprintf(path, sizeof(path), "/api/photos?deviceId=board-%c&filename=%s",
+             (char)(PF_DEVICE_ID + ('a' - 'A')), encoded_filename);
 
     tal_mutex_lock(sg_server_request_mutex);
     status = http_client_request(
@@ -180,6 +221,7 @@ OPERATE_RET pf_server_photo_upload(const uint8_t *jpeg, uint32_t len)
 #else
     (void)jpeg;
     (void)len;
+    (void)filename;
     return OPRT_RESOURCE_NOT_READY;
 #endif
 }

@@ -15,6 +15,8 @@ typedef enum {
     PF_INPUT_TOGGLE_DND,
     PF_INPUT_OPEN_CAMERA,
     PF_INPUT_CAPTURE_PHOTO,
+    PF_INPUT_PHOTO_NAME_SUBMIT,
+    PF_INPUT_PHOTO_NAME_BACK,
     PF_INPUT_CLOSE_CAMERA,
     PF_INPUT_RETRY,
     PF_INPUT_OPEN_PINYIN,
@@ -46,6 +48,7 @@ typedef void (*PF_INPUT_CB)(const PF_INPUT_EVENT_T *event, void *ctx);
 
 OPERATE_RET pf_input_init(PF_INPUT_CB cb, void *ctx);
 void pf_input_post_from_ui(PF_INPUT_ACTION_E action);
+void pf_input_post_text_from_ui(PF_INPUT_ACTION_E action, const char *text);
 void pf_input_post_wifi_from_ui(PF_INPUT_ACTION_E action,
                                 uint8_t index, const char *text);
 void pf_input_set_mode(PF_INPUT_MODE_E mode);

@@ -210,6 +210,8 @@ $motorInputSymbols = @(
     'PF_INPUT_TOGGLE_DND'
     'PF_INPUT_OPEN_CAMERA'
     'PF_INPUT_CAPTURE_PHOTO'
+    'PF_INPUT_PHOTO_NAME_SUBMIT'
+    'PF_INPUT_PHOTO_NAME_BACK'
     'PF_INPUT_CLOSE_CAMERA'
     'PF_INPUT_RETRY'
     'PF_INPUT_OPEN_WIFI'
@@ -218,6 +220,7 @@ $motorInputSymbols = @(
     'PF_INPUT_WIFI_CONNECT'
     'PF_INPUT_WIFI_RETRY'
     'PF_INPUT_EVENT_T'
+    'pf_input_post_text_from_ui'
     'pf_input_post_wifi_from_ui'
     'pf_input_init'
     'pf_input_post_from_ui'
@@ -298,6 +301,7 @@ $uiRequired = @(
     'PF_UI_PAGE_RESULT'
     'PF_UI_PAGE_DND'
     'PF_UI_PAGE_ERROR'
+    'PF_UI_PAGE_PHOTO_NAME_INPUT'
     'PF_UI_PAGE_PINYIN_INPUT'
     'PF_UI_PAGE_WIFI_SCAN'
     'PF_UI_PAGE_WIFI_PASSWORD'
@@ -310,6 +314,8 @@ $uiRequired = @(
     'pf_ui_camera_frame_cb'
     'pf_camera_set_frame_cb(pf_ui_camera_frame_cb)'
     'LV_SYMBOL_IMAGE, PF_INPUT_CAPTURE_PHOTO'
+    'pf_ui_create_photo_name_input_page'
+    'pf_ui_show_photo_name_input'
     'lv_textarea_set_password_mode'
     'lv_textarea_set_max_length'
     'lv_keyboard_create'
@@ -350,8 +356,12 @@ if ($ui -notmatch 'lv_obj_set_parent\(\s*cand_panel,\s*sg_ui\.pages\[PF_UI_PAGE_
     throw 'Pinyin candidate panel must be reparented to the pinyin page'
 }
 
-if ($ui -notmatch 'lv_obj_set_style_text_color\(\s*cand_panel,\s*lv_color_hex\(PF_UI_COLOR_TEXT\),\s*0\s*\)') {
-    throw 'Pinyin candidate panel must use visible text on the dark page'
+if ($ui -notmatch 'lv_obj_set_style_bg_color\(\s*cand_panel,\s*lv_color_white\(\),\s*0\s*\)') {
+    throw 'Pinyin candidate panel must use a white background'
+}
+
+if ($ui -notmatch 'lv_obj_set_style_text_color\(\s*cand_panel,\s*lv_color_black\(\),\s*0\s*\)') {
+    throw 'Pinyin candidate panel must use black text on the white candidate panel'
 }
 
 if ($ui -notmatch 'lv_obj_set_style_bg_opa\(\s*cand_panel,\s*LV_OPA_COVER,\s*0\s*\)') {
@@ -447,6 +457,8 @@ foreach ($symbol in @(
     'pf_server_photo_upload'
     'image/jpeg'
     '/api/photos?deviceId=board-'
+    '&filename='
+    'pf_server_url_encode'
 )) {
     if (-not $serverHeartbeat.Contains($symbol)) {
         throw "Missing server heartbeat contract: $symbol"
@@ -495,6 +507,10 @@ $appRequired = @(
     'pf_server_heartbeat_network_up'
     'pf_server_heartbeat_network_down'
     'PF_INPUT_CAPTURE_PHOTO'
+    'PF_INPUT_PHOTO_NAME_SUBMIT'
+    'pf_ui_show_photo_name_input'
+    'sg_photo_filename'
+    'pf_app_build_photo_filename'
     'sg_manual_capture_requested'
     'pf_server_photo_upload'
     'PF_MSG_CAPTURE_PREPARE'
@@ -518,6 +534,20 @@ if (-not $app.Contains('sg_wifi_selected >= sg_wifi_ap_count')) {
 }
 if ($app -notmatch 'case PF_STATE_COUNTDOWN:[\s\S]*pf_camera_prepare_capture_stream\(\)') {
     throw 'Synchronized capture must warm the camera stream during the countdown'
+}
+if ($app -notmatch 'case PF_INPUT_CAPTURE_PHOTO:[\s\S]*pf_ui_show_photo_name_input\(\);[\s\S]*break;') {
+    throw 'Manual capture must ask for the photographer name before taking the photo'
+}
+$photoNameSubmitIndex = $app.IndexOf('case PF_INPUT_PHOTO_NAME_SUBMIT:')
+$photoFilenameIndex = $app.IndexOf(
+    'pf_app_build_photo_filename(input->text, sg_photo_filename',
+    $photoNameSubmitIndex)
+$photoCapturePostIndex = $app.IndexOf(
+    'tal_semaphore_post(sg_capture_request);',
+    $photoFilenameIndex)
+if ($photoNameSubmitIndex -lt 0 -or $photoFilenameIndex -lt 0 -or
+    $photoCapturePostIndex -lt 0) {
+    throw 'Photo name submit must build the filename from the typed name before capture'
 }
 if ($app -notmatch 'sg_state\.state == PF_STATE_PEER_FOUND[\s\S]*sg_state\.state == PF_STATE_WAITING_CONFIRM[\s\S]*pf_dispatch\(PF_EVENT_RESET\);[\s\S]*return;') {
     throw 'Peer discovery or confirmation timeout must reset to idle instead of showing capture failed'

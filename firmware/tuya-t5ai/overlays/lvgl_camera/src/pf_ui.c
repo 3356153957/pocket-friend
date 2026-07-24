@@ -44,6 +44,9 @@ typedef struct {
     lv_obj_t *wifi_keyboard;
     lv_obj_t *wifi_connect_label;
     lv_obj_t *wifi_retry_button;
+    lv_obj_t *photo_name_textarea;
+    lv_obj_t *photo_name_keyboard;
+    lv_obj_t *photo_name_ime;
     lv_obj_t *pinyin_textarea;
     lv_obj_t *pinyin_keyboard;
     lv_obj_t *pinyin_ime;
@@ -82,6 +85,20 @@ static void pf_ui_pinyin_clear_cb(lv_event_t *event)
 {
     (void)event;
     lv_textarea_set_text(sg_ui.pinyin_textarea, "");
+}
+
+static void pf_ui_photo_name_submit_cb(lv_event_t *event)
+{
+    const char *name = lv_textarea_get_text(sg_ui.photo_name_textarea);
+    (void)event;
+    pf_input_post_text_from_ui(PF_INPUT_PHOTO_NAME_SUBMIT, name);
+    lv_textarea_set_text(sg_ui.photo_name_textarea, "");
+}
+
+static void pf_ui_photo_name_clear_cb(lv_event_t *event)
+{
+    (void)event;
+    lv_textarea_set_text(sg_ui.photo_name_textarea, "");
 }
 
 static void pf_ui_button_cb(lv_event_t *event)
@@ -150,6 +167,17 @@ static lv_obj_t *pf_ui_create_button(lv_obj_t *parent, const char *text,
     return button;
 }
 
+static void pf_ui_style_pinyin_candidate_panel(lv_obj_t *cand_panel)
+{
+    lv_obj_set_style_bg_color(cand_panel, lv_color_white(), 0);
+    lv_obj_set_style_bg_opa(cand_panel, LV_OPA_COVER, 0);
+    lv_obj_set_style_radius(cand_panel, 8, 0);
+    lv_obj_set_style_text_color(cand_panel, lv_color_black(), 0);
+#if LV_FONT_SIMSUN_16_CJK
+    lv_obj_set_style_text_font(cand_panel, &lv_font_simsun_16_cjk, 0);
+#endif
+}
+
 static void pf_ui_create_idle_page(void)
 {
     lv_obj_t *button;
@@ -174,6 +202,68 @@ static void pf_ui_create_idle_page(void)
     lv_obj_set_style_text_color(sg_ui.wifi_status_label,
                                 lv_color_hex(PF_UI_COLOR_MUTED), 0);
     lv_obj_align(sg_ui.wifi_status_label, LV_ALIGN_TOP_RIGHT, -76, 28);
+}
+
+static void pf_ui_create_photo_name_input_page(void)
+{
+    lv_obj_t *button;
+    lv_obj_t *cand_panel;
+
+    sg_ui.pages[PF_UI_PAGE_PHOTO_NAME_INPUT] = pf_ui_create_page("Name");
+    button = pf_ui_create_button(sg_ui.pages[PF_UI_PAGE_PHOTO_NAME_INPUT],
+                                 LV_SYMBOL_LEFT, PF_INPUT_PHOTO_NAME_BACK,
+                                 PF_UI_COLOR_SURFACE, true);
+    lv_obj_align(button, LV_ALIGN_TOP_LEFT, 8, 8);
+    button = pf_ui_create_button(sg_ui.pages[PF_UI_PAGE_PHOTO_NAME_INPUT],
+                                 LV_SYMBOL_TRASH, PF_INPUT_PHOTO_NAME_BACK,
+                                 PF_UI_COLOR_SURFACE, true);
+    lv_obj_align(button, LV_ALIGN_TOP_RIGHT, -8, 8);
+    lv_obj_remove_event_cb(button, pf_ui_button_cb);
+    lv_obj_add_event_cb(button, pf_ui_photo_name_clear_cb,
+                        LV_EVENT_CLICKED, NULL);
+
+    sg_ui.photo_name_textarea =
+        lv_textarea_create(sg_ui.pages[PF_UI_PAGE_PHOTO_NAME_INPUT]);
+    lv_obj_set_size(sg_ui.photo_name_textarea, 288, 64);
+    lv_obj_align(sg_ui.photo_name_textarea, LV_ALIGN_TOP_MID, 0, 82);
+    lv_textarea_set_one_line(sg_ui.photo_name_textarea, true);
+    lv_textarea_set_max_length(sg_ui.photo_name_textarea, 48U);
+#if LV_FONT_SIMSUN_16_CJK
+    lv_obj_set_style_text_font(sg_ui.photo_name_textarea,
+                               &lv_font_simsun_16_cjk, 0);
+#endif
+
+    button = pf_ui_create_button(sg_ui.pages[PF_UI_PAGE_PHOTO_NAME_INPUT],
+                                 "Take", PF_INPUT_PHOTO_NAME_SUBMIT,
+                                 PF_UI_COLOR_PRIMARY, false);
+    lv_obj_set_size(button, 136, 52);
+    lv_obj_align(button, LV_ALIGN_TOP_MID, 0, 158);
+    lv_obj_remove_event_cb(button, pf_ui_button_cb);
+    lv_obj_add_event_cb(button, pf_ui_photo_name_submit_cb,
+                        LV_EVENT_CLICKED, NULL);
+
+    sg_ui.photo_name_keyboard =
+        lv_keyboard_create(sg_ui.pages[PF_UI_PAGE_PHOTO_NAME_INPUT]);
+    lv_obj_set_size(sg_ui.photo_name_keyboard, 304, 220);
+    lv_obj_align(sg_ui.photo_name_keyboard, LV_ALIGN_BOTTOM_MID, 0, -8);
+    lv_keyboard_set_textarea(sg_ui.photo_name_keyboard,
+                             sg_ui.photo_name_textarea);
+
+    sg_ui.photo_name_ime =
+        lv_ime_pinyin_create(sg_ui.pages[PF_UI_PAGE_PHOTO_NAME_INPUT]);
+    lv_ime_pinyin_set_keyboard(sg_ui.photo_name_ime,
+                               sg_ui.photo_name_keyboard);
+    lv_ime_pinyin_set_mode(sg_ui.photo_name_ime, LV_IME_PINYIN_MODE_K26);
+#if LV_FONT_SIMSUN_16_CJK
+    lv_obj_set_style_text_font(sg_ui.photo_name_ime,
+                               &lv_font_simsun_16_cjk, 0);
+#endif
+    cand_panel = lv_ime_pinyin_get_cand_panel(sg_ui.photo_name_ime);
+    lv_obj_set_parent(cand_panel, sg_ui.pages[PF_UI_PAGE_PHOTO_NAME_INPUT]);
+    lv_obj_set_size(cand_panel, 304, 36);
+    lv_obj_align_to(cand_panel, sg_ui.photo_name_keyboard,
+                    LV_ALIGN_OUT_TOP_MID, 0, -4);
+    pf_ui_style_pinyin_candidate_panel(cand_panel);
 }
 
 static void pf_ui_create_pinyin_input_page(void)
@@ -223,13 +313,7 @@ static void pf_ui_create_pinyin_input_page(void)
     lv_obj_set_size(cand_panel, 304, 36);
     lv_obj_align_to(cand_panel, sg_ui.pinyin_keyboard,
                     LV_ALIGN_OUT_TOP_MID, 0, -4);
-    lv_obj_set_style_bg_color(cand_panel, lv_color_hex(PF_UI_COLOR_SURFACE), 0);
-    lv_obj_set_style_bg_opa(cand_panel, LV_OPA_COVER, 0);
-    lv_obj_set_style_radius(cand_panel, 8, 0);
-    lv_obj_set_style_text_color(cand_panel, lv_color_hex(PF_UI_COLOR_TEXT), 0);
-#if LV_FONT_SIMSUN_16_CJK
-    lv_obj_set_style_text_font(cand_panel, &lv_font_simsun_16_cjk, 0);
-#endif
+    pf_ui_style_pinyin_candidate_panel(cand_panel);
 }
 
 static void pf_ui_create_wifi_scan_page(void)
@@ -455,6 +539,7 @@ OPERATE_RET pf_ui_init(void)
     pf_ui_create_result_page();
     pf_ui_create_dnd_page();
     pf_ui_create_error_page();
+    pf_ui_create_photo_name_input_page();
     pf_ui_create_pinyin_input_page();
     pf_ui_create_wifi_scan_page();
     pf_ui_create_wifi_password_page();
@@ -710,6 +795,17 @@ void pf_ui_show_error(const char *message)
     lv_label_set_text(sg_ui.error_label,
                       message != NULL ? message : "Please try again");
     lv_screen_load(sg_ui.pages[PF_UI_PAGE_ERROR]);
+    lv_vendor_disp_unlock();
+}
+
+void pf_ui_show_photo_name_input(void)
+{
+    if (!sg_ui_initialized) {
+        return;
+    }
+    lv_vendor_disp_lock();
+    lv_textarea_set_text(sg_ui.photo_name_textarea, "");
+    lv_screen_load(sg_ui.pages[PF_UI_PAGE_PHOTO_NAME_INPUT]);
     lv_vendor_disp_unlock();
 }
 

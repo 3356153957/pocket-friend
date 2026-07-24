@@ -10,11 +10,14 @@
 #include "pf_ui.h"
 #include "pf_wifi_config.h"
 #include "tal_api.h"
+#include "tal_time_service.h"
 
 #define PF_APP_QUEUE_LENGTH 16
 #define PF_APP_TASK_STACK_SIZE 6144U
 #define PF_CAPTURE_TASK_STACK_SIZE 4096U
 #define PF_RESULT_DISPLAY_MS 5000U
+#define PF_PHOTO_FILENAME_MAX 128U
+#define PF_PHOTO_NAME_FALLBACK "guest"
 
 typedef enum {
     PF_APP_EVENT_INPUT,
@@ -51,6 +54,7 @@ static PF_STATE_CONTEXT_T sg_state;
 static uint8_t sg_countdown_remaining;
 static uint8_t *sg_photo_jpeg;
 static uint32_t sg_photo_len;
+static char sg_photo_filename[PF_PHOTO_FILENAME_MAX];
 static OPERATE_RET sg_last_capture_result = OPRT_OK;
 static bool sg_app_started;
 static PF_WIFI_AP_T sg_wifi_aps[PF_WIFI_MAX_APS];
@@ -129,7 +133,7 @@ static void pf_capture_task(void *arg)
             sg_photo_len = len;
             if (event.data.capture.manual) {
                 event.data.capture.upload_result =
-                    pf_server_photo_upload(jpeg, len);
+                    pf_server_photo_upload(jpeg, len, sg_photo_filename);
             }
         }
         if (tal_queue_post(sg_app_queue, &event, 0) != OPRT_OK) {
@@ -162,6 +166,68 @@ static void pf_safe_reset(void)
     pf_release_photo();
     sg_manual_capture_requested = false;
     sg_manual_result_visible = false;
+    memset(sg_photo_filename, 0, sizeof(sg_photo_filename));
+}
+
+static bool pf_app_photo_name_byte_allowed(unsigned char ch)
+{
+    return ch >= 0x80U ||
+           (ch >= 0x20U && ch != '/' && ch != '\\' && ch != ':' &&
+            ch != '*' && ch != '?' && ch != '"' && ch != '<' &&
+            ch != '>' && ch != '|');
+}
+
+static void pf_app_copy_photo_name(const char *name, char *out,
+                                   size_t out_size)
+{
+    size_t len = 0U;
+
+    if (out == NULL || out_size == 0U) {
+        return;
+    }
+    out[0] = '\0';
+    if (name != NULL) {
+        while (*name == ' ' || *name == '\t' ||
+               *name == '\r' || *name == '\n') {
+            ++name;
+        }
+        while (*name != '\0' && len + 1U < out_size) {
+            unsigned char ch = (unsigned char)*name++;
+            out[len++] = pf_app_photo_name_byte_allowed(ch) ? (char)ch : '_';
+        }
+        while (len > 0U &&
+               (out[len - 1U] == ' ' || out[len - 1U] == '\t' ||
+                out[len - 1U] == '\r' || out[len - 1U] == '\n')) {
+            --len;
+        }
+        out[len] = '\0';
+    }
+    if (len == 0U) {
+        snprintf(out, out_size, "%s", PF_PHOTO_NAME_FALLBACK);
+    }
+}
+
+static void pf_app_build_photo_filename(const char *name, char *filename,
+                                        size_t filename_size)
+{
+    char clean_name[PF_WIFI_PASSWORD_MAX + 1U];
+    POSIX_TM_S local_time = {0};
+
+    if (filename == NULL || filename_size == 0U) {
+        return;
+    }
+    pf_app_copy_photo_name(name, clean_name, sizeof(clean_name));
+    if (tal_time_check_time_sync() == OPRT_OK &&
+        tal_time_get_local_time_custom(0, &local_time) == OPRT_OK) {
+        snprintf(filename, filename_size,
+                 "%s_%04d%02d%02d_%02d%02d%02d.jpg",
+                 clean_name, local_time.tm_year + 1900,
+                 local_time.tm_mon + 1, local_time.tm_mday,
+                 local_time.tm_hour, local_time.tm_min, local_time.tm_sec);
+    } else {
+        snprintf(filename, filename_size, "%s_%lu.jpg", clean_name,
+                 (unsigned long)tal_system_get_millisecond());
+    }
 }
 
 static void pf_start_countdown(void)
@@ -343,11 +409,27 @@ static void pf_handle_input(const PF_INPUT_EVENT_T *input)
     case PF_INPUT_CAPTURE_PHOTO:
         if (sg_state.state == PF_STATE_CAMERA_PREVIEW &&
             !sg_manual_capture_requested) {
+            pf_input_set_mode(PF_INPUT_MODE_LOCKED);
+            pf_stop_preview();
+            pf_ui_show_photo_name_input();
+        }
+        break;
+    case PF_INPUT_PHOTO_NAME_SUBMIT:
+        if (sg_state.state == PF_STATE_CAMERA_PREVIEW &&
+            !sg_manual_capture_requested) {
+            pf_app_build_photo_filename(input->text, sg_photo_filename,
+                                        sizeof(sg_photo_filename));
             sg_manual_capture_requested = true;
             sg_manual_result_visible = false;
             pf_input_set_mode(PF_INPUT_MODE_LOCKED);
-            pf_stop_preview();
+            pf_ui_show_page(PF_UI_PAGE_COUNTDOWN);
             tal_semaphore_post(sg_capture_request);
+        }
+        break;
+    case PF_INPUT_PHOTO_NAME_BACK:
+        if (sg_state.state == PF_STATE_CAMERA_PREVIEW &&
+            !sg_manual_capture_requested) {
+            pf_refresh_ui(PF_STATE_CAMERA_PREVIEW);
         }
         break;
     case PF_INPUT_CLOSE_CAMERA:
@@ -643,6 +725,10 @@ OPERATE_RET pf_app_start(void)
 
     if (sg_app_started) {
         return OPRT_INIT_MORE_THAN_ONCE;
+    }
+    rt = tal_time_service_init();
+    if (rt != OPRT_OK && rt != OPRT_INIT_MORE_THAN_ONCE) {
+        PR_WARN("[app] time service init failed: %d", rt);
     }
     TUYA_CALL_ERR_RETURN(tal_queue_create_init(&sg_app_queue,
                                                 sizeof(PF_APP_EVENT_T),

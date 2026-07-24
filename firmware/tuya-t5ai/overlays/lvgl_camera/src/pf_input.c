@@ -98,6 +98,25 @@ void pf_input_post_from_ui(PF_INPUT_ACTION_E action)
     pf_input_emit(action);
 }
 
+void pf_input_post_text_from_ui(PF_INPUT_ACTION_E action, const char *text)
+{
+    PF_INPUT_EVENT_T event;
+    size_t length = 0U;
+
+    if (sg_input_cb == NULL || action > PF_INPUT_WIFI_RETRY) {
+        return;
+    }
+    memset(&event, 0, sizeof(event));
+    event.action = action;
+    if (text != NULL) {
+        length = strnlen(text, PF_WIFI_PASSWORD_MAX);
+        memcpy(event.text, text, length);
+        event.text[length] = '\0';
+    }
+    sg_input_cb(&event, sg_input_ctx);
+    memset(event.text, 0, sizeof(event.text));
+}
+
 void pf_input_post_wifi_from_ui(PF_INPUT_ACTION_E action,
                                 uint8_t index, const char *text)
 {
