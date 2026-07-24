@@ -1,49 +1,58 @@
 $ErrorActionPreference = 'Stop'
 
-$sourcePath = Join-Path $PSScriptRoot '..\overlays\lvgl_camera\src\example_lvgl_camera.c'
+$firmwareRoot = (Resolve-Path (Join-Path $PSScriptRoot '..')).Path
+$motorPath = Join-Path $firmwareRoot 'overlays\lvgl_camera\src\pf_motor.c'
+$inputPath = Join-Path $firmwareRoot 'overlays\lvgl_camera\src\pf_input.c'
 
-if (-not (Test-Path -LiteralPath $sourcePath)) {
-    throw "Missing button motor overlay source: $sourcePath"
-}
-
-$source = Get-Content -LiteralPath $sourcePath -Raw
-$required = @(
-    '#define EXAMPLE_MOTOR_IN1_PIN TUYA_GPIO_NUM_6'
-    '#define EXAMPLE_MOTOR_IN2_PIN TUYA_GPIO_NUM_7'
-    'static bool sg_motor_running = false;'
-    'static bool sg_motor_ready'
-    '__example_motor_init'
-    '__example_motor_start'
-    '__example_motor_stop'
-    '[motor] started'
-    '[motor] stopped'
-    'sg_is_display_camera = true;'
-)
-
-foreach ($item in $required) {
-    if (-not $source.Contains($item)) {
-        throw "Button motor overlay source is missing: $item"
+foreach ($path in @($motorPath, $inputPath)) {
+    if (-not (Test-Path -LiteralPath $path)) {
+        throw "Missing motor/input module: $path"
     }
 }
 
-if ($source -notmatch 'static OPERATE_RET __example_motor_init\(void\)\s*\{\s*OPERATE_RET rt = OPRT_OK;') {
-    throw 'Motor init must declare rt for TUYA_CALL_ERR_RETURN'
+$motor = Get-Content -LiteralPath $motorPath -Raw
+$motorRequired = @(
+    'TUYA_GPIO_NUM_6'
+    'TUYA_GPIO_NUM_7'
+    'TUYA_GPIO_PUSH_PULL'
+    'TUYA_GPIO_LEVEL_LOW'
+    'PF_MOTOR_PATTERN_PEER_FOUND'
+    'PF_MOTOR_PATTERN_LOCAL_CONFIRMED'
+    'PF_MOTOR_PATTERN_WAITING'
+    'PF_MOTOR_PATTERN_BOTH_CONFIRMED'
+    'PF_MOTOR_PATTERN_SUCCESS'
+    'PF_MOTOR_PATTERN_ERROR'
+    'tal_queue_create_init'
+    'tal_thread_create_and_start'
+    'pf_motor_stop'
+)
+
+foreach ($item in $motorRequired) {
+    if (-not $motor.Contains($item)) {
+        throw "Motor module is missing: $item"
+    }
 }
 
-if ($source.Contains('disp_enable_update(NULL);')) {
-    throw 'Button callback still contains the old camera toggle'
+$input = Get-Content -LiteralPath $inputPath -Raw
+$inputRequired = @(
+    'TDL_BUTTON_PRESS_SINGLE_CLICK'
+    'TDL_BUTTON_LONG_PRESS_START'
+    'long_start_valid_time = 1500'
+    'button_debounce_time = 50'
+    'PF_INPUT_MODE_LOCKED'
+    'PF_INPUT_TOGGLE_DND'
+    'pf_input_post_from_ui'
+    'pf_input_set_mode'
+)
+
+foreach ($item in $inputRequired) {
+    if (-not $input.Contains($item)) {
+        throw "Input module is missing: $item"
+    }
 }
 
-if ($source.Contains('TUYA_CALL_ERR_LOG(__example_lvgl_init());')) {
-    throw 'Hello World LVGL task must not start in camera-only motor test firmware'
+if ($input -match '\b(?:pf_motor|pf_camera)_') {
+    throw 'Input callback must not control the motor or camera directly'
 }
 
-if ($source.Contains('disp_disable_update(NULL);')) {
-    throw 'Camera-only firmware must not toggle an uninitialized LVGL display'
-}
-
-if ($source.Contains('Hello World') -or $source.Contains('sg_lvgl_thrd')) {
-    throw 'Camera-only firmware must not retain the competing Hello World task'
-}
-
-Write-Host 'PASS: button toggles motor and camera preview starts automatically.'
+Write-Host 'PASS: safe motor patterns and unified button input are modular.'

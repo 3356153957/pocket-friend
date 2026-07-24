@@ -87,4 +87,44 @@ if ($stateSource -match '\b(?:tal|tdl|lv|tkl)_') {
     throw 'State machine must not call hardware, network, or UI APIs'
 }
 
+$motorHeaderPath = Join-Path $root 'overlays\lvgl_camera\include\pf_motor.h'
+$motorSourcePath = Join-Path $root 'overlays\lvgl_camera\src\pf_motor.c'
+$inputHeaderPath = Join-Path $root 'overlays\lvgl_camera\include\pf_input.h'
+$inputSourcePath = Join-Path $root 'overlays\lvgl_camera\src\pf_input.c'
+
+foreach ($path in @($motorHeaderPath, $motorSourcePath, $inputHeaderPath, $inputSourcePath)) {
+    if (-not (Test-Path -LiteralPath $path)) {
+        throw "Missing motor/input source file: $path"
+    }
+}
+
+$motorAndInput = @(
+    Get-Content -LiteralPath $motorHeaderPath -Raw
+    Get-Content -LiteralPath $motorSourcePath -Raw
+    Get-Content -LiteralPath $inputHeaderPath -Raw
+    Get-Content -LiteralPath $inputSourcePath -Raw
+) -join "`n"
+
+$motorInputSymbols = @(
+    'pf_motor_init'
+    'pf_motor_play'
+    'pf_motor_stop'
+    'PF_INPUT_CONFIRM'
+    'PF_INPUT_CANCEL'
+    'PF_INPUT_COMPLETE'
+    'PF_INPUT_TOGGLE_DND'
+    'PF_INPUT_OPEN_CAMERA'
+    'PF_INPUT_CLOSE_CAMERA'
+    'PF_INPUT_RETRY'
+    'pf_input_init'
+    'pf_input_post_from_ui'
+    'pf_input_set_mode'
+)
+
+foreach ($symbol in $motorInputSymbols) {
+    if (-not $motorAndInput.Contains($symbol)) {
+        throw "Missing motor/input symbol: $symbol"
+    }
+}
+
 Write-Host 'PASS: dual-demo source contract.'
