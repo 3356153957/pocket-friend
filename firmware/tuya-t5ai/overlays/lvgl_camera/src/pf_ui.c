@@ -49,6 +49,7 @@ typedef struct {
 static PF_UI_OBJECTS_T sg_ui;
 static MUTEX_HANDLE sg_preview_mutex = NULL;
 static uint8_t *sg_preview_buffer = NULL;
+static uint8_t *sg_preview_pending = NULL;
 static uint8_t *sg_result_buffer = NULL;
 static lv_image_dsc_t sg_result_descriptor;
 static bool sg_ui_initialized = false;
@@ -261,6 +262,11 @@ static void pf_ui_create_preview_page(void)
                                  LV_SYMBOL_LEFT, PF_INPUT_CLOSE_CAMERA,
                                  PF_UI_COLOR_SURFACE, true);
     lv_obj_align(button, LV_ALIGN_TOP_LEFT, 8, 8);
+
+    button = pf_ui_create_button(sg_ui.pages[PF_UI_PAGE_PREVIEW],
+                                 LV_SYMBOL_IMAGE, PF_INPUT_CAPTURE_PHOTO,
+                                 PF_UI_COLOR_PRIMARY, true);
+    lv_obj_align(button, LV_ALIGN_BOTTOM_MID, 0, -16);
 }
 
 static void pf_ui_create_match_page(void)
@@ -493,6 +499,15 @@ OPERATE_RET pf_ui_preview_start(uint16_t width, uint16_t height)
         return OPRT_INIT_MORE_THAN_ONCE;
     }
     sg_preview_buffer = buffer;
+    if (sg_preview_pending == NULL) {
+        sg_preview_pending = tal_psram_calloc(1, buffer_size);
+        if (sg_preview_pending == NULL) {
+            tal_psram_free(buffer);
+            sg_preview_buffer = NULL;
+            tal_mutex_unlock(sg_preview_mutex);
+            return OPRT_MALLOC_FAILED;
+        }
+    }
     lv_vendor_disp_lock();
     lv_canvas_set_buffer(sg_ui.preview_canvas, sg_preview_buffer,
                          width, height, LV_COLOR_FORMAT_RGB565);
@@ -515,7 +530,7 @@ void pf_ui_preview_flush(uint16_t width, uint16_t height, uint8_t *yuv)
     }
 
     tal_mutex_lock(sg_preview_mutex);
-    if (sg_preview_buffer == NULL) {
+    if (sg_preview_buffer == NULL || sg_preview_pending == NULL) {
         tal_mutex_unlock(sg_preview_mutex);
         return;
     }
@@ -524,12 +539,19 @@ void pf_ui_preview_flush(uint16_t width, uint16_t height, uint8_t *yuv)
     conversion.in_buf = yuv;
     conversion.in_width = width;
     conversion.in_height = height;
-    conversion.out_buf = sg_preview_buffer;
+    conversion.out_buf = sg_preview_pending;
     conversion.out_width = width;
     conversion.out_height = height;
     if (tal_image_convert_yuv422_to_rgb565(&conversion) == OPRT_OK) {
-        pf_ui_rotate_rgb565_180(sg_preview_buffer, width, height);
+        pf_ui_rotate_rgb565_180(sg_preview_pending, width, height);
         lv_vendor_disp_lock();
+        {
+            uint8_t *swap = sg_preview_buffer;
+            sg_preview_buffer = sg_preview_pending;
+            sg_preview_pending = swap;
+            lv_canvas_set_buffer(sg_ui.preview_canvas, sg_preview_buffer,
+                                 width, height, LV_COLOR_FORMAT_RGB565);
+        }
         lv_obj_invalidate(sg_ui.preview_canvas);
         lv_vendor_disp_unlock();
     }
@@ -549,6 +571,10 @@ void pf_ui_preview_stop(void)
     tal_mutex_lock(sg_preview_mutex);
     buffer = sg_preview_buffer;
     sg_preview_buffer = NULL;
+    if (sg_preview_pending != NULL) {
+        tal_psram_free(sg_preview_pending);
+        sg_preview_pending = NULL;
+    }
     lv_vendor_disp_lock();
     lv_obj_add_flag(sg_ui.preview_canvas, LV_OBJ_FLAG_HIDDEN);
     lv_vendor_disp_unlock();
@@ -624,7 +650,7 @@ void pf_ui_set_wifi_status(bool connected, bool busy)
     }
     lv_vendor_disp_lock();
     lv_label_set_text(sg_ui.wifi_status_label,
-                      connected ? LV_SYMBOL_OK :
+                      connected ? LV_SYMBOL_WIFI :
                       (busy ? LV_SYMBOL_REFRESH : LV_SYMBOL_CLOSE));
     lv_obj_set_style_text_color(
         sg_ui.wifi_status_label,

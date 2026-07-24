@@ -203,6 +203,7 @@ $motorInputSymbols = @(
     'PF_INPUT_COMPLETE'
     'PF_INPUT_TOGGLE_DND'
     'PF_INPUT_OPEN_CAMERA'
+    'PF_INPUT_CAPTURE_PHOTO'
     'PF_INPUT_CLOSE_CAMERA'
     'PF_INPUT_RETRY'
     'PF_INPUT_OPEN_WIFI'
@@ -291,6 +292,7 @@ $uiRequired = @(
     'pf_input_post_from_ui'
     'pf_ui_camera_frame_cb'
     'pf_camera_set_frame_cb(pf_ui_camera_frame_cb)'
+    'LV_SYMBOL_IMAGE, PF_INPUT_CAPTURE_PHOTO'
     'lv_textarea_set_password_mode'
     'lv_textarea_set_max_length'
     'lv_keyboard_create'
@@ -389,6 +391,9 @@ foreach ($symbol in @(
     'pf_server_heartbeat_init'
     'pf_server_heartbeat_network_up'
     'pf_server_heartbeat_network_down'
+    'pf_server_photo_upload'
+    'image/jpeg'
+    '/api/photos?deviceId=board-'
 )) {
     if (-not $serverHeartbeat.Contains($symbol)) {
         throw "Missing server heartbeat contract: $symbol"
@@ -436,6 +441,9 @@ $appRequired = @(
     'pf_server_heartbeat_init'
     'pf_server_heartbeat_network_up'
     'pf_server_heartbeat_network_down'
+    'PF_INPUT_CAPTURE_PHOTO'
+    'sg_manual_capture_requested'
+    'pf_server_photo_upload'
     'PF_MSG_CAPTURE_PREPARE'
     'PF_MSG_PREPARE_ACK'
     'PF_MSG_CAPTURE'

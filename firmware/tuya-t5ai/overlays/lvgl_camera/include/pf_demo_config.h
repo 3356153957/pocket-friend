@@ -6,6 +6,8 @@
 #define PF_PROTOCOL_VERSION        1U
 #define PF_UDP_PORT                37800U
 #define PF_HEARTBEAT_MS            1000U
+#define PF_SERVER_HEARTBEAT_MS     15000U
+#define PF_FIRMWARE_VERSION        "0.1.0"
 #define PF_PEER_TIMEOUT_MS         3000U
 #define PF_CONFIRM_TIMEOUT_MS      10000U
 #define PF_CAPTURE_DELAY_MS        3000U

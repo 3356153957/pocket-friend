@@ -4,6 +4,7 @@
 #include "pf_demo_config.h"
 #include "pf_input.h"
 #include "pf_motor.h"
+#include "pf_server_heartbeat.h"
 #include "pf_state_machine.h"
 #include "pf_transport.h"
 #include "pf_ui.h"
@@ -32,7 +33,11 @@ typedef struct {
             PF_MESSAGE_T message;
         } transport;
         PF_EVENT_E timer_event;
-        OPERATE_RET capture_result;
+        struct {
+            OPERATE_RET capture_result;
+            OPERATE_RET upload_result;
+            bool manual;
+        } capture;
         PF_WIFI_EVENT_E wifi_event;
     } data;
 } PF_APP_EVENT_T;
@@ -52,6 +57,8 @@ static PF_WIFI_AP_T sg_wifi_aps[PF_WIFI_MAX_APS];
 static uint8_t sg_wifi_ap_count;
 static uint8_t sg_wifi_selected;
 static char sg_wifi_password[PF_WIFI_PASSWORD_MAX + 1U];
+static volatile bool sg_manual_capture_requested;
+static bool sg_manual_result_visible;
 
 static void pf_post_event(const PF_APP_EVENT_T *event)
 {
@@ -113,10 +120,17 @@ static void pf_capture_task(void *arg)
         if (tal_semaphore_wait(sg_capture_request, SEM_WAIT_FOREVER) != OPRT_OK) {
             continue;
         }
-        event.data.capture_result = pf_camera_capture_jpeg(&jpeg, &len);
-        if (event.data.capture_result == OPRT_OK) {
+        event.data.capture.manual = sg_manual_capture_requested;
+        event.data.capture.capture_result =
+            pf_camera_capture_jpeg(&jpeg, &len);
+        event.data.capture.upload_result = OPRT_RESOURCE_NOT_READY;
+        if (event.data.capture.capture_result == OPRT_OK) {
             sg_photo_jpeg = jpeg;
             sg_photo_len = len;
+            if (event.data.capture.manual) {
+                event.data.capture.upload_result =
+                    pf_server_photo_upload(jpeg, len);
+            }
         }
         if (tal_queue_post(sg_app_queue, &event, 0) != OPRT_OK) {
             pf_camera_release_jpeg(jpeg);
@@ -146,6 +160,8 @@ static void pf_safe_reset(void)
     (void)pf_motor_stop();
     pf_stop_preview();
     pf_release_photo();
+    sg_manual_capture_requested = false;
+    sg_manual_result_visible = false;
 }
 
 static void pf_start_countdown(void)
@@ -323,12 +339,28 @@ static void pf_handle_input(const PF_INPUT_EVENT_T *input)
     case PF_INPUT_OPEN_CAMERA:
         pf_dispatch(PF_EVENT_OPEN_CAMERA);
         break;
+    case PF_INPUT_CAPTURE_PHOTO:
+        if (sg_state.state == PF_STATE_CAMERA_PREVIEW &&
+            !sg_manual_capture_requested) {
+            sg_manual_capture_requested = true;
+            sg_manual_result_visible = false;
+            pf_input_set_mode(PF_INPUT_MODE_LOCKED);
+            pf_stop_preview();
+            tal_semaphore_post(sg_capture_request);
+        }
+        break;
     case PF_INPUT_CLOSE_CAMERA:
         pf_dispatch(PF_EVENT_CLOSE_CAMERA);
         break;
     case PF_INPUT_COMPLETE:
     case PF_INPUT_RETRY:
-        pf_dispatch(PF_EVENT_RESET);
+        if (sg_state.state == PF_STATE_CAMERA_PREVIEW &&
+            sg_manual_result_visible) {
+            sg_manual_result_visible = false;
+            pf_refresh_ui(PF_STATE_CAMERA_PREVIEW);
+        } else {
+            pf_dispatch(PF_EVENT_RESET);
+        }
         break;
     case PF_INPUT_OPEN_WIFI:
     case PF_INPUT_WIFI_SCAN:
@@ -395,6 +427,7 @@ static void pf_handle_wifi(PF_WIFI_EVENT_E wifi_event)
         pf_ui_set_wifi_status(false, true);
         break;
     case PF_WIFI_EVENT_CONNECTED:
+        pf_server_heartbeat_network_up();
         if (pf_transport_network_up() != OPRT_OK) {
             pf_ui_wifi_show_failed("Wi-Fi connected, UDP failed");
             break;
@@ -410,6 +443,7 @@ static void pf_handle_wifi(PF_WIFI_EVENT_E wifi_event)
         pf_ui_wifi_show_failed("Password wrong or network unavailable");
         break;
     case PF_WIFI_EVENT_DISCONNECTED:
+        pf_server_heartbeat_network_down();
         pf_transport_network_down();
         pf_ui_set_wifi_status(false, false);
         break;
@@ -548,9 +582,29 @@ static void pf_app_task(void *arg)
             pf_handle_timer(event.data.timer_event);
             break;
         case PF_APP_EVENT_CAPTURE_DONE:
-            sg_last_capture_result = event.data.capture_result;
-            pf_dispatch(event.data.capture_result == OPRT_OK ?
-                        PF_EVENT_CAPTURE_OK : PF_EVENT_CAPTURE_FAILED);
+            sg_last_capture_result = event.data.capture.capture_result;
+            if (event.data.capture.manual) {
+                sg_manual_capture_requested = false;
+                sg_manual_result_visible = true;
+                pf_input_set_mode(PF_INPUT_MODE_RESULT);
+                if (event.data.capture.capture_result != OPRT_OK) {
+                    pf_ui_show_error("Capture failed. Try again.");
+                } else {
+                    if (pf_ui_show_photo(PF_CAMERA_WIDTH, PF_CAMERA_HEIGHT,
+                                         sg_photo_jpeg,
+                                         sg_photo_len) != OPRT_OK) {
+                        pf_ui_show_error("Photo display failed");
+                    }
+                    if (event.data.capture.upload_result != OPRT_OK) {
+                        PR_WARN("[app] photo upload failed: %d",
+                                event.data.capture.upload_result);
+                    }
+                    pf_release_photo();
+                }
+            } else {
+                pf_dispatch(event.data.capture.capture_result == OPRT_OK ?
+                            PF_EVENT_CAPTURE_OK : PF_EVENT_CAPTURE_FAILED);
+            }
             break;
         case PF_APP_EVENT_WIFI:
             pf_handle_wifi(event.data.wifi_event);
@@ -589,6 +643,7 @@ OPERATE_RET pf_app_start(void)
     TUYA_CALL_ERR_RETURN(pf_input_init(pf_input_cb, NULL));
     TUYA_CALL_ERR_RETURN(pf_ui_init());
     TUYA_CALL_ERR_RETURN(pf_transport_init(pf_transport_cb, NULL));
+    TUYA_CALL_ERR_RETURN(pf_server_heartbeat_init());
     TUYA_CALL_ERR_RETURN(pf_wifi_init(pf_wifi_cb, NULL));
 
     rt = tal_thread_create_and_start(&sg_capture_thread, NULL, NULL,
