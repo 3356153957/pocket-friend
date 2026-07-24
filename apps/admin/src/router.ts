@@ -20,7 +20,6 @@ export interface AdminRouterOptions {
   env: AdminEnvironment;
   registry: DeviceStatusRegistry;
   photos?: LatestPhotoStore;
-  deviceTokens?: PhotoDownloadTokenStore;
   photoDownloadTokens?: PhotoDownloadTokenStore;
   now?: () => number;
 }
@@ -72,16 +71,10 @@ function unauthorized(): Response {
   return result;
 }
 
-async function isDeviceAuthorized(
-  request: Request,
-  env: AdminEnvironment,
-  tokenStore: PhotoDownloadTokenStore,
-): Promise<boolean> {
+function isDeviceAuthorized(request: Request, env: AdminEnvironment): boolean {
   const expected = env.PF_DEVICE_HEARTBEAT_TOKEN;
   const supplied = request.headers.get("authorization")?.replace(/^Bearer\s+/u, "") ?? "";
-  if (!supplied) return false;
-  if (expected && constantTimeEqual(supplied, expected)) return true;
-  return tokenStore.verify(supplied);
+  return Boolean(expected && supplied && constantTimeEqual(supplied, expected));
 }
 
 async function isPhotoDownloadAuthorized(
@@ -163,7 +156,6 @@ function parseHeartbeat(value: unknown): Heartbeat | null {
 export function createAdminRouter(options: AdminRouterOptions): AdminRouter {
   const now = options.now ?? Date.now;
   const photos = options.photos ?? new LatestPhotoStore();
-  const deviceTokens = options.deviceTokens ?? new PhotoDownloadTokenStore();
   const photoDownloadTokens = options.photoDownloadTokens ?? new PhotoDownloadTokenStore();
   return async (request) => {
     const url = new URL(request.url);
@@ -202,7 +194,7 @@ export function createAdminRouter(options: AdminRouterOptions): AdminRouter {
         if (ip) heartbeat.ip = ip;
         options.registry.record(heartbeat, now());
       } else {
-        if (!await isDeviceAuthorized(request, options.env, deviceTokens)) return unauthorized();
+        if (!isDeviceAuthorized(request, options.env)) return unauthorized();
         options.registry.record(heartbeat, now());
       }
 
@@ -215,7 +207,7 @@ export function createAdminRouter(options: AdminRouterOptions): AdminRouter {
     }
 
     if (url.pathname === "/api/photos" && request.method === "POST") {
-      if (!await isDeviceAuthorized(request, options.env, deviceTokens)) return unauthorized();
+      if (!isDeviceAuthorized(request, options.env)) return unauthorized();
       const deviceId = url.searchParams.get("deviceId");
       if (!isBoardDeviceId(deviceId)) {
         return json({ error: { code: "INVALID_DEVICE", message: "Board device is invalid." } }, 400);

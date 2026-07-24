@@ -35,7 +35,6 @@ describe("admin production deployment", () => {
     assert.match(unit, /User=pf-web/);
     assert.match(unit, /EnvironmentFile=\/etc\/pocket-friend\/admin\.env/);
     assert.match(unit, /ADMIN_PORT=4311/);
-    assert.match(unit, /PF_DEVICE_HEARTBEAT_TOKEN_FILE=\/srv\/pocket-friend-admin\/device-heartbeat-token\.json/);
     assert.match(unit, /PF_PHOTO_DOWNLOAD_TOKEN_FILE=\/srv\/pocket-friend-admin\/photo-download-token\.json/);
     assert.doesNotMatch(unit, /CAP_NET_BIND_SERVICE|PORT=80/);
     assert.match(unit, /NoNewPrivileges=true/);
@@ -52,15 +51,12 @@ describe("admin production deployment", () => {
     assert.doesNotMatch(installer, /PF_PHOTO_DOWNLOAD_TOKEN=['\"][^$]/);
   });
 
-  test("deployment bootstraps hashed device and photo tokens outside releases", async () => {
+  test("deployment bootstraps a hashed photo download token outside releases", async () => {
     const deployer = await readFile(path.resolve("scripts/deploy-admin.mjs"), "utf8");
     assert.match(deployer, /photo-download-token\.json/);
-    assert.match(deployer, /device-heartbeat-token\.json/);
     assert.match(deployer, /createHash\("sha256"\)/);
     assert.match(deployer, /randomBytes\(32\)\.toString\("hex"\)/);
-    assert.match(deployer, /label: "Photo download token"/);
-    assert.match(deployer, /label: "Device heartbeat token"/);
-    assert.match(deployer, /console\.log\(`\$\{label\} generated: \$\{token\}`\)/);
+    assert.match(deployer, /Photo download token generated/);
     assert.doesNotMatch(deployer, /PF_ADMIN_PASSWORD/);
   });
 });

@@ -48,10 +48,10 @@ async function pathExists(target) {
   }
 }
 
-async function ensureHashedToken({ file, label }) {
-  const tokenFile = file;
+async function ensurePhotoDownloadToken(config) {
+  const tokenFile = path.join(config.deployRoot, "photo-download-token.json");
   if (await pathExists(tokenFile)) {
-    return null;
+    return;
   }
 
   const token = randomBytes(32).toString("hex");
@@ -60,19 +60,7 @@ async function ensureHashedToken({ file, label }) {
     createdAt: new Date().toISOString(),
   };
   await writeFile(tokenFile, JSON.stringify(record), { mode: 0o644 });
-  console.log(`${label} generated: ${token}`);
-  return token;
-}
-
-async function ensureServerTokens(config) {
-  await ensureHashedToken({
-    file: path.join(config.deployRoot, "photo-download-token.json"),
-    label: "Photo download token",
-  });
-  await ensureHashedToken({
-    file: path.join(config.deployRoot, "device-heartbeat-token.json"),
-    label: "Device heartbeat token",
-  });
+  console.log(`Photo download token generated: ${token}`);
 }
 
 async function replaceSymlink(link, target, temporaryLink) {
@@ -126,7 +114,7 @@ async function main() {
   const previous = previousLink ? await validateReleaseTarget({ deployRoot: config.deployRoot, target: previousLink }) : null;
   await replaceSymlink(currentLink, release, temporaryLink);
   try {
-    await ensureServerTokens(config);
+    await ensurePhotoDownloadToken(config);
     await run("sudo", ["-n", "systemctl", "restart", config.service]);
     await waitForAdminHealth({ healthUrl: config.healthUrl });
   } catch (error) {

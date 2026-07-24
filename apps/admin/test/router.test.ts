@@ -3,7 +3,6 @@ import { describe, test } from "node:test";
 
 import { createAdminRouter } from "../src/router.ts";
 import { DeviceStatusRegistry } from "../src/status.ts";
-import { PhotoDownloadTokenStore } from "../src/photoDownloadTokens.ts";
 
 const credentials = Buffer.from("operator:correct-horse").toString("base64");
 const env = {
@@ -51,38 +50,6 @@ describe("admin router", () => {
     const board = registry.snapshot(now).devices[2];
     assert.equal(board?.online, true);
     assert.equal(board?.batteryPercent, 78);
-  });
-
-  test("accepts a generated device token for board uploads without granting photo read access", async () => {
-    const deviceTokens = new PhotoDownloadTokenStore();
-    const generated = await deviceTokens.generate(10_000);
-    const registry = new DeviceStatusRegistry();
-    const route = createAdminRouter({
-      env: {
-        PF_ADMIN_USERNAME: "operator",
-        PF_ADMIN_PASSWORD: "correct-horse",
-        PF_DEVICE_HEARTBEAT_TOKEN: "",
-      },
-      registry,
-      deviceTokens,
-      now: () => 20_000,
-    });
-
-    const heartbeat = await route(new Request("http://localhost/api/heartbeat", {
-      method: "POST",
-      headers: {
-        Authorization: `Bearer ${generated.token}`,
-        "Content-Type": "application/json",
-      },
-      body: JSON.stringify({ deviceId: "board-a", firmwareVersion: "0.5.0" }),
-    }));
-    assert.equal(heartbeat.status, 204);
-    assert.equal(registry.snapshot(20_001).devices[1]?.online, true);
-
-    const photoRead = await route(new Request("http://localhost/api/photos/board-a/history", {
-      headers: { Authorization: `Bearer ${generated.token}` },
-    }));
-    assert.equal(photoRead.status, 401);
   });
 
   test("stores an authenticated board JPEG and serves the latest photo to admins", async () => {
