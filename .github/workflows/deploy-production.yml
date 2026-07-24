@@ -27,29 +27,14 @@ jobs:
       PF_ADMIN_SERVICE: pocket-friend-admin.service
       PF_ADMIN_HEALTH_URL: http://127.0.0.1:4311/health
     steps:
-      - name: Repair self-hosted workspace
-        run: |
-          echo "workspace=$GITHUB_WORKSPACE"
-          echo "runner_temp=$RUNNER_TEMP"
-          echo "user=$(id -u):$(id -g) $(whoami)"
-          case "$GITHUB_WORKSPACE" in
-            /opt/actions-runner/_work/pocket-friend/pocket-friend)
-              cd "$RUNNER_TEMP" || true
-              mkdir -p "$GITHUB_WORKSPACE"
-              sudo chown -R "$(id -u):$(id -g)" "$GITHUB_WORKSPACE" || true
-              find "$GITHUB_WORKSPACE" -mindepth 1 -maxdepth 1 -exec rm -rf -- {} +
-              ;;
-            *)
-              echo "Refusing to repair unexpected workspace: $GITHUB_WORKSPACE" >&2
-              exit 1
-              ;;
-          esac
-
       - name: Check out the triggering commit
         env:
           GH_TOKEN: ${{ github.token }}
         run: |
-          cd "$GITHUB_WORKSPACE"
+          PF_CI_WORKSPACE="$RUNNER_TEMP/pocket-friend-source"
+          rm -rf "$PF_CI_WORKSPACE"
+          mkdir -p "$PF_CI_WORKSPACE"
+          cd "$PF_CI_WORKSPACE"
           git init
           git remote add origin "https://x-access-token:${GH_TOKEN}@github.com/${GITHUB_REPOSITORY}.git"
           git -c protocol.version=2 fetch --no-tags --depth=1 origin "$GITHUB_SHA"
@@ -57,13 +42,17 @@ jobs:
           git remote set-url origin "https://github.com/${GITHUB_REPOSITORY}.git"
 
       - name: Build, publish, and verify production
-        run: >-
-          flock --exclusive --wait 1800
-          /srv/pocket-friend/deploy.lock
+        run: |
+          export GITHUB_WORKSPACE="$RUNNER_TEMP/pocket-friend-source"
+          cd "$GITHUB_WORKSPACE"
+          flock --exclusive --wait 1800 \
+          /srv/pocket-friend/deploy.lock \
           node scripts/deploy-production.mjs
 
       - name: Publish and verify device admin
-        run: >-
-          flock --exclusive --wait 1800
-          /srv/pocket-friend/deploy.lock
+        run: |
+          export GITHUB_WORKSPACE="$RUNNER_TEMP/pocket-friend-source"
+          cd "$GITHUB_WORKSPACE"
+          flock --exclusive --wait 1800 \
+          /srv/pocket-friend/deploy.lock \
           node scripts/deploy-admin.mjs
