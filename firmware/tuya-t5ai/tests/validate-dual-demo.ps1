@@ -34,6 +34,47 @@ if ($trackedText -match '#define\s+PF_WIFI_PASSWORD\s+"(?![<$])[^"]+"') {
     throw 'A plaintext Wi-Fi password is tracked in firmware files'
 }
 
+$wifiHeaderPath = Join-Path $root 'overlays\lvgl_camera\include\pf_wifi_config.h'
+$wifiSourcePath = Join-Path $root 'overlays\lvgl_camera\src\pf_wifi_config.c'
+
+foreach ($path in @($wifiHeaderPath, $wifiSourcePath)) {
+    if (-not (Test-Path -LiteralPath $path)) {
+        throw "Missing Wi-Fi provisioning source file: $path"
+    }
+}
+
+$wifi = @(
+    Get-Content -LiteralPath $wifiHeaderPath -Raw
+    Get-Content -LiteralPath $wifiSourcePath -Raw
+) -join "`n"
+
+$wifiRequired = @(
+    'PF_WIFI_MAX_APS 20'
+    'PF_WIFI_SSID_MAX 32'
+    'PF_WIFI_PASSWORD_MAX 64'
+    'PF_WIFI_EVENT_UNCONFIGURED'
+    'PF_WIFI_EVENT_SCAN_COMPLETE'
+    'PF_WIFI_EVENT_CONNECTED'
+    'PF_WIFI_EVENT_CONNECT_FAILED'
+    'pf_wifi_init'
+    'pf_wifi_start'
+    'pf_wifi_scan_async'
+    'pf_wifi_connect_async'
+    'tal_wifi_all_ap_scan'
+    'tal_wifi_release_ap'
+    'tal_wifi_station_connect'
+    'tal_kv_get'
+    'tal_kv_free'
+    'tal_kv_set'
+    'tal_kv_del'
+)
+
+foreach ($symbol in $wifiRequired) {
+    if (-not $wifi.Contains($symbol)) {
+        throw "Missing Wi-Fi provisioning contract: $symbol"
+    }
+}
+
 $protocolHeaderPath = Join-Path $root 'overlays\lvgl_camera\include\pf_protocol.h'
 $protocolSourcePath = Join-Path $root 'overlays\lvgl_camera\src\pf_protocol.c'
 $stateHeaderPath = Join-Path $root 'overlays\lvgl_camera\include\pf_state_machine.h'

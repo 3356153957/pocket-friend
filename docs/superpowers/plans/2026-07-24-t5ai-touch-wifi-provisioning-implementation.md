@@ -86,7 +86,7 @@ foreach ($script in @($sync, $buildScript)) {
 运行：
 
 ```powershell
-pwsh -NoProfile -File firmware/tuya-t5ai/tests/validate-dual-demo.ps1
+powershell.exe -NoProfile -ExecutionPolicy Bypass -File firmware/tuya-t5ai/tests/validate-dual-demo.ps1
 ```
 
 预期：FAIL，首先报告缺少 `pf_wifi_config.h` 或 `pf_wifi_config.c`。
@@ -371,9 +371,9 @@ git push origin codex/tuya-t5ai-firmware
 - [ ] **步骤 3：运行全部 PowerShell 验证**
 
 ```powershell
-pwsh -NoProfile -File firmware/tuya-t5ai/tests/validate-button-motor.ps1
-pwsh -NoProfile -File firmware/tuya-t5ai/tests/validate-camera-config.ps1
-pwsh -NoProfile -File firmware/tuya-t5ai/tests/validate-dual-demo.ps1
+powershell.exe -NoProfile -ExecutionPolicy Bypass -File firmware/tuya-t5ai/tests/validate-button-motor.ps1
+powershell.exe -NoProfile -ExecutionPolicy Bypass -File firmware/tuya-t5ai/tests/validate-camera-config.ps1
+powershell.exe -NoProfile -ExecutionPolicy Bypass -File firmware/tuya-t5ai/tests/validate-dual-demo.ps1
 ```
 
 预期：三项均输出 `PASS`，受跟踪文件不包含明文密码。
@@ -396,7 +396,7 @@ git push origin codex/tuya-t5ai-firmware
 - [ ] **步骤 1：同步 A 机 overlay**
 
 ```powershell
-pwsh -NoProfile -File firmware/tuya-t5ai/scripts/sync-lvgl-camera.ps1 `
+powershell.exe -NoProfile -ExecutionPolicy Bypass -File firmware/tuya-t5ai/scripts/sync-lvgl-camera.ps1 `
     -TuyaOpenRoot D:\TuyaOpen -DeviceId A
 ```
 
@@ -416,7 +416,7 @@ tos.py build
 - [ ] **步骤 3：执行 A/B 双固件构建**
 
 ```powershell
-pwsh -NoProfile -File firmware/tuya-t5ai/scripts/build-dual-demo.ps1 `
+powershell.exe -NoProfile -ExecutionPolicy Bypass -File firmware/tuya-t5ai/scripts/build-dual-demo.ps1 `
     -TuyaOpenRoot D:\TuyaOpen
 ```
 
