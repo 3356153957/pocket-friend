@@ -32,6 +32,29 @@
         <div id="device-grid" class="device-grid" aria-live="polite"></div>
         <div id="load-error" class="load-error" role="alert" hidden>状态读取失败，正在重试。</div>
       </section>
+
+      <section class="photo-section">
+        <div class="section-heading">
+          <h2>最新拍照</h2>
+          <span id="photo-updated-at">等待照片</span>
+        </div>
+        <div class="photo-grid" aria-live="polite">
+          <article class="photo-card">
+            <div class="photo-frame">
+              <img id="photo-board-a" alt="开发板 A 最新照片" />
+              <div id="photo-board-a-empty" class="photo-empty">暂无照片</div>
+            </div>
+            <p>开发板 A</p>
+          </article>
+          <article class="photo-card">
+            <div class="photo-frame">
+              <img id="photo-board-b" alt="开发板 B 最新照片" />
+              <div id="photo-board-b-empty" class="photo-empty">暂无照片</div>
+            </div>
+            <p>开发板 B</p>
+          </article>
+        </div>
+      </section>
     </main>
 
     <footer>管理端口 4311 · 自动刷新</footer>
@@ -62,9 +85,10 @@ main { width: min(1040px, calc(100% - 32px)); margin: 28px auto; }
 .summary strong { font-size: 32px; line-height: 1; }
 .summary span { color: #66736e; font-size: 13px; font-weight: 700; }
 .device-section { margin-top: 30px; }
+.photo-section { margin-top: 30px; }
 .section-heading { display: flex; align-items: baseline; justify-content: space-between; gap: 16px; margin-bottom: 12px; }
 h2 { margin: 0; font-size: 16px; letter-spacing: 0; }
-.section-heading time { color: #69756f; font-size: 12px; }
+.section-heading time, .section-heading span { color: #69756f; font-size: 12px; }
 .device-grid { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 14px; }
 .device-card { min-height: 184px; padding: 18px; background: #fff; border: 1px solid #ccd4d0; border-top: 4px solid #8a9690; border-radius: 6px; }
 .device-card.online { border-top-color: #249a55; }
@@ -89,9 +113,17 @@ h2 { margin: 0; font-size: 16px; letter-spacing: 0; }
 .session-ip { flex: 0 0 auto; color: #737e79; font-family: "SF Mono", "Consolas", monospace; font-size: 11px; }
 .session-time { flex: 0 0 auto; color: #737e79; }
 .no-sessions { margin: 18px 0 0; padding: 14px; text-align: center; color: #8a9590; font-size: 12px; background: #f8f9f8; }
+.photo-grid { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 14px; }
+.photo-card { margin: 0; padding: 14px; background: #fff; border: 1px solid #ccd4d0; border-radius: 6px; }
+.photo-card p { margin: 10px 0 0; color: #2b3732; font-size: 13px; font-weight: 800; }
+.photo-frame { position: relative; display: grid; place-items: center; aspect-ratio: 4 / 3; background: #eef2ef; border: 1px solid #d9e0dc; overflow: hidden; }
+.photo-frame img { width: 100%; height: 100%; object-fit: contain; display: none; background: #111; }
+.photo-frame.has-photo img { display: block; }
+.photo-empty { color: #87928d; font-size: 13px; font-weight: 700; }
+.photo-frame.has-photo .photo-empty { display: none; }
 .load-error { margin-top: 12px; padding: 12px 14px; color: #8f271f; background: #fff0ee; border-left: 4px solid #cf4437; font-size: 13px; }
 footer { width: min(1040px, calc(100% - 32px)); margin: 0 auto 28px; color: #7a8580; font-size: 11px; text-align: right; }
-@media (max-width: 760px) { .device-grid { grid-template-columns: 1fr; } .device-card { min-height: 0; } }
+@media (max-width: 760px) { .device-grid, .photo-grid { grid-template-columns: 1fr; } .device-card { min-height: 0; } }
 @media (max-width: 480px) { .topbar { padding-inline: 14px; } .live-indicator { font-size: 0; } main { width: min(100% - 24px, 1040px); margin-top: 18px; } .summary div { min-height: 74px; flex-direction: column; align-items: center; gap: 4px; padding: 14px 6px; } .summary strong { font-size: 26px; } .section-heading { align-items: flex-start; flex-direction: column; gap: 5px; } footer { width: calc(100% - 24px); } }
 `;
 
@@ -102,6 +134,11 @@ const onlineCount = document.querySelector("#online-count");
 const offlineCount = document.querySelector("#offline-count");
 const totalCount = document.querySelector("#total-count");
 const updatedAt = document.querySelector("#updated-at");
+const photoUpdatedAt = document.querySelector("#photo-updated-at");
+const photoViews = [
+  { endpoint: "/api/photos/board-a/latest", img: document.querySelector("#photo-board-a"), empty: document.querySelector("#photo-board-a-empty") },
+  { endpoint: "/api/photos/board-b/latest", img: document.querySelector("#photo-board-b"), empty: document.querySelector("#photo-board-b-empty") }
+];
 
 var browserIcons = { "Chrome": "\u{1F310}", "Firefox": "\u{1F525}", "Edge": "\u{1F310}", "Safari": "\u{1F34E}", "Unknown": "\u{1F310}" };
 
@@ -196,6 +233,24 @@ function renderDevice(device) {
   return article;
 }
 
+function refreshPhoto(view, timestamp) {
+  var frame = view.img.parentElement;
+  view.img.onload = function() {
+    frame.classList.add("has-photo");
+  };
+  view.img.onerror = function() {
+    frame.classList.remove("has-photo");
+    view.img.removeAttribute("src");
+  };
+  view.img.src = view.endpoint + "?t=" + timestamp;
+}
+
+function refreshPhotos() {
+  var timestamp = Date.now();
+  photoViews.forEach(function(view) { refreshPhoto(view, timestamp); });
+  photoUpdatedAt.textContent = "\u5237\u65B0\u4E8E " + new Date(timestamp).toLocaleTimeString("zh-CN", { hour12: false });
+}
+
 async function refresh() {
   try {
     var response = await fetch("/api/status", { cache: "no-store" });
@@ -207,6 +262,7 @@ async function refresh() {
     offlineCount.textContent = String(snapshot.summary.total - online);
     totalCount.textContent = String(snapshot.summary.total);
     updatedAt.textContent = "\u66F4\u65B0\u4E8E " + new Date(snapshot.generatedAt).toLocaleTimeString("zh-CN", { hour12: false });
+    refreshPhotos();
     errorBox.hidden = true;
   } catch {
     errorBox.hidden = false;

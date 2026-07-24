@@ -131,10 +131,15 @@ describe("admin router", () => {
 
     const page = await route(new Request("http://localhost/", { headers: authorized }));
     assert.equal(page.status, 200);
-    assert.match(await page.text(), /设备在线状态/);
+    const html = await page.text();
+    assert.match(html, /设备在线状态/);
+    assert.match(html, /最新拍照/);
 
     const script = await route(new Request("http://localhost/assets/admin.js", { headers: authorized }));
     assert.equal(script.status, 200);
-    assert.match(await script.text(), /api\/status/);
+    const javascript = await script.text();
+    assert.match(javascript, /api\/status/);
+    assert.match(javascript, /api\/photos\/board-a\/latest/);
+    assert.match(javascript, /api\/photos\/board-b\/latest/);
   });
 });
