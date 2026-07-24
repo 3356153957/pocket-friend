@@ -8,6 +8,7 @@ export const MAX_PHOTO_BYTES = 512 * 1024;
 export interface LatestPhoto {
   bytes: Uint8Array;
   capturedAt: string;
+  name?: string;
 }
 
 export interface ArchivedPhoto extends LatestPhoto {
@@ -18,10 +19,15 @@ export interface ArchivedPhotoSummary {
   id: string;
   capturedAt: string;
   bytes: number;
+  name?: string;
 }
 
 export interface LatestPhotoStoreOptions {
   directory?: string;
+}
+
+export interface PutPhotoOptions {
+  name?: string;
 }
 
 export class LatestPhotoStore {
@@ -53,19 +59,33 @@ export class LatestPhotoStore {
     return join(this.historyDirectory(deviceId), `${id}.json`);
   }
 
-  private archiveId(capturedAt: string): string {
-    return `${capturedAt.replace(/[^0-9A-Za-z-]/gu, "-")}.jpg`;
+  private archiveId(capturedAt: string, name?: string): string {
+    const timestamp = capturedAt.replace(/[^0-9A-Za-z-]/gu, "-");
+    const safeName = name
+      ?.trim()
+      .replace(/[<>:"/\\|?*\x00-\x1F]/gu, "-")
+      .replace(/\s+/gu, "-")
+      .replace(/^-+|-+$/gu, "")
+      .slice(0, 80);
+    return `${safeName ? `${safeName}-` : ""}${timestamp}.jpg`;
   }
 
-  async put(deviceId: BoardDeviceId, bytes: Uint8Array, capturedAtMs = Date.now()): Promise<void> {
+  async put(
+    deviceId: BoardDeviceId,
+    bytes: Uint8Array,
+    capturedAtMs = Date.now(),
+    options: PutPhotoOptions = {},
+  ): Promise<void> {
+    const name = options.name?.trim();
     const photo = {
       bytes: Uint8Array.from(bytes),
       capturedAt: new Date(capturedAtMs).toISOString(),
+      ...(name ? { name } : {}),
     };
     this.photos.set(deviceId, photo);
     const archived = {
       ...photo,
-      id: this.archiveId(photo.capturedAt),
+      id: this.archiveId(photo.capturedAt, photo.name),
     };
     const history = this.history.get(deviceId) ?? [];
     history.unshift(archived);
@@ -74,11 +94,15 @@ export class LatestPhotoStore {
     if (!this.directory) return;
     await mkdir(this.directory, { recursive: true });
     await writeFile(this.photoPath(deviceId), photo.bytes);
-    await writeFile(this.metadataPath(deviceId), JSON.stringify({ capturedAt: photo.capturedAt }));
+    await writeFile(this.metadataPath(deviceId), JSON.stringify({
+      capturedAt: photo.capturedAt,
+      ...(photo.name ? { name: photo.name } : {}),
+    }));
     await mkdir(this.historyDirectory(deviceId), { recursive: true });
     await writeFile(this.historyPhotoPath(deviceId, archived.id), archived.bytes);
     await writeFile(this.historyMetadataPath(deviceId, archived.id), JSON.stringify({
       capturedAt: archived.capturedAt,
+      ...(archived.name ? { name: archived.name } : {}),
     }));
   }
 
@@ -92,9 +116,13 @@ export class LatestPhotoStore {
         readFile(this.photoPath(deviceId)),
         readFile(this.metadataPath(deviceId), "utf8"),
       ]);
-      const parsed = JSON.parse(metadata) as { capturedAt?: unknown };
+      const parsed = JSON.parse(metadata) as { capturedAt?: unknown; name?: unknown };
       if (typeof parsed.capturedAt !== "string") return undefined;
-      const stored = { bytes: Uint8Array.from(bytes), capturedAt: parsed.capturedAt };
+      const stored = {
+        bytes: Uint8Array.from(bytes),
+        capturedAt: parsed.capturedAt,
+        ...(typeof parsed.name === "string" && parsed.name.trim() ? { name: parsed.name.trim() } : {}),
+      };
       this.photos.set(deviceId, stored);
       return stored;
     } catch {
@@ -108,6 +136,7 @@ export class LatestPhotoStore {
       id: photo.id,
       capturedAt: photo.capturedAt,
       bytes: photo.bytes.byteLength,
+      ...(photo.name ? { name: photo.name } : {}),
     })) ?? [];
     if (!this.directory) return cachedPhotos.slice(0, limit);
 
@@ -121,9 +150,14 @@ export class LatestPhotoStore {
               readFile(this.historyPhotoPath(deviceId, id)),
               readFile(this.historyMetadataPath(deviceId, id), "utf8"),
             ]);
-            const parsed = JSON.parse(metadata) as { capturedAt?: unknown };
+            const parsed = JSON.parse(metadata) as { capturedAt?: unknown; name?: unknown };
             if (typeof parsed.capturedAt !== "string") return undefined;
-            return { id, capturedAt: parsed.capturedAt, bytes: bytes.byteLength };
+            return {
+              id,
+              capturedAt: parsed.capturedAt,
+              bytes: bytes.byteLength,
+              ...(typeof parsed.name === "string" && parsed.name.trim() ? { name: parsed.name.trim() } : {}),
+            };
           } catch {
             return undefined;
           }
@@ -151,9 +185,14 @@ export class LatestPhotoStore {
         readFile(this.historyPhotoPath(deviceId, id)),
         readFile(this.historyMetadataPath(deviceId, id), "utf8"),
       ]);
-      const parsed = JSON.parse(metadata) as { capturedAt?: unknown };
+      const parsed = JSON.parse(metadata) as { capturedAt?: unknown; name?: unknown };
       if (typeof parsed.capturedAt !== "string") return undefined;
-      return { id, bytes: Uint8Array.from(bytes), capturedAt: parsed.capturedAt };
+      return {
+        id,
+        bytes: Uint8Array.from(bytes),
+        capturedAt: parsed.capturedAt,
+        ...(typeof parsed.name === "string" && parsed.name.trim() ? { name: parsed.name.trim() } : {}),
+      };
     } catch {
       return undefined;
     }

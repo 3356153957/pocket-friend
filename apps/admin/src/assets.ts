@@ -127,7 +127,8 @@ h2 { margin: 0; font-size: 16px; letter-spacing: 0; }
 .history-empty { padding: 18px; color: #87928d; background: #fff; border: 1px solid #ccd4d0; border-radius: 6px; font-size: 13px; font-weight: 700; }
 .history-card { margin: 0; padding: 10px; background: #fff; border: 1px solid #ccd4d0; border-radius: 6px; }
 .history-card img { width: 100%; aspect-ratio: 4 / 3; object-fit: contain; display: block; background: #111; transform: rotate(180deg); }
-.history-card time { display: block; margin-top: 8px; color: #2b3732; font-size: 12px; font-weight: 800; }
+.history-card .photo-name { display: block; margin-top: 8px; color: #2b3732; font-size: 13px; font-weight: 900; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.history-card time { display: block; margin-top: 4px; color: #2b3732; font-size: 12px; font-weight: 800; }
 .history-card span { display: block; margin-top: 3px; color: #7a8580; font-size: 11px; }
 .load-error { margin-top: 12px; padding: 12px 14px; color: #8f271f; background: #fff0ee; border-left: 4px solid #cf4437; font-size: 13px; }
 footer { width: min(1040px, calc(100% - 32px)); margin: 0 auto 28px; color: #7a8580; font-size: 11px; text-align: right; }
@@ -266,13 +267,17 @@ function renderHistoryPhoto(photo, timestamp) {
   card.className = "history-card";
   var image = document.createElement("img");
   image.src = photo.url + "?t=" + timestamp;
-  image.alt = "\u5386\u53F2\u7167\u7247 " + new Date(photo.capturedAt).toLocaleString("zh-CN", { hour12: false });
+  var displayName = photo.name || "\u672A\u547D\u540D";
+  image.alt = displayName + " \u5386\u53F2\u7167\u7247 " + new Date(photo.capturedAt).toLocaleString("zh-CN", { hour12: false });
+  var name = document.createElement("strong");
+  name.className = "photo-name";
+  name.textContent = displayName;
   var time = document.createElement("time");
   time.dateTime = photo.capturedAt;
-  time.textContent = new Date(photo.capturedAt).toLocaleString("zh-CN", { hour12: false });
+  time.textContent = "\u4E0A\u4F20\u4E8E " + new Date(photo.capturedAt).toLocaleString("zh-CN", { hour12: false });
   var size = document.createElement("span");
   size.textContent = Math.ceil(photo.bytes / 1024) + " KiB";
-  card.append(image, time, size);
+  card.append(image, name, time, size);
   return card;
 }
 

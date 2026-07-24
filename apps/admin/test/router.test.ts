@@ -77,29 +77,33 @@ describe("admin router", () => {
   test("lists archived board A photos for the admin history view", async () => {
     let now = 10_000;
     const route = createAdminRouter({ env, registry: new DeviceStatusRegistry(), now: () => now });
-    const uploadPhoto = (marker: number) => route(new Request("http://localhost/api/photos?deviceId=board-a", {
+    const uploadPhoto = (marker: number, name?: string) => route(new Request(
+      `http://localhost/api/photos?deviceId=board-a${name ? `&name=${encodeURIComponent(name)}` : ""}`,
+      {
       method: "POST",
       headers: {
         Authorization: "Bearer board-secret",
         "Content-Type": "image/jpeg",
       },
       body: Uint8Array.from([0xff, 0xd8, marker, 0xff, 0xd9]),
-    }));
+      },
+    ));
 
     assert.equal((await uploadPhoto(0x01)).status, 204);
     now = 20_000;
-    assert.equal((await uploadPhoto(0x02)).status, 204);
+    assert.equal((await uploadPhoto(0x02, "阿狸")).status, 204);
 
     const history = await route(new Request("http://localhost/api/photos/board-a/history", {
       headers: { Authorization: `Basic ${credentials}` },
     }));
     assert.equal(history.status, 200);
-    const body = await history.json() as { photos: Array<{ id: string; capturedAt: string; bytes: number; url: string }> };
+    const body = await history.json() as { photos: Array<{ id: string; capturedAt: string; bytes: number; url: string; name?: string }> };
     assert.deepEqual(body.photos.map(({ bytes }) => bytes), [5, 5]);
     assert.deepEqual(body.photos.map(({ capturedAt }) => capturedAt), [
       new Date(20_000).toISOString(),
       new Date(10_000).toISOString(),
     ]);
+    assert.equal(body.photos[0]?.name, "阿狸");
     assert.match(body.photos[0]?.url ?? "", /^\/api\/photos\/board-a\/history\//);
 
     const archived = await route(new Request(`http://localhost${body.photos[0]?.url}`, {
@@ -246,5 +250,7 @@ describe("admin router", () => {
     assert.match(javascript, /api\/photos\/board-a\/history/);
     assert.doesNotMatch(javascript, /api\/photos\/board-b\/latest/);
     assert.match(javascript, /rotate-180/);
+    assert.match(javascript, /photo-name/);
+    assert.match(javascript, /上传于/);
   });
 });

@@ -126,6 +126,25 @@ function isJpeg(bytes: Uint8Array): boolean {
     bytes[bytes.length - 2] === 0xff && bytes[bytes.length - 1] === 0xd9;
 }
 
+function normalizePhotoName(value: string | null): string | undefined {
+  const normalized = value
+    ?.trim()
+    .replace(/[\x00-\x1F<>:"/\\|?*]+/gu, " ")
+    .replace(/\s+/gu, " ")
+    .slice(0, 80)
+    .trim();
+  return normalized || undefined;
+}
+
+function photoNameFromRequest(request: Request, url: URL): string | undefined {
+  return normalizePhotoName(
+    url.searchParams.get("name") ??
+    url.searchParams.get("nickname") ??
+    url.searchParams.get("personName") ??
+    request.headers.get("x-photo-name"),
+  );
+}
+
 function parseHeartbeat(value: unknown): Heartbeat | null {
   if (!value || typeof value !== "object") return null;
   const input = value as Record<string, unknown>;
@@ -222,7 +241,8 @@ export function createAdminRouter(options: AdminRouterOptions): AdminRouter {
       if (!isJpeg(bytes)) {
         return json({ error: { code: "INVALID_JPEG", message: "Photo is not a valid JPEG." } }, 400);
       }
-      await photos.put(deviceId, bytes, now());
+      const photoName = photoNameFromRequest(request, url);
+      await photos.put(deviceId, bytes, now(), photoName ? { name: photoName } : {});
       return response(null, 204, "text/plain; charset=utf-8");
     }
 
@@ -263,6 +283,7 @@ export function createAdminRouter(options: AdminRouterOptions): AdminRouter {
       if (!photo) return json({ error: { code: "PHOTO_NOT_FOUND", message: "No photo has been uploaded." } }, 404);
       const result = response(photo.bytes, 200, "image/jpeg");
       result.headers.set("X-Captured-At", photo.capturedAt);
+      if (photo.name) result.headers.set("X-Photo-Name", encodeURIComponent(photo.name));
       return result;
     }
 
@@ -273,6 +294,7 @@ export function createAdminRouter(options: AdminRouterOptions): AdminRouter {
       if (!photo) return json({ error: { code: "PHOTO_NOT_FOUND", message: "No photo has been uploaded." } }, 404);
       const result = response(photo.bytes, 200, "image/jpeg");
       result.headers.set("X-Captured-At", photo.capturedAt);
+      if (photo.name) result.headers.set("X-Photo-Name", encodeURIComponent(photo.name));
       return result;
     }
     if (url.pathname === "/" || url.pathname === "/index.html") {

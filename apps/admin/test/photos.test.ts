@@ -46,6 +46,29 @@ test("photo history persists across store instances", async () => {
   }
 });
 
+test("photo history persists uploaded subject names", async () => {
+  const directory = await mkdtemp(join(tmpdir(), "pf-admin-photos-"));
+  try {
+    const jpeg = Uint8Array.from([0xff, 0xd8, 0x01, 0xff, 0xd9]);
+    const first = new LatestPhotoStore({ directory });
+    await first.put(
+      "board-a",
+      jpeg,
+      Date.parse("2026-07-24T22:55:00.000+08:00"),
+      { name: "阿狸" },
+    );
+
+    const second = new LatestPhotoStore({ directory });
+    const history = await second.listHistory("board-a");
+    const photo = await second.getHistoryPhoto("board-a", history[0]?.id ?? "");
+
+    assert.equal(history[0]?.name, "阿狸");
+    assert.equal(photo?.name, "阿狸");
+  } finally {
+    await rm(directory, { recursive: true, force: true });
+  }
+});
+
 test("photo history merges new in-memory photos with existing disk history", async () => {
   const directory = await mkdtemp(join(tmpdir(), "pf-admin-photos-"));
   try {
