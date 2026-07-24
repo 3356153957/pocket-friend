@@ -73,14 +73,14 @@ function parseBrowser(userAgent: string): { browser: string; os: string } {
     browser = "Safari";
   }
 
-  if (userAgent.includes("Windows")) {
+  if (userAgent.includes("iPhone") || userAgent.includes("iPad")) {
+    os = "iOS";
+  } else if (userAgent.includes("Android")) {
+    os = "Android";
+  } else if (userAgent.includes("Windows")) {
     os = "Windows";
   } else if (userAgent.includes("Mac OS")) {
     os = "macOS";
-  } else if (userAgent.includes("Android")) {
-    os = "Android";
-  } else if (userAgent.includes("iPhone") || userAgent.includes("iPad")) {
-    os = "iOS";
   } else if (userAgent.includes("Linux")) {
     os = "Linux";
   }
