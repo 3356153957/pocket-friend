@@ -282,6 +282,7 @@ $uiRequired = @(
     'PF_UI_PAGE_RESULT'
     'PF_UI_PAGE_DND'
     'PF_UI_PAGE_ERROR'
+    'PF_UI_PAGE_PINYIN_INPUT'
     'PF_UI_PAGE_WIFI_SCAN'
     'PF_UI_PAGE_WIFI_PASSWORD'
     'PF_UI_PAGE_WIFI_CONNECT'
@@ -297,6 +298,11 @@ $uiRequired = @(
     'lv_textarea_set_max_length'
     'lv_keyboard_create'
     'lv_keyboard_set_textarea'
+    'lv_ime_pinyin_create'
+    'lv_ime_pinyin_set_keyboard'
+    'lv_ime_pinyin_get_cand_panel'
+    'lv_font_simsun_16_cjk'
+    'pf_ui_create_pinyin_input_page'
     'pf_ui_wifi_set_results'
     'pf_ui_wifi_show_connecting'
     'PF_CAMERA_ROTATION_180'
@@ -318,6 +324,25 @@ if ($rotationUseCount -lt 3) {
 
 if ($ui -notmatch '#define\s+PF_UI_TOUCH_TARGET\s+64') {
     throw 'UI touch target must be at least the planned 64 pixels'
+}
+
+if ($ui -match 'lv_ime_pinyin_set_keyboard\([^,]+,\s*sg_ui\.wifi_keyboard\)') {
+    throw 'Pinyin IME must not attach to the Wi-Fi password keyboard'
+}
+
+$configPath = Join-Path $root 'config\TUYA_T5AI_BOARD_LCD_3.5.config'
+if (-not (Test-Path -LiteralPath $configPath)) {
+    throw "Missing T5AI LCD config: $configPath"
+}
+$lcdConfig = Get-Content -LiteralPath $configPath -Raw
+foreach ($symbol in @(
+    'CONFIG_LV_USE_IME_PINYIN=y'
+    'CONFIG_LV_IME_PINYIN_USE_DEFAULT_DICT=y'
+    'CONFIG_LV_FONT_SIMSUN_16_CJK=y'
+)) {
+    if (-not $lcdConfig.Contains($symbol)) {
+        throw "Missing pinyin input config: $symbol"
+    }
 }
 
 foreach ($forbidden in @('Hello World', 'tdl_disp_dev_flush', 'disp_disable_update')) {

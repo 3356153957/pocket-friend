@@ -362,6 +362,12 @@ static void pf_handle_input(const PF_INPUT_EVENT_T *input)
             pf_dispatch(PF_EVENT_RESET);
         }
         break;
+    case PF_INPUT_OPEN_PINYIN:
+        pf_ui_show_page(PF_UI_PAGE_PINYIN_INPUT);
+        break;
+    case PF_INPUT_PINYIN_BACK:
+        pf_ui_show_page(PF_UI_PAGE_IDLE);
+        break;
     case PF_INPUT_OPEN_WIFI:
     case PF_INPUT_WIFI_SCAN:
         pf_ui_wifi_show_scan();
