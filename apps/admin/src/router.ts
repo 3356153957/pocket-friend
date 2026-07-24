@@ -194,12 +194,12 @@ export function createAdminRouter(options: AdminRouterOptions): AdminRouter {
       }
       const bytes = new Uint8Array(await request.arrayBuffer());
       if (bytes.length > MAX_PHOTO_BYTES) {
-        return json({ error: { code: "PHOTO_TOO_LARGE", message: "Photo exceeds 64 KiB." } }, 413);
+        return json({ error: { code: "PHOTO_TOO_LARGE", message: "Photo exceeds 512 KiB." } }, 413);
       }
       if (!isJpeg(bytes)) {
         return json({ error: { code: "INVALID_JPEG", message: "Photo is not a valid JPEG." } }, 400);
       }
-      photos.put(deviceId, bytes, now());
+      await photos.put(deviceId, bytes, now());
       return response(null, 204, "text/plain; charset=utf-8");
     }
 
@@ -216,7 +216,7 @@ export function createAdminRouter(options: AdminRouterOptions): AdminRouter {
     }
     const photoMatch = /^\/api\/photos\/(board-a|board-b)\/latest$/u.exec(url.pathname);
     if (photoMatch) {
-      const photo = photos.get(photoMatch[1] as BoardDeviceId);
+      const photo = await photos.get(photoMatch[1] as BoardDeviceId);
       if (!photo) return json({ error: { code: "PHOTO_NOT_FOUND", message: "No photo has been uploaded." } }, 404);
       const result = response(photo.bytes, 200, "image/jpeg");
       result.headers.set("X-Captured-At", photo.capturedAt);

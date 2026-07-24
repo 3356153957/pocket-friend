@@ -52,7 +52,9 @@ export function createAdminServer(options: AdminServerOptions = {}): Server {
   const route = createAdminRouter({
     env,
     registry: options.registry ?? new DeviceStatusRegistry(),
-    photos: options.photos ?? new LatestPhotoStore(),
+    photos: options.photos ?? new LatestPhotoStore({
+      directory: env.PF_PHOTO_UPLOAD_DIR ?? "/var/lib/pocket-friend-admin/photos",
+    }),
     ...(options.now ? { now: options.now } : {}),
   });
 

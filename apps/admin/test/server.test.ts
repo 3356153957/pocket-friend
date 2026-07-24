@@ -36,7 +36,7 @@ test("admin server listens independently and serves authenticated status", async
   }
 });
 
-test("admin server accepts camera-sized JPEGs and rejects bodies larger than 64 KiB", async () => {
+test("admin server accepts camera-sized JPEGs and rejects bodies larger than 512 KiB", async () => {
   const server = createAdminServer({
     env: {
       PF_ADMIN_USERNAME: "operator",
@@ -55,7 +55,7 @@ test("admin server accepts camera-sized JPEGs and rejects bodies larger than 64 
   try {
     const address = server.address();
     assert.ok(address && typeof address !== "string");
-    const cameraJpeg = new Uint8Array(25 * 1024);
+    const cameraJpeg = new Uint8Array(200 * 1024);
     cameraJpeg[0] = 0xff;
     cameraJpeg[1] = 0xd8;
     cameraJpeg[cameraJpeg.length - 2] = 0xff;
@@ -70,7 +70,7 @@ test("admin server accepts camera-sized JPEGs and rejects bodies larger than 64 
     const response = await fetch(`http://127.0.0.1:${address.port}/api/photos?deviceId=board-a`, {
       method: "POST",
       headers: { Authorization: "Bearer board-secret", "Content-Type": "image/jpeg" },
-      body: new Uint8Array(64 * 1024 + 1),
+      body: new Uint8Array(512 * 1024 + 1),
     });
     assert.equal(response.status, 413);
   } finally {
