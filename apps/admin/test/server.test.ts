@@ -28,7 +28,7 @@ test("admin server listens independently and serves authenticated status", async
     });
 
     assert.equal(response.status, 200);
-    assert.equal((await response.json()).summary.total, 2);
+    assert.equal((await response.json()).summary.total, 3);
   } finally {
     await new Promise<void>((resolve, reject) => {
       server.close((error) => error ? reject(error) : resolve());

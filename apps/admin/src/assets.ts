@@ -21,7 +21,7 @@
       <section class="summary" aria-label="在线概览">
         <div><strong id="online-count">--</strong><span>在线设备</span></div>
         <div><strong id="offline-count">--</strong><span>离线设备</span></div>
-        <div><strong id="total-count">2</strong><span>设备总数</span></div>
+        <div><strong id="total-count">3</strong><span>设备总数</span></div>
       </section>
 
       <section class="device-section">

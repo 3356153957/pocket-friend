@@ -44,7 +44,9 @@ describe("admin production deployment", () => {
     assert.match(installer, /openssl rand/);
     assert.match(installer, /pocket-friend-admin\.service/);
     assert.match(installer, /4311\/tcp/);
+    assert.match(installer, /PF_PHOTO_DOWNLOAD_TOKEN/);
     assert.doesNotMatch(installer, /PF_ADMIN_PASSWORD=['\"][^$]/);
     assert.doesNotMatch(installer, /PF_DEVICE_HEARTBEAT_TOKEN=['\"][^$]/);
+    assert.doesNotMatch(installer, /PF_PHOTO_DOWNLOAD_TOKEN=['\"][^$]/);
   });
 });

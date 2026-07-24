@@ -75,6 +75,16 @@ function isDeviceAuthorized(request: Request, env: AdminEnvironment): boolean {
   return Boolean(expected && supplied && constantTimeEqual(supplied, expected));
 }
 
+function isPhotoDownloadAuthorized(request: Request, env: AdminEnvironment): boolean {
+  const expected = env.PF_PHOTO_DOWNLOAD_TOKEN;
+  const supplied = request.headers.get("authorization")?.replace(/^Bearer\s+/u, "") ?? "";
+  return Boolean(expected && supplied && constantTimeEqual(supplied, expected));
+}
+
+function isPhotoReaderAuthorized(request: Request, env: AdminEnvironment): boolean {
+  return isAdminAuthorized(request, env) || isPhotoDownloadAuthorized(request, env);
+}
+
 function allowedWebOrigin(request: Request, env: AdminEnvironment): string | null {
   const origin = request.headers.get("origin");
   if (!origin) return null;
@@ -203,8 +213,6 @@ export function createAdminRouter(options: AdminRouterOptions): AdminRouter {
       return response(null, 204, "text/plain; charset=utf-8");
     }
 
-    if (!isAdminAuthorized(request, options.env)) return unauthorized();
-
     if (request.method !== "GET" && request.method !== "HEAD") {
       const result = json({ error: { code: "METHOD_NOT_ALLOWED", message: "Method not allowed." } }, 405);
       result.headers.set("Allow", "GET, HEAD");
@@ -212,10 +220,12 @@ export function createAdminRouter(options: AdminRouterOptions): AdminRouter {
     }
 
     if (url.pathname === "/api/status") {
+      if (!isAdminAuthorized(request, options.env)) return unauthorized();
       return json(options.registry.snapshot(now()));
     }
     const photoHistoryMatch = /^\/api\/photos\/(board-a)\/history$/u.exec(url.pathname);
     if (photoHistoryMatch) {
+      if (!isPhotoReaderAuthorized(request, options.env)) return unauthorized();
       const deviceId = photoHistoryMatch[1] as BoardDeviceId;
       return json({
         photos: (await photos.listHistory(deviceId)).map((photo) => ({
@@ -227,6 +237,7 @@ export function createAdminRouter(options: AdminRouterOptions): AdminRouter {
 
     const archivedPhotoMatch = /^\/api\/photos\/(board-a)\/history\/([^/]+)$/u.exec(url.pathname);
     if (archivedPhotoMatch) {
+      if (!isPhotoReaderAuthorized(request, options.env)) return unauthorized();
       const photo = await photos.getHistoryPhoto(
         archivedPhotoMatch[1] as BoardDeviceId,
         decodeURIComponent(archivedPhotoMatch[2] ?? ""),
@@ -239,6 +250,7 @@ export function createAdminRouter(options: AdminRouterOptions): AdminRouter {
 
     const photoMatch = /^\/api\/photos\/(board-a)\/latest$/u.exec(url.pathname);
     if (photoMatch) {
+      if (!isPhotoReaderAuthorized(request, options.env)) return unauthorized();
       const photo = await photos.get(photoMatch[1] as BoardDeviceId);
       if (!photo) return json({ error: { code: "PHOTO_NOT_FOUND", message: "No photo has been uploaded." } }, 404);
       const result = response(photo.bytes, 200, "image/jpeg");
@@ -246,12 +258,15 @@ export function createAdminRouter(options: AdminRouterOptions): AdminRouter {
       return result;
     }
     if (url.pathname === "/" || url.pathname === "/index.html") {
+      if (!isAdminAuthorized(request, options.env)) return unauthorized();
       return response(request.method === "HEAD" ? null : adminHtml, 200, "text/html; charset=utf-8");
     }
     if (url.pathname === "/assets/admin.css") {
+      if (!isAdminAuthorized(request, options.env)) return unauthorized();
       return response(request.method === "HEAD" ? null : adminCss, 200, "text/css; charset=utf-8");
     }
     if (url.pathname === "/assets/admin.js") {
+      if (!isAdminAuthorized(request, options.env)) return unauthorized();
       return response(request.method === "HEAD" ? null : adminJavaScript, 200, "text/javascript; charset=utf-8");
     }
     return json({ error: { code: "NOT_FOUND", message: "Route not found." } }, 404);

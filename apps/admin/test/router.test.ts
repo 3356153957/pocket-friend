@@ -24,7 +24,7 @@ describe("admin router", () => {
       headers: { Authorization: `Basic ${credentials}` },
     }));
     assert.equal(status.status, 200);
-    assert.equal((await status.json()).devices.length, 2);
+    assert.equal((await status.json()).devices.length, 3);
   });
 
   test("accepts authenticated board heartbeats and rejects a bad token", async () => {
@@ -38,7 +38,7 @@ describe("admin router", () => {
         "Content-Type": "application/json",
       },
       body: JSON.stringify({
-        deviceId: "board-a",
+        deviceId: "board-b",
         firmwareVersion: "0.4.0",
         batteryPercent: 78,
       }),
@@ -47,7 +47,7 @@ describe("admin router", () => {
     assert.equal((await route(request("wrong"))).status, 401);
     assert.equal((await route(request("board-secret"))).status, 204);
     now = 20_000;
-    const board = registry.snapshot(now).devices[1];
+    const board = registry.snapshot(now).devices[2];
     assert.equal(board?.online, true);
     assert.equal(board?.batteryPercent, 78);
   });
@@ -107,6 +107,50 @@ describe("admin router", () => {
     }));
     assert.equal(archived.status, 200);
     assert.deepEqual(new Uint8Array(await archived.arrayBuffer()), Uint8Array.from([0xff, 0xd8, 0x02, 0xff, 0xd9]));
+  });
+
+  test("allows a dedicated photo download token to read photos only", async () => {
+    let now = 10_000;
+    const route = createAdminRouter({
+      env: {
+        ...env,
+        PF_PHOTO_DOWNLOAD_TOKEN: "photo-read-secret",
+      },
+      registry: new DeviceStatusRegistry(),
+      now: () => now,
+    });
+    const jpeg = Uint8Array.from([0xff, 0xd8, 0x03, 0xff, 0xd9]);
+
+    assert.equal((await route(new Request("http://localhost/api/photos?deviceId=board-a", {
+      method: "POST",
+      headers: {
+        Authorization: "Bearer board-secret",
+        "Content-Type": "image/jpeg",
+      },
+      body: jpeg,
+    }))).status, 204);
+
+    const history = await route(new Request("http://localhost/api/photos/board-a/history", {
+      headers: { Authorization: "Bearer photo-read-secret" },
+    }));
+    assert.equal(history.status, 200);
+    const body = await history.json() as { photos: Array<{ url: string }> };
+
+    const downloaded = await route(new Request(`http://localhost${body.photos[0]?.url}`, {
+      headers: { Authorization: "Bearer photo-read-secret" },
+    }));
+    assert.equal(downloaded.status, 200);
+    assert.deepEqual(new Uint8Array(await downloaded.arrayBuffer()), jpeg);
+
+    const status = await route(new Request("http://localhost/api/status", {
+      headers: { Authorization: "Bearer photo-read-secret" },
+    }));
+    assert.equal(status.status, 401);
+
+    const deviceTokenDownload = await route(new Request("http://localhost/api/photos/board-a/history", {
+      headers: { Authorization: "Bearer board-secret" },
+    }));
+    assert.equal(deviceTokenDownload.status, 401);
   });
 
   test("rejects unauthenticated, invalid, and non-JPEG photo uploads", async () => {

@@ -34,17 +34,20 @@ if [[ ! -e "${environment_file}" ]]; then
     echo "No credentials provided; a random password was generated." >&2
   fi
   device_token="$(openssl rand -hex 32)"
+  photo_download_token="$(openssl rand -hex 32)"
   umask 0077
   {
     echo "PF_ADMIN_USERNAME=${username}"
     echo "PF_ADMIN_PASSWORD=${admin_password}"
     echo "PF_DEVICE_HEARTBEAT_TOKEN=${device_token}"
+    echo "PF_PHOTO_DOWNLOAD_TOKEN=${photo_download_token}"
   } > "${environment_file}"
   chown root:pf-web "${environment_file}"
   chmod 0640 "${environment_file}"
   echo "Admin username: ${username}"
   echo "Admin password: ${admin_password}"
   echo "Device heartbeat token saved in ${environment_file}."
+  echo "Photo download token saved in ${environment_file}."
 fi
 
 bootstrap_release="${deploy_root}/releases/bootstrap-$(date +%s)"

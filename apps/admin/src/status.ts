@@ -56,6 +56,7 @@ interface WebSession {
 const definitions = [
   { id: "web", label: "网页端", kind: "web" },
   { id: "board-a", label: "开发板 A", kind: "board" },
+  { id: "board-b", label: "开发板 B", kind: "board" },
 ] as const;
 
 function parseBrowser(userAgent: string): { browser: string; os: string } {
