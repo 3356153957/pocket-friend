@@ -277,9 +277,20 @@ foreach ($captureStreamContract in @(
 
 $uiHeaderPath = Join-Path $root 'overlays\lvgl_camera\include\pf_ui.h'
 $uiSourcePath = Join-Path $root 'overlays\lvgl_camera\src\pf_ui.c'
+$pinyinDictHeaderPath = Join-Path $root 'overlays\lvgl_camera\include\pf_pinyin_dict.h'
+$pinyinDictSourcePath = Join-Path $root 'overlays\lvgl_camera\src\pf_pinyin_dict.c'
 $nameFontPath = Join-Path $root 'overlays\lvgl_camera\src\pf_font_names_16.c'
+$pinyinGeneratorPath = Join-Path $root 'scripts\generate-pinyin-name-dict.ps1'
+$namePriorityPath = Join-Path $root 'resources\pinyin\name-priority.json'
 
-foreach ($path in @($uiHeaderPath, $uiSourcePath)) {
+foreach ($path in @(
+    $uiHeaderPath
+    $uiSourcePath
+    $pinyinDictHeaderPath
+    $pinyinDictSourcePath
+    $pinyinGeneratorPath
+    $namePriorityPath
+)) {
     if (-not (Test-Path -LiteralPath $path)) {
         throw "Missing UI source file: $path"
     }
@@ -292,7 +303,13 @@ $ui = @(
     Get-Content -LiteralPath $uiHeaderPath -Raw -Encoding utf8
     Get-Content -LiteralPath $uiSourcePath -Raw -Encoding utf8
 ) -join "`n"
+$pinyinDict = @(
+    Get-Content -LiteralPath $pinyinDictHeaderPath -Raw -Encoding utf8
+    Get-Content -LiteralPath $pinyinDictSourcePath -Raw -Encoding utf8
+) -join "`n"
 $nameFont = Get-Content -LiteralPath $nameFontPath -Raw -Encoding utf8
+$namePriority = Get-Content -LiteralPath $namePriorityPath -Raw -Encoding utf8 |
+    ConvertFrom-Json
 
 $uiRequired = @(
     'lv_vendor_init(DISPLAY_NAME)'
@@ -328,6 +345,7 @@ $uiRequired = @(
     'lv_ime_pinyin_get_cand_panel'
     'LV_FONT_DECLARE(pf_font_names_16)'
     '&pf_font_names_16'
+    '#include "pf_pinyin_dict.h"'
     'pf_ui_show_preview_countdown'
     'pf_ui_create_pinyin_input_page'
     'pf_ui_wifi_set_results'
@@ -362,14 +380,69 @@ if ($ui -match 'lv_ime_pinyin_set_keyboard\([^,]+,\s*sg_ui\.wifi_keyboard\)') {
 
 $customPinyinDictUseCount = ([regex]::Matches(
     $ui,
-    'lv_ime_pinyin_set_dict\([^,]+,\s*sg_pinyin_name_dict\s*\)'
+    'lv_ime_pinyin_set_dict\([^,]+,\s*pf_pinyin_name_dict\s*\)'
 )).Count
 if ($customPinyinDictUseCount -ne 2) {
     throw 'Both pinyin IMEs must use the expanded name dictionary'
 }
 
-if ($ui -notmatch '\{\s*"shi",\s*"[^"]{18,}"\s*\}') {
+if ($ui -match 'static\s+lv_pinyin_dict_t\s+sg_pinyin_name_dict') {
+    throw 'Generated pinyin dictionary must not remain embedded in pf_ui.c'
+}
+
+if ($pinyinDict -notmatch '\{\s*"shi",\s*"[^"]{18,}"\s*\}') {
     throw 'Expanded pinyin name dictionary must keep high-frequency syllables beyond two candidate pages'
+}
+
+if ($pinyinDict -notmatch '100askTeam/lv_lib_100ask' -or
+    $pinyinDict -notmatch '\{\s*NULL,\s*NULL\s*\}') {
+    throw 'Generated pinyin dictionary must record its 100ask source and terminator'
+}
+
+$dictEntries = [regex]::Matches(
+    $pinyinDict,
+    '\{\s*"([a-z]+)",\s*"([^"]*)"\s*\}'
+)
+if ($dictEntries.Count -lt 402) {
+    throw "Generated pinyin dictionary is incomplete: $($dictEntries.Count) entries"
+}
+
+$commonSurnameCodepoints = @(
+    0x8D75, 0x94B1, 0x5B59, 0x674E, 0x5468, 0x5434, 0x90D1, 0x738B,
+    0x51AF, 0x9648, 0x891A, 0x536B, 0x848B, 0x6C88, 0x97E9, 0x6768,
+    0x6731, 0x79E6, 0x5C24, 0x8BB8, 0x4F55, 0x5415, 0x65BD, 0x5F20,
+    0x5B54, 0x66F9, 0x4E25, 0x534E, 0x91D1, 0x9B4F, 0x9676, 0x59DC,
+    0x621A, 0x8C22, 0x90B9, 0x55BB, 0x67CF, 0x6C34, 0x7AA6, 0x7AE0,
+    0x4E91, 0x82CF, 0x6F58, 0x845B, 0x595A, 0x8303, 0x5F6D, 0x90CE,
+    0x9C81, 0x97E6, 0x660C, 0x9A6C, 0x82D7, 0x51E4, 0x82B1, 0x65B9,
+    0x4FDE, 0x4EFB, 0x8881, 0x67F3, 0x9146, 0x9C8D, 0x53F2, 0x5510,
+    0x8D39, 0x5EC9, 0x5C91, 0x859B, 0x96F7, 0x8D3A, 0x502A, 0x6C64,
+    0x6ED5, 0x6BB7, 0x7F57, 0x6BD5, 0x90DD, 0x90AC, 0x5B89, 0x5E38,
+    0x4E50, 0x4E8E, 0x65F6, 0x5085, 0x76AE, 0x535E, 0x9F50, 0x5EB7,
+    0x4F0D, 0x4F59, 0x5143, 0x535C, 0x987E, 0x5B5F, 0x5E73, 0x9EC4,
+    0x548C, 0x7A46, 0x8427, 0x5C39
+)
+$commonSurnames = -join ($commonSurnameCodepoints | ForEach-Object { [char]$_ })
+if ($namePriority.commonSurnames -ne $commonSurnames) {
+    throw 'Name priority data must keep the agreed common-surname set'
+}
+
+foreach ($surname in $commonSurnames.ToCharArray()) {
+    if (-not $pinyinDict.Contains([string]$surname)) {
+        throw "Generated pinyin dictionary is missing common surname: $surname"
+    }
+}
+
+foreach ($entry in @(
+    @{ Pinyin = 'chu'; Character = [char]0x891A }
+    @{ Pinyin = 'xi'; Character = [char]0x595A }
+    @{ Pinyin = 'feng'; Character = [char]0x9146 }
+    @{ Pinyin = 'wu'; Character = [char]0x90AC }
+)) {
+    if ($pinyinDict -notmatch ('\{{\s*"{0}",\s*"[^"]*{1}' -f
+            $entry.Pinyin, $entry.Character)) {
+        throw "Generated pinyin dictionary is missing surname reading: $($entry.Character) $($entry.Pinyin)"
+    }
 }
 
 if ($ui -notmatch 'lv_obj_set_parent\(\s*cand_panel,\s*sg_ui\.pages\[PF_UI_PAGE_PINYIN_INPUT\]\s*\)') {
@@ -405,7 +478,10 @@ if ($ui -notmatch 'lv_obj_set_style_pad_all\(\s*cand_panel,\s*4,\s*0\s*\)') {
     throw 'Pinyin candidate panel must use compact padding so more candidates fit'
 }
 
-$dictMatches = [regex]::Matches($ui, '\{\s*"[^"]+",\s*"([^"]*)"\s*\}')
+$dictMatches = [regex]::Matches(
+    $pinyinDict,
+    '\{\s*"[^"]+",\s*"([^"]*)"\s*\}'
+)
 $dictChars = New-Object 'System.Collections.Generic.HashSet[string]'
 foreach ($match in $dictMatches) {
     foreach ($ch in $match.Groups[1].Value.ToCharArray()) {
@@ -428,7 +504,7 @@ if (-not (Test-Path -LiteralPath $configPath)) {
 $lcdConfig = Get-Content -LiteralPath $configPath -Raw
 foreach ($symbol in @(
     'CONFIG_LV_USE_IME_PINYIN=y'
-    'CONFIG_LV_IME_PINYIN_USE_DEFAULT_DICT=y'
+    'CONFIG_LV_IME_PINYIN_USE_DEFAULT_DICT=n'
     'CONFIG_LV_IME_PINYIN_CAND_TEXT_NUM=8'
     'CONFIG_LV_FONT_SIMSUN_16_CJK=y'
 )) {
