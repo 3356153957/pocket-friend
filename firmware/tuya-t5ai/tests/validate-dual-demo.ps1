@@ -210,4 +210,42 @@ foreach ($forbidden in @('Hello World', 'tdl_disp_dev_flush', 'disp_disable_upda
     }
 }
 
+$transportHeaderPath = Join-Path $root 'overlays\lvgl_camera\include\pf_transport.h'
+$transportSourcePath = Join-Path $root 'overlays\lvgl_camera\src\pf_transport.c'
+
+foreach ($path in @($transportHeaderPath, $transportSourcePath)) {
+    if (-not (Test-Path -LiteralPath $path)) {
+        throw "Missing transport source file: $path"
+    }
+}
+
+$transport = @(
+    Get-Content -LiteralPath $transportHeaderPath -Raw
+    Get-Content -LiteralPath $transportSourcePath -Raw
+) -join "`n"
+
+$transportRequired = @(
+    'tal_wifi_init'
+    'tal_wifi_set_work_mode'
+    'tal_wifi_station_connect'
+    'tal_net_socket_create(PROTOCOL_UDP)'
+    'tal_net_set_broadcast'
+    'tal_net_set_reuse'
+    'tal_net_bind'
+    'tal_net_set_block'
+    'tal_net_send_to'
+    'tal_net_recvfrom'
+    'tal_net_close'
+    'PF_HEARTBEAT_MS'
+    'PF_PEER_TIMEOUT_MS'
+    'PF_CRITICAL_RETRY_COUNT'
+    'pf_protocol_decode'
+)
+
+foreach ($symbol in $transportRequired) {
+    if (-not $transport.Contains($symbol)) {
+        throw "Missing transport contract: $symbol"
+    }
+}
+
 Write-Host 'PASS: dual-demo source contract.'
