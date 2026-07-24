@@ -65,6 +65,7 @@ typedef uint32_t PF_EFFECTS_T;
 
 typedef struct {
     PF_STATE_E state;
+    PF_STATE_E camera_return_state;
     bool local_confirmed;
     bool peer_confirmed;
     bool local_captured;

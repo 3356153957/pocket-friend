@@ -130,6 +130,21 @@ if ($stateSource -match '\b(?:tal|tdl|lv|tkl)_') {
     throw 'State machine must not call hardware, network, or UI APIs'
 }
 
+foreach ($offlineCameraContract in @(
+    'PF_STATE_E camera_return_state;'
+    'next.camera_return_state = next.state;'
+    'next.state = next.camera_return_state;'
+    'next.camera_return_state = PF_STATE_ONLINE_IDLE;'
+)) {
+    if (-not $protocolAndState.Contains($offlineCameraContract)) {
+        throw "Camera preview must preserve network state: $offlineCameraContract"
+    }
+}
+
+if ($stateSource -notmatch 'case PF_EVENT_OPEN_CAMERA:[\s\S]*PF_STATE_CONNECTING[\s\S]*PF_STATE_RECONNECTING[\s\S]*next\.camera_return_state = next\.state;') {
+    throw 'Camera preview must open while Wi-Fi is unconfigured or reconnecting'
+}
+
 $motorHeaderPath = Join-Path $root 'overlays\lvgl_camera\include\pf_motor.h'
 $motorSourcePath = Join-Path $root 'overlays\lvgl_camera\src\pf_motor.c'
 $inputHeaderPath = Join-Path $root 'overlays\lvgl_camera\include\pf_input.h'

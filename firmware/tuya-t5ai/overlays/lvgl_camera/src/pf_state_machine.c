@@ -71,6 +71,15 @@ OPERATE_RET pf_state_dispatch(PF_STATE_CONTEXT_T *ctx,
         break;
 
     case PF_EVENT_WIFI_CONNECTED:
+        if (next.state == PF_STATE_CAMERA_PREVIEW) {
+            if (next.camera_return_state != PF_STATE_CONNECTING &&
+                next.camera_return_state != PF_STATE_RECONNECTING) {
+                handled = false;
+                break;
+            }
+            next.camera_return_state = PF_STATE_ONLINE_IDLE;
+            break;
+        }
         if (next.state != PF_STATE_CONNECTING &&
             next.state != PF_STATE_RECONNECTING) {
             handled = false;
@@ -101,10 +110,13 @@ OPERATE_RET pf_state_dispatch(PF_STATE_CONTEXT_T *ctx,
         break;
 
     case PF_EVENT_OPEN_CAMERA:
-        if (next.state != PF_STATE_ONLINE_IDLE) {
+        if (next.state != PF_STATE_ONLINE_IDLE &&
+            next.state != PF_STATE_CONNECTING &&
+            next.state != PF_STATE_RECONNECTING) {
             handled = false;
             break;
         }
+        next.camera_return_state = next.state;
         next.state = PF_STATE_CAMERA_PREVIEW;
         next_effects = PF_EFFECT_UI_REFRESH;
         break;
@@ -114,7 +126,8 @@ OPERATE_RET pf_state_dispatch(PF_STATE_CONTEXT_T *ctx,
             handled = false;
             break;
         }
-        pf_state_enter_idle(&next, &next_effects);
+        next.state = next.camera_return_state;
+        next_effects = PF_EFFECT_UI_REFRESH | PF_EFFECT_SAFE_RESET;
         break;
 
     case PF_EVENT_LOCAL_CONFIRM:
