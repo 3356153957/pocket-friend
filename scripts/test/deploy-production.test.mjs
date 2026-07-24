@@ -350,7 +350,12 @@ test("生产工作流只允许 master 和人工触发并使用受限 Runner", as
   );
   assert.match(
     workflow,
-    /uses:\s*actions\/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1/u,
+    /git -c protocol\.version=2 fetch --no-tags --depth=1 origin "\$GITHUB_SHA"/u,
+  );
+  assert.match(workflow, /git checkout --detach FETCH_HEAD/u);
+  assert.match(
+    workflow,
+    /git remote set-url origin "https:\/\/github\.com\/\$\{GITHUB_REPOSITORY\}\.git"/u,
   );
   assert.doesNotMatch(workflow, /uses:\s*actions\/checkout@v/u);
   assert.match(workflow, /if:\s*github\.ref == 'refs\/heads\/master'/u);
