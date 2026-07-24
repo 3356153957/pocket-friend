@@ -365,6 +365,14 @@ test("生产工作流只允许 master 和人工触发并使用受限 Runner", as
   );
 });
 
+test("生产构建显式声明 Node 类型依赖", async () => {
+  const packageJson = JSON.parse(
+    await readFile(path.resolve("package.json"), "utf8"),
+  );
+
+  assert.match(packageJson.devDependencies?.["@types/node"], /^\^?\d+\./u);
+});
+
 test("服务器配置固定静态 release 根目录并只授权重启指定服务", async () => {
   const [serviceUnit, sudoers, staticServer] = await Promise.all([
     readFile(path.resolve("ops/pocket-friend.service"), "utf8"),
