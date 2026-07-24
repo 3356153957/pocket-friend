@@ -21,6 +21,8 @@ typedef void (*PF_TRANSPORT_CB)(PF_TRANSPORT_EVENT_E event,
 
 OPERATE_RET pf_transport_init(PF_TRANSPORT_CB cb, void *ctx);
 OPERATE_RET pf_transport_start(void);
+OPERATE_RET pf_transport_network_up(void);
+void pf_transport_network_down(void);
 OPERATE_RET pf_transport_send(PF_MESSAGE_TYPE_E type,
                               uint32_t session_id,
                               int32_t result,

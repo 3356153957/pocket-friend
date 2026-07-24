@@ -270,9 +270,8 @@ $transport = @(
 ) -join "`n"
 
 $transportRequired = @(
-    'tal_wifi_init'
-    'tal_wifi_set_work_mode'
-    'tal_wifi_station_connect'
+    'pf_transport_network_up'
+    'pf_transport_network_down'
     'tal_net_socket_create(PROTOCOL_UDP)'
     'tal_net_set_broadcast'
     'tal_net_set_reuse'
@@ -290,6 +289,14 @@ $transportRequired = @(
 foreach ($symbol in $transportRequired) {
     if (-not $transport.Contains($symbol)) {
         throw "Missing transport contract: $symbol"
+    }
+}
+
+foreach ($forbidden in @('tal_wifi_init', 'tal_wifi_set_work_mode',
+                          'tal_wifi_station_connect', 'PF_WIFI_SSID',
+                          'PF_WIFI_PASSWORD')) {
+    if ($transport.Contains($forbidden)) {
+        throw "Transport must not own Wi-Fi: $forbidden"
     }
 }
 

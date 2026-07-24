@@ -3,7 +3,6 @@
 #include "pf_demo_config.h"
 #include "tal_api.h"
 #include "tal_network.h"
-#include "tal_wifi.h"
 
 #define PF_DEDUP_WINDOW_SIZE 16U
 #define PF_RETRY_SLOT_COUNT  4U
@@ -262,54 +261,6 @@ static void pf_heartbeat_cb(TIMER_ID timer_id, void *arg)
     (void)pf_transport_send(PF_MSG_HELLO, 0U, 0, false);
 }
 
-static void pf_wifi_event_cb(WF_EVENT_E event, void *arg)
-{
-    bool peer_lost = false;
-    (void)arg;
-
-    if (event == WFE_CONNECTED) {
-        NW_IP_S station_ip;
-        memset(&station_ip, 0, sizeof(station_ip));
-        if (tal_wifi_get_ip(WF_STATION, &station_ip) != OPRT_OK) {
-            PR_ERR("[transport] failed to read station IP");
-            return;
-        }
-
-        tal_mutex_lock(sg_transport_mutex);
-        if (!sg_running) {
-            tal_mutex_unlock(sg_transport_mutex);
-            return;
-        }
-        pf_close_socket_locked();
-        sg_wifi_connected = true;
-        if (pf_open_socket_locked() != OPRT_OK) {
-            PR_ERR("[transport] failed to open UDP socket");
-        }
-        tal_mutex_unlock(sg_transport_mutex);
-
-        tal_sw_timer_start(sg_heartbeat_timer, PF_HEARTBEAT_MS,
-                           TAL_TIMER_CYCLE);
-        (void)pf_transport_send(PF_MSG_HELLO, 0U, 0, false);
-        PR_NOTICE("[transport] Wi-Fi connected: %s", station_ip.ip);
-        pf_notify(PF_TRANSPORT_WIFI_CONNECTED, NULL);
-        return;
-    }
-
-    if (event == WFE_DISCONNECTED || event == WFE_CONNECT_FAILED) {
-        tal_sw_timer_stop(sg_heartbeat_timer);
-        tal_mutex_lock(sg_transport_mutex);
-        peer_lost = sg_peer_online;
-        sg_wifi_connected = false;
-        pf_close_socket_locked();
-        tal_mutex_unlock(sg_transport_mutex);
-
-        if (peer_lost) {
-            pf_notify(PF_TRANSPORT_PEER_LOST, NULL);
-        }
-        pf_notify(PF_TRANSPORT_WIFI_LOST, NULL);
-    }
-}
-
 OPERATE_RET pf_transport_init(PF_TRANSPORT_CB cb, void *ctx)
 {
     OPERATE_RET rt;
@@ -358,18 +309,50 @@ OPERATE_RET pf_transport_start(void)
         return rt;
     }
 
-    rt = tal_wifi_init(pf_wifi_event_cb);
-    if (rt == OPRT_OK) {
-        rt = tal_wifi_set_work_mode(WWM_STATION);
+    return OPRT_OK;
+}
+
+OPERATE_RET pf_transport_network_up(void)
+{
+    OPERATE_RET rt;
+
+    if (!sg_initialized || !sg_running) {
+        return OPRT_RESOURCE_NOT_READY;
     }
-    if (rt == OPRT_OK) {
-        rt = tal_wifi_station_connect((int8_t *)PF_WIFI_SSID,
-                                      (int8_t *)PF_WIFI_PASSWORD);
-    }
+    tal_mutex_lock(sg_transport_mutex);
+    pf_close_socket_locked();
+    rt = pf_open_socket_locked();
+    sg_wifi_connected = (rt == OPRT_OK);
+    tal_mutex_unlock(sg_transport_mutex);
     if (rt != OPRT_OK) {
-        sg_running = false;
+        return rt;
     }
-    return rt;
+
+    tal_sw_timer_start(sg_heartbeat_timer, PF_HEARTBEAT_MS,
+                       TAL_TIMER_CYCLE);
+    (void)pf_transport_send(PF_MSG_HELLO, 0U, 0, false);
+    pf_notify(PF_TRANSPORT_WIFI_CONNECTED, NULL);
+    return OPRT_OK;
+}
+
+void pf_transport_network_down(void)
+{
+    bool peer_lost;
+
+    if (!sg_initialized) {
+        return;
+    }
+    tal_sw_timer_stop(sg_heartbeat_timer);
+    tal_mutex_lock(sg_transport_mutex);
+    peer_lost = sg_peer_online;
+    sg_wifi_connected = false;
+    pf_close_socket_locked();
+    tal_mutex_unlock(sg_transport_mutex);
+
+    if (peer_lost) {
+        pf_notify(PF_TRANSPORT_PEER_LOST, NULL);
+    }
+    pf_notify(PF_TRANSPORT_WIFI_LOST, NULL);
 }
 
 OPERATE_RET pf_transport_send(PF_MESSAGE_TYPE_E type,
@@ -433,10 +416,8 @@ void pf_transport_stop(void)
         return;
     }
 
-    tal_sw_timer_stop(sg_heartbeat_timer);
+    pf_transport_network_down();
     tal_mutex_lock(sg_transport_mutex);
     sg_running = false;
-    sg_wifi_connected = false;
-    pf_close_socket_locked();
     tal_mutex_unlock(sg_transport_mutex);
 }
