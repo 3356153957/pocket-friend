@@ -5,9 +5,11 @@ import path from "node:path";
 import test from "node:test";
 
 import {
+  buildReleaseName,
   parseEnvFile,
   resolveAssetPath,
   validateBuild,
+  validateDeployConfig,
   validateDeployIdentity,
 } from "../deploy-production-lib.mjs";
 
@@ -115,5 +117,63 @@ test("validateDeployIdentity 只接受完整 Git SHA 和数字运行编号", () 
       attempt: "2",
     }),
     /GITHUB_RUN_ID/,
+  );
+});
+
+test("buildReleaseName 使用不可注入路径的部署身份", () => {
+  assert.equal(
+    buildReleaseName({
+      sha: "0123456789abcdef0123456789abcdef01234567",
+      runId: "123456",
+      attempt: "2",
+    }),
+    "0123456789abcdef0123456789abcdef01234567-123456-2",
+  );
+});
+
+test("validateDeployConfig 只接受服务器内的绝对路径和本机健康地址", () => {
+  assert.deepEqual(validateDeployConfig({
+    deployRoot: "/srv/pocket-friend",
+    envFile: "/etc/pocket-friend/mobile.env",
+    service: "pocket-friend.service",
+    healthUrl: "http://127.0.0.1/",
+    workspace: "/opt/actions-runner/_work/pocket-friend/pocket-friend",
+  }), {
+    deployRoot: path.resolve("/srv/pocket-friend"),
+    envFile: path.resolve("/etc/pocket-friend/mobile.env"),
+    service: "pocket-friend.service",
+    healthUrl: "http://127.0.0.1/",
+    workspace: path.resolve("/opt/actions-runner/_work/pocket-friend/pocket-friend"),
+  });
+
+  assert.throws(
+    () => validateDeployConfig({
+      deployRoot: "/",
+      envFile: "/etc/pocket-friend/mobile.env",
+      service: "pocket-friend.service",
+      healthUrl: "http://127.0.0.1/",
+      workspace: "/tmp/workspace",
+    }),
+    /deploy root/,
+  );
+  assert.throws(
+    () => validateDeployConfig({
+      deployRoot: "/srv/pocket-friend",
+      envFile: "/etc/pocket-friend/mobile.env",
+      service: "other.service; reboot",
+      healthUrl: "https://example.com/",
+      workspace: "/tmp/workspace",
+    }),
+    /service/,
+  );
+  assert.throws(
+    () => validateDeployConfig({
+      deployRoot: "/srv/pocket-friend",
+      envFile: "/etc/pocket-friend/mobile.env",
+      service: "pocket-friend.service",
+      healthUrl: "https://example.com/",
+      workspace: "/tmp/workspace",
+    }),
+    /loopback/,
   );
 });

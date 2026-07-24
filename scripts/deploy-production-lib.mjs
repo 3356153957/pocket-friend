@@ -82,12 +82,7 @@ export function resolveAssetPath(buildRoot, publicPath) {
 export async function validateBuild({ buildRoot, publicEnv }) {
   const indexFile = path.join(path.resolve(buildRoot), "index.html");
   const html = await readFile(indexFile, "utf8");
-  const scriptMatch = html.match(/<script\b[^>]*\bsrc="([^"]+\.js)"[^>]*>/iu);
-  if (!scriptMatch) {
-    throw new Error("Build index does not reference a local JavaScript asset");
-  }
-
-  const assetPublicPath = scriptMatch[1];
+  const assetPublicPath = extractScriptAssetPath(html);
   const assetFile = resolveAssetPath(buildRoot, assetPublicPath);
   const bundle = await readFile(assetFile, "utf8");
 
@@ -104,6 +99,14 @@ export async function validateBuild({ buildRoot, publicEnv }) {
   return { assetPublicPath, assetFile };
 }
 
+export function extractScriptAssetPath(html) {
+  const scriptMatch = html.match(/<script\b[^>]*\bsrc="([^"]+\.js)"[^>]*>/iu);
+  if (!scriptMatch) {
+    throw new Error("Build index does not reference a local JavaScript asset");
+  }
+  return scriptMatch[1];
+}
+
 export function validateDeployIdentity({ sha, runId, attempt }) {
   if (!/^[0-9a-f]{40}$/u.test(sha ?? "")) {
     throw new Error("GITHUB_SHA must be a full lowercase Git commit SHA");
@@ -116,4 +119,60 @@ export function validateDeployIdentity({ sha, runId, attempt }) {
   }
 
   return { sha, runId, attempt };
+}
+
+export function buildReleaseName(identity) {
+  const { sha, runId, attempt } = validateDeployIdentity(identity);
+  return `${sha}-${runId}-${attempt}`;
+}
+
+export function validateDeployConfig({
+  deployRoot,
+  envFile,
+  service,
+  healthUrl,
+  workspace,
+}) {
+  const normalizedDeployRoot = path.resolve(deployRoot ?? "");
+  if (
+    !path.isAbsolute(deployRoot ?? "") ||
+    normalizedDeployRoot === path.parse(normalizedDeployRoot).root
+  ) {
+    throw new Error("PF_DEPLOY_ROOT must be a non-root absolute deploy root");
+  }
+
+  const normalizedEnvFile = path.resolve(envFile ?? "");
+  if (!path.isAbsolute(envFile ?? "")) {
+    throw new Error("PF_DEPLOY_ENV_FILE must be an absolute path");
+  }
+
+  const normalizedWorkspace = path.resolve(workspace ?? "");
+  if (!path.isAbsolute(workspace ?? "")) {
+    throw new Error("GITHUB_WORKSPACE must be an absolute path");
+  }
+
+  if (!/^[A-Za-z0-9@_.-]+\.service$/u.test(service ?? "")) {
+    throw new Error("PF_DEPLOY_SERVICE must be a valid systemd service name");
+  }
+
+  let parsedHealthUrl;
+  try {
+    parsedHealthUrl = new URL(healthUrl);
+  } catch {
+    throw new Error("PF_DEPLOY_HEALTH_URL must be a valid loopback HTTP URL");
+  }
+  if (
+    parsedHealthUrl.protocol !== "http:" ||
+    !["127.0.0.1", "::1", "localhost"].includes(parsedHealthUrl.hostname)
+  ) {
+    throw new Error("PF_DEPLOY_HEALTH_URL must use loopback HTTP");
+  }
+
+  return {
+    deployRoot: normalizedDeployRoot,
+    envFile: normalizedEnvFile,
+    service,
+    healthUrl: parsedHealthUrl.toString(),
+    workspace: normalizedWorkspace,
+  };
 }
