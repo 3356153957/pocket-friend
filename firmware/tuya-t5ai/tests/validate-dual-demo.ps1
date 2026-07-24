@@ -380,10 +380,15 @@ if ($passwordClearCount -lt 2) {
 }
 
 $wifiCallbackIndex = $wifi.IndexOf('sg_wifi_cb = cb')
+$wifiKvInitIndex = $wifi.IndexOf('tal_kv_init')
 $wifiThreadIndex = $wifi.IndexOf('tal_thread_create_and_start')
 if ($wifiCallbackIndex -lt 0 -or $wifiThreadIndex -lt 0 -or
     $wifiCallbackIndex -gt $wifiThreadIndex) {
     throw 'Wi-Fi callback must be installed before the worker thread starts'
+}
+if ($wifiKvInitIndex -lt 0 -or $wifiThreadIndex -lt 0 -or
+    $wifiKvInitIndex -gt $wifiThreadIndex) {
+    throw 'KV storage must be initialized before the Wi-Fi worker thread starts'
 }
 
 foreach ($symbol in @('OPERATE_RET rt', 'board_register_hardware()',

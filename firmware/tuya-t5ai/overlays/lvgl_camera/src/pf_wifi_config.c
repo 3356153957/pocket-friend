@@ -380,6 +380,10 @@ OPERATE_RET pf_wifi_init(PF_WIFI_CB cb, void *ctx)
     if (sg_initialized || cb == NULL) {
         return sg_initialized ? OPRT_INIT_MORE_THAN_ONCE : OPRT_INVALID_PARM;
     }
+    TUYA_CALL_ERR_RETURN(tal_kv_init(&(tal_kv_cfg_t){
+        .seed = "pocketfriendwifi",
+        .key = "t5aiwifi20260724",
+    }));
     TUYA_CALL_ERR_RETURN(tal_mutex_create_init(&sg_wifi_mutex));
     TUYA_CALL_ERR_RETURN(tal_queue_create_init(&sg_wifi_queue,
                                                 sizeof(PF_WIFI_COMMAND_T),

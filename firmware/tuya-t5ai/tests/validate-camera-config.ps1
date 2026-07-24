@@ -13,6 +13,7 @@ $requiredLines = @(
     'CONFIG_TUYA_T5AI_BOARD_LCD_35565=y'
     'CONFIG_TUYA_T5AI_BOARD_CAMERA=y'
     'CONFIG_ENABLE_LIBLVGL=y'
+    'CONFIG_ENABLE_LVGL_TP=y'
 )
 
 foreach ($line in $requiredLines) {
