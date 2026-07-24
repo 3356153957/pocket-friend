@@ -210,6 +210,7 @@ static void pf_refresh_ui(PF_STATE_E previous_state)
         break;
     case PF_STATE_COUNTDOWN:
         pf_input_set_mode(PF_INPUT_MODE_LOCKED);
+        pf_camera_prepare_capture_stream();
         pf_ui_show_page(PF_UI_PAGE_COUNTDOWN);
         pf_start_countdown();
         break;
@@ -561,6 +562,11 @@ static void pf_handle_timer(PF_EVENT_E timer_event)
         }
         tal_sw_timer_stop(sg_flow_timer);
         (void)pf_motor_stop();
+    }
+    if (sg_state.state == PF_STATE_PEER_FOUND ||
+        sg_state.state == PF_STATE_WAITING_CONFIRM) {
+        pf_dispatch(PF_EVENT_RESET);
+        return;
     }
     pf_dispatch(PF_EVENT_TIMEOUT);
 }

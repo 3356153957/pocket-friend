@@ -46,6 +46,7 @@ typedef enum {
     PF_EVENT_ENTER_DND,
     PF_EVENT_EXIT_DND,
     PF_EVENT_RESET,
+    PF_EVENT_COUNT,
 } PF_EVENT_E;
 
 typedef uint32_t PF_EFFECTS_T;

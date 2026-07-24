@@ -175,6 +175,12 @@ foreach ($offlineCameraContract in @(
 if ($stateSource -notmatch 'case PF_EVENT_OPEN_CAMERA:[\s\S]*PF_STATE_CONNECTING[\s\S]*PF_STATE_RECONNECTING[\s\S]*next\.camera_return_state = next\.state;') {
     throw 'Camera preview must open while Wi-Fi is unconfigured or reconnecting'
 }
+if (-not $protocolAndState.Contains('PF_EVENT_COUNT')) {
+    throw 'State events must expose PF_EVENT_COUNT so later events such as reset are accepted'
+}
+if ($stateSource -notmatch 'event\s*>=\s*PF_EVENT_COUNT') {
+    throw 'State dispatch must validate events against PF_EVENT_COUNT, not a mid-enum event'
+}
 
 $motorHeaderPath = Join-Path $root 'overlays\lvgl_camera\include\pf_motor.h'
 $motorSourcePath = Join-Path $root 'overlays\lvgl_camera\src\pf_motor.c'
@@ -254,6 +260,16 @@ $cameraRequired = @(
 foreach ($symbol in $cameraRequired) {
     if (-not $camera.Contains($symbol)) {
         throw "Missing camera lifecycle contract: $symbol"
+    }
+}
+foreach ($captureStreamContract in @(
+    'pf_camera_prepare_capture_stream',
+    'PF_CAPTURE_STREAM_WARMUP_MS',
+    'sg_capture_stream_until',
+    'pf_camera_capture_stream_ready'
+)) {
+    if (-not $camera.Contains($captureStreamContract)) {
+        throw "Camera must keep the encoded stream warm before synchronized capture: $captureStreamContract"
     }
 }
 
@@ -499,6 +515,12 @@ foreach ($symbol in $appRequired) {
 
 if (-not $app.Contains('sg_wifi_selected >= sg_wifi_ap_count')) {
     throw 'Wi-Fi connect and retry must reject a stale AP selection'
+}
+if ($app -notmatch 'case PF_STATE_COUNTDOWN:[\s\S]*pf_camera_prepare_capture_stream\(\)') {
+    throw 'Synchronized capture must warm the camera stream during the countdown'
+}
+if ($app -notmatch 'sg_state\.state == PF_STATE_PEER_FOUND[\s\S]*sg_state\.state == PF_STATE_WAITING_CONFIRM[\s\S]*pf_dispatch\(PF_EVENT_RESET\);[\s\S]*return;') {
+    throw 'Peer discovery or confirmation timeout must reset to idle instead of showing capture failed'
 }
 
 if ($app -notmatch 'pf_ui_set_wifi_status\(true, false\);\s*if \(sg_state\.state != PF_STATE_CAMERA_PREVIEW\) \{\s*pf_ui_wifi_show_connected\(pf_wifi_get_ip\(\)\);\s*\}') {

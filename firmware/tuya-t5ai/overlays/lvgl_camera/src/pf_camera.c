@@ -6,6 +6,8 @@
 #include "tdl_camera_manage.h"
 
 #define PF_CAMERA_FPS 15U
+#define PF_CAPTURE_STREAM_WARMUP_MS 500U
+#define PF_CAPTURE_STREAM_POLL_MS   20U
 
 static TDL_CAMERA_HANDLE_T sg_camera_handle = NULL;
 static SEM_HANDLE sg_capture_sem = NULL;
@@ -19,6 +21,13 @@ static OPERATE_RET sg_capture_result = OPRT_OK;
 static uint8_t *sg_jpeg_data = NULL;
 static uint32_t sg_jpeg_len = 0;
 static bool sg_camera_initialized = false;
+static uint32_t sg_capture_stream_until = 0;
+static bool sg_capture_stream_ready = false;
+
+static bool pf_camera_elapsed(uint32_t start_ms, uint32_t timeout_ms)
+{
+    return ((uint32_t)tal_system_get_millisecond() - start_ms) >= timeout_ms;
+}
 
 static OPERATE_RET pf_camera_jpeg_cb(TDL_CAMERA_HANDLE_T handle,
                                      TDL_CAMERA_FRAME_T *frame)
@@ -33,6 +42,9 @@ static OPERATE_RET pf_camera_jpeg_cb(TDL_CAMERA_HANDLE_T handle,
     }
 
     tal_mutex_lock(sg_capture_mutex);
+    if (sg_capture_stream_until != 0U) {
+        sg_capture_stream_ready = true;
+    }
     if (!sg_capture_requested) {
         tal_mutex_unlock(sg_capture_mutex);
         return OPRT_OK;
@@ -145,9 +157,34 @@ void pf_camera_set_frame_cb(PF_CAMERA_FRAME_CB cb)
     sg_frame_cb = cb;
 }
 
+void pf_camera_prepare_capture_stream(void)
+{
+    if (!sg_camera_initialized) {
+        return;
+    }
+
+    tal_mutex_lock(sg_capture_mutex);
+    sg_capture_stream_ready = false;
+    sg_capture_stream_until =
+        (uint32_t)tal_system_get_millisecond() + PF_CAPTURE_STREAM_WARMUP_MS;
+    tal_mutex_unlock(sg_capture_mutex);
+}
+
+bool pf_camera_capture_stream_ready(void)
+{
+    bool ready;
+
+    tal_mutex_lock(sg_capture_mutex);
+    ready = sg_capture_stream_ready;
+    tal_mutex_unlock(sg_capture_mutex);
+
+    return ready;
+}
+
 OPERATE_RET pf_camera_capture_jpeg(uint8_t **data, uint32_t *len)
 {
     OPERATE_RET rt;
+    uint32_t wait_start_ms;
 
     if (data == NULL || len == NULL) {
         return OPRT_INVALID_PARM;
@@ -158,11 +195,18 @@ OPERATE_RET pf_camera_capture_jpeg(uint8_t **data, uint32_t *len)
         return OPRT_RESOURCE_NOT_READY;
     }
 
+    wait_start_ms = (uint32_t)tal_system_get_millisecond();
+    while (!pf_camera_capture_stream_ready() &&
+           !pf_camera_elapsed(wait_start_ms, PF_CAPTURE_STREAM_WARMUP_MS)) {
+        tal_system_sleep(PF_CAPTURE_STREAM_POLL_MS);
+    }
+
     tal_mutex_lock(sg_capture_mutex);
     if (sg_capture_in_progress) {
         tal_mutex_unlock(sg_capture_mutex);
         return OPRT_RESOURCE_NOT_READY;
     }
+    sg_capture_stream_until = 0;
     ++sg_capture_generation;
     sg_capture_requested = true;
     sg_capture_in_progress = true;

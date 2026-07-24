@@ -54,7 +54,7 @@ OPERATE_RET pf_state_dispatch(PF_STATE_CONTEXT_T *ctx,
     PF_EFFECTS_T next_effects = PF_EFFECT_NONE;
     bool handled = true;
 
-    if (ctx == NULL || effects == NULL || event > PF_EVENT_EXIT_DND) {
+    if (ctx == NULL || effects == NULL || event >= PF_EVENT_COUNT) {
         return OPRT_INVALID_PARM;
     }
 
