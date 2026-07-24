@@ -1,6 +1,9 @@
 #!/usr/bin/env bash
 set -euo pipefail
 
+readonly ADMIN_USERNAME="${1:-}"
+readonly ADMIN_PASSWORD="${2:-}"
+
 if [[ "${EUID}" -ne 0 ]]; then
   echo "Run this installer as root." >&2
   exit 1
@@ -22,19 +25,26 @@ install -d -m 0750 -o pf-deploy -g pf-deploy "${deploy_root}" "${deploy_root}/re
 install -d -m 0750 -o root -g pf-web "${environment_dir}"
 
 if [[ ! -e "${environment_file}" ]]; then
-  admin_password="$(openssl rand -base64 24 | tr -d '\n')"
+  if [[ -n "${ADMIN_USERNAME}" ]] && [[ -n "${ADMIN_PASSWORD}" ]]; then
+    admin_password="${ADMIN_PASSWORD}"
+    username="${ADMIN_USERNAME}"
+  else
+    admin_password="$(openssl rand -base64 24 | tr -d '\n')"
+    username="operator"
+    echo "No credentials provided; a random password was generated." >&2
+  fi
   device_token="$(openssl rand -hex 32)"
   umask 0077
   {
-    echo "PF_ADMIN_USERNAME=operator"
+    echo "PF_ADMIN_USERNAME=${username}"
     echo "PF_ADMIN_PASSWORD=${admin_password}"
     echo "PF_DEVICE_HEARTBEAT_TOKEN=${device_token}"
   } > "${environment_file}"
   chown root:pf-web "${environment_file}"
   chmod 0640 "${environment_file}"
-  echo "Admin username: operator"
+  echo "Admin username: ${username}"
   echo "Admin password: ${admin_password}"
-  echo "Device token saved in ${environment_file}; use it only when building firmware."
+  echo "Device heartbeat token saved in ${environment_file}."
 fi
 
 bootstrap_release="${deploy_root}/releases/bootstrap-$(date +%s)"
