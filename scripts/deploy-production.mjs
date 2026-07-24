@@ -14,11 +14,14 @@ import path from "node:path";
 
 import {
   buildReleaseName,
-  extractScriptAssetPath,
+  createCommandEnvironments,
+  createWorkflowMaskCommands,
   parseEnvFile,
   validateBuild,
   validateDeployConfig,
   validateDeployIdentity,
+  validateReleaseTarget,
+  waitForHealth,
 } from "./deploy-production-lib.mjs";
 
 function run(command, arguments_, options = {}) {
@@ -83,46 +86,6 @@ async function replaceSymlink({ currentLink, target, temporaryLink }) {
   await rename(temporaryLink, currentLink);
 }
 
-async function checkHealth(healthUrl) {
-  const indexResponse = await fetch(healthUrl, {
-    cache: "no-store",
-    signal: AbortSignal.timeout(3_000),
-  });
-  if (!indexResponse.ok) {
-    throw new Error(`Health index returned HTTP ${indexResponse.status}`);
-  }
-
-  const html = await indexResponse.text();
-  const assetPublicPath = extractScriptAssetPath(html);
-  const assetUrl = new URL(assetPublicPath, healthUrl);
-  if (assetUrl.origin !== new URL(healthUrl).origin) {
-    throw new Error("Health index references a non-local JavaScript asset");
-  }
-
-  const assetResponse = await fetch(assetUrl, {
-    cache: "no-store",
-    signal: AbortSignal.timeout(3_000),
-  });
-  if (!assetResponse.ok) {
-    throw new Error(`Health asset returned HTTP ${assetResponse.status}`);
-  }
-
-  return assetPublicPath;
-}
-
-async function waitForHealth(healthUrl) {
-  let lastError;
-  for (let attempt = 1; attempt <= 20; attempt += 1) {
-    try {
-      return await checkHealth(healthUrl);
-    } catch (error) {
-      lastError = error;
-      await new Promise((resolve) => setTimeout(resolve, 500));
-    }
-  }
-  throw new Error(`Health check failed after 10 seconds: ${lastError?.message}`);
-}
-
 async function restartService(service) {
   await run("sudo", ["-n", "systemctl", "restart", service]);
 }
@@ -152,24 +115,32 @@ async function main() {
   }
 
   const publicEnv = parseEnvFile(await readFile(config.envFile, "utf8"));
-  const buildEnvironment = {
-    ...process.env,
-    ...publicEnv,
-    CI: "1",
-  };
+  for (const command of createWorkflowMaskCommands(
+    Object.values(publicEnv),
+    process.env.GITHUB_ACTIONS === "true",
+  )) {
+    console.log(command);
+  }
+  const { safeEnvironment, buildEnvironment } = createCommandEnvironments({
+    baseEnvironment: {
+      ...process.env,
+      CI: "1",
+    },
+    publicEnv,
+  });
 
   console.log(`Building production commit ${identity.sha}`);
-  await run("npm", ["ci"], {
+  await run("npm", ["ci", "--ignore-scripts"], {
     cwd: config.workspace,
-    env: buildEnvironment,
+    env: safeEnvironment,
   });
   await run("npm", ["test"], {
     cwd: config.workspace,
-    env: buildEnvironment,
+    env: safeEnvironment,
   });
   await run("npm", ["run", "typecheck"], {
     cwd: config.workspace,
-    env: buildEnvironment,
+    env: safeEnvironment,
   });
   await run("npm", ["run", "build:sites"], {
     cwd: config.workspace,
@@ -202,7 +173,13 @@ async function main() {
   });
   await rename(incomingRelease, releaseDirectory);
 
-  const previousRelease = await readCurrentRelease(currentLink);
+  const previousReleaseLink = await readCurrentRelease(currentLink);
+  const previousRelease = previousReleaseLink
+    ? await validateReleaseTarget({
+      deployRoot: config.deployRoot,
+      target: previousReleaseLink,
+    })
+    : null;
   await replaceSymlink({
     currentLink,
     target: releaseDirectory,
@@ -211,7 +188,7 @@ async function main() {
 
   try {
     await restartService(config.service);
-    const servedAsset = await waitForHealth(config.healthUrl);
+    const servedAsset = await waitForHealth({ healthUrl: config.healthUrl });
     if (servedAsset !== validatedBuild.assetPublicPath) {
       throw new Error("Served asset does not match the newly built release");
     }
@@ -228,7 +205,7 @@ async function main() {
       temporaryLink: rollbackLink,
     });
     await restartService(config.service);
-    await waitForHealth(config.healthUrl);
+    await waitForHealth({ healthUrl: config.healthUrl });
     throw new Error(`Deployment failed and was rolled back: ${deploymentError.message}`);
   }
 

@@ -11,7 +11,7 @@
 - Runner 使用专用 Linux 用户 `pf-deploy`，不以 root 身份运行。
 - 高德公开 Web 凭据仍不提交到 Git；生产副本保存在 `/etc/pocket-friend/mobile.env`。
 - GitHub Actions 仅获得 `contents: read` 权限。
-- 现有 `pocket-friend.service` 继续监听 80 端口。
+- `pocket-friend.service` 继续监听 80 端口，但改由专用 `pf-web` 用户运行。
 
 ## 架构
 
@@ -43,7 +43,8 @@ Runner 安装到 `/opt/actions-runner`，并带有专用标签 `pocket-friend-pr
 - `/etc/sudoers.d/pocket-friend-deploy` 只允许 `pf-deploy` 无密码执行：
   - `systemctl restart pocket-friend.service`
   - `systemctl is-active --quiet pocket-friend.service`
-- systemd 服务以 root 运行现有静态服务器，但静态根目录改为 `/srv/pocket-friend/current`。
+- 静态服务器安装到 `/usr/local/lib/pocket-friend/static-server.mjs`，以 `pf-web` 运行，仅保留 `CAP_NET_BIND_SERVICE`，并启用 systemd 文件系统与权限收缩。
+- 静态服务器对实际文件执行 `realpath` 根目录校验，构建发布前递归拒绝符号链接和特殊文件。
 
 ## 验证标准
 

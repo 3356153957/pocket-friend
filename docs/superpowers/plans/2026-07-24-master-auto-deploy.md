@@ -18,6 +18,7 @@
 - 创建 `.github/workflows/deploy-production.yml`：生产部署触发器、权限、并发和 Runner 标签。
 - 创建 `ops/pocket-friend.service`：生产静态服务的 systemd 单元。
 - 创建 `ops/pocket-friend-deploy.sudoers`：Runner 仅可重启生产静态服务的 sudoers 规则。
+- 创建 `ops/static-server.mjs`：带 realpath 根目录防护的非 root 静态服务器。
 - 修改 `package.json`：增加部署测试入口。
 - 创建本设计与计划文档：记录服务器约束和可复现操作。
 
@@ -155,6 +156,7 @@ npm run typecheck
 **服务器文件：**
 - 创建：`ops/pocket-friend.service`
 - 创建：`ops/pocket-friend-deploy.sudoers`
+- 创建：`ops/static-server.mjs`
 - 创建：`/etc/pocket-friend/mobile.env`
 - 创建：`/etc/sudoers.d/pocket-friend-deploy`
 - 创建：`/srv/pocket-friend/releases/<seed>`
