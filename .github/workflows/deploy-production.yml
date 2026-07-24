@@ -35,9 +35,9 @@ jobs:
           case "$GITHUB_WORKSPACE" in
             /opt/actions-runner/_work/pocket-friend/pocket-friend)
               cd "$RUNNER_TEMP" || true
-              sudo chown -R "$(id -u):$(id -g)" "$(dirname "$GITHUB_WORKSPACE")" || true
-              rm -rf "$GITHUB_WORKSPACE/.git" || true
               mkdir -p "$GITHUB_WORKSPACE"
+              sudo chown -R "$(id -u):$(id -g)" "$GITHUB_WORKSPACE" || true
+              find "$GITHUB_WORKSPACE" -mindepth 1 -maxdepth 1 -exec rm -rf -- {} +
               ;;
             *)
               echo "Refusing to repair unexpected workspace: $GITHUB_WORKSPACE" >&2
