@@ -11,8 +11,12 @@ static bool sg_input_initialized = false;
 
 static void pf_input_emit(PF_INPUT_ACTION_E action)
 {
-    if (sg_input_cb != NULL && action <= PF_INPUT_RETRY) {
-        sg_input_cb(action, sg_input_ctx);
+    PF_INPUT_EVENT_T event;
+
+    if (sg_input_cb != NULL && action <= PF_INPUT_WIFI_RETRY) {
+        memset(&event, 0, sizeof(event));
+        event.action = action;
+        sg_input_cb(&event, sg_input_ctx);
     }
 }
 
@@ -92,6 +96,27 @@ OPERATE_RET pf_input_init(PF_INPUT_CB cb, void *ctx)
 void pf_input_post_from_ui(PF_INPUT_ACTION_E action)
 {
     pf_input_emit(action);
+}
+
+void pf_input_post_wifi_from_ui(PF_INPUT_ACTION_E action,
+                                uint8_t index, const char *text)
+{
+    PF_INPUT_EVENT_T event;
+    size_t length = 0U;
+
+    if (sg_input_cb == NULL || action > PF_INPUT_WIFI_RETRY) {
+        return;
+    }
+    memset(&event, 0, sizeof(event));
+    event.action = action;
+    event.index = index;
+    if (text != NULL) {
+        length = strnlen(text, PF_WIFI_PASSWORD_MAX);
+        memcpy(event.text, text, length);
+        event.text[length] = '\0';
+    }
+    sg_input_cb(&event, sg_input_ctx);
+    memset(event.text, 0, sizeof(event.text));
 }
 
 void pf_input_set_mode(PF_INPUT_MODE_E mode)

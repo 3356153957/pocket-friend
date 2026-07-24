@@ -7,6 +7,7 @@
 #include "pf_state_machine.h"
 #include "pf_transport.h"
 #include "pf_ui.h"
+#include "pf_wifi_config.h"
 #include "tal_api.h"
 
 #define PF_APP_QUEUE_LENGTH 16
@@ -19,18 +20,20 @@ typedef enum {
     PF_APP_EVENT_TRANSPORT,
     PF_APP_EVENT_TIMER,
     PF_APP_EVENT_CAPTURE_DONE,
+    PF_APP_EVENT_WIFI,
 } PF_APP_EVENT_TYPE_E;
 
 typedef struct {
     PF_APP_EVENT_TYPE_E type;
     union {
-        PF_INPUT_ACTION_E input;
+        PF_INPUT_EVENT_T input;
         struct {
             PF_TRANSPORT_EVENT_E event;
             PF_MESSAGE_T message;
         } transport;
         PF_EVENT_E timer_event;
         OPERATE_RET capture_result;
+        PF_WIFI_EVENT_E wifi_event;
     } data;
 } PF_APP_EVENT_T;
 
@@ -45,6 +48,10 @@ static uint8_t *sg_photo_jpeg;
 static uint32_t sg_photo_len;
 static OPERATE_RET sg_last_capture_result = OPRT_OK;
 static bool sg_app_started;
+static PF_WIFI_AP_T sg_wifi_aps[PF_WIFI_MAX_APS];
+static uint8_t sg_wifi_ap_count;
+static uint8_t sg_wifi_selected;
+static char sg_wifi_password[PF_WIFI_PASSWORD_MAX + 1U];
 
 static void pf_post_event(const PF_APP_EVENT_T *event)
 {
@@ -54,11 +61,23 @@ static void pf_post_event(const PF_APP_EVENT_T *event)
     }
 }
 
-static void pf_input_cb(PF_INPUT_ACTION_E action, void *ctx)
+static void pf_input_cb(const PF_INPUT_EVENT_T *input, void *ctx)
 {
     PF_APP_EVENT_T event = {.type = PF_APP_EVENT_INPUT};
     (void)ctx;
-    event.data.input = action;
+    if (input == NULL) {
+        return;
+    }
+    event.data.input = *input;
+    pf_post_event(&event);
+    memset(event.data.input.text, 0, sizeof(event.data.input.text));
+}
+
+static void pf_wifi_cb(PF_WIFI_EVENT_E wifi_event, void *ctx)
+{
+    PF_APP_EVENT_T event = {.type = PF_APP_EVENT_WIFI};
+    (void)ctx;
+    event.data.wifi_event = wifi_event;
     pf_post_event(&event);
 }
 
@@ -279,9 +298,12 @@ static void pf_dispatch(PF_EVENT_E state_event)
     pf_execute_effects(effects, previous_state, session_id);
 }
 
-static void pf_handle_input(PF_INPUT_ACTION_E input)
+static void pf_handle_input(const PF_INPUT_EVENT_T *input)
 {
-    switch (input) {
+    if (input == NULL) {
+        return;
+    }
+    switch (input->action) {
     case PF_INPUT_CONFIRM:
         if (PF_DEVICE_ID == 'A' && sg_state.session_id == 0U) {
             sg_state.session_id = (uint32_t)tal_system_get_millisecond();
@@ -307,6 +329,90 @@ static void pf_handle_input(PF_INPUT_ACTION_E input)
     case PF_INPUT_COMPLETE:
     case PF_INPUT_RETRY:
         pf_dispatch(PF_EVENT_RESET);
+        break;
+    case PF_INPUT_OPEN_WIFI:
+    case PF_INPUT_WIFI_SCAN:
+        pf_ui_wifi_show_scan();
+        (void)pf_wifi_scan_async();
+        break;
+    case PF_INPUT_WIFI_SELECT:
+        if (input->index >= sg_wifi_ap_count) {
+            break;
+        }
+        sg_wifi_selected = input->index;
+        memset(sg_wifi_password, 0, sizeof(sg_wifi_password));
+        if (sg_wifi_aps[sg_wifi_selected].security == 0U) {
+            pf_ui_wifi_show_connecting(sg_wifi_aps[sg_wifi_selected].ssid);
+            (void)pf_wifi_connect_async(sg_wifi_selected, "");
+        } else {
+            pf_ui_wifi_show_password(sg_wifi_aps[sg_wifi_selected].ssid);
+        }
+        break;
+    case PF_INPUT_WIFI_CONNECT:
+        if (sg_wifi_ap_count == 0U || sg_wifi_selected >= sg_wifi_ap_count) {
+            break;
+        }
+        snprintf(sg_wifi_password, sizeof(sg_wifi_password), "%s", input->text);
+        pf_ui_wifi_show_connecting(sg_wifi_aps[sg_wifi_selected].ssid);
+        (void)pf_wifi_connect_async(sg_wifi_selected, sg_wifi_password);
+        break;
+    case PF_INPUT_WIFI_RETRY:
+        if (sg_wifi_ap_count == 0U || sg_wifi_selected >= sg_wifi_ap_count) {
+            break;
+        }
+        pf_ui_wifi_show_connecting(sg_wifi_aps[sg_wifi_selected].ssid);
+        (void)pf_wifi_connect_async(sg_wifi_selected, sg_wifi_password);
+        break;
+    case PF_INPUT_WIFI_BACK:
+        memset(sg_wifi_password, 0, sizeof(sg_wifi_password));
+        pf_ui_show_page(PF_UI_PAGE_IDLE);
+        break;
+    default:
+        break;
+    }
+}
+
+static void pf_handle_wifi(PF_WIFI_EVENT_E wifi_event)
+{
+    switch (wifi_event) {
+    case PF_WIFI_EVENT_UNCONFIGURED:
+        pf_ui_set_wifi_status(false, false);
+        break;
+    case PF_WIFI_EVENT_SCAN_STARTED:
+        pf_ui_set_wifi_status(false, true);
+        break;
+    case PF_WIFI_EVENT_SCAN_COMPLETE:
+        sg_wifi_ap_count = pf_wifi_get_scan_results(sg_wifi_aps,
+                                                     PF_WIFI_MAX_APS);
+        pf_ui_wifi_set_results(sg_wifi_aps, sg_wifi_ap_count);
+        pf_ui_set_wifi_status(pf_wifi_is_connected(), false);
+        break;
+    case PF_WIFI_EVENT_SCAN_FAILED:
+        pf_ui_wifi_set_results(NULL, 0U);
+        pf_ui_set_wifi_status(pf_wifi_is_connected(), false);
+        break;
+    case PF_WIFI_EVENT_CONNECTING:
+        pf_ui_set_wifi_status(false, true);
+        break;
+    case PF_WIFI_EVENT_CONNECTED:
+        if (pf_transport_network_up() != OPRT_OK) {
+            pf_ui_wifi_show_failed("Wi-Fi connected, UDP failed");
+            break;
+        }
+        pf_ui_set_wifi_status(true, false);
+        pf_ui_wifi_show_connected(pf_wifi_get_ip());
+        memset(sg_wifi_password, 0, sizeof(sg_wifi_password));
+        break;
+    case PF_WIFI_EVENT_CONNECT_FAILED:
+        pf_ui_set_wifi_status(false, false);
+        pf_ui_wifi_show_failed("Password wrong or network unavailable");
+        break;
+    case PF_WIFI_EVENT_DISCONNECTED:
+        pf_transport_network_down();
+        pf_ui_set_wifi_status(false, false);
+        break;
+    case PF_WIFI_EVENT_SAVE_FAILED:
+        pf_ui_wifi_show_failed("Connected, but settings were not saved");
         break;
     default:
         break;
@@ -430,7 +536,8 @@ static void pf_app_task(void *arg)
         }
         switch (event.type) {
         case PF_APP_EVENT_INPUT:
-            pf_handle_input(event.data.input);
+            pf_handle_input(&event.data.input);
+            memset(event.data.input.text, 0, sizeof(event.data.input.text));
             break;
         case PF_APP_EVENT_TRANSPORT:
             pf_handle_transport(&event);
@@ -442,6 +549,9 @@ static void pf_app_task(void *arg)
             sg_last_capture_result = event.data.capture_result;
             pf_dispatch(event.data.capture_result == OPRT_OK ?
                         PF_EVENT_CAPTURE_OK : PF_EVENT_CAPTURE_FAILED);
+            break;
+        case PF_APP_EVENT_WIFI:
+            pf_handle_wifi(event.data.wifi_event);
             break;
         default:
             break;
@@ -477,6 +587,7 @@ OPERATE_RET pf_app_start(void)
     TUYA_CALL_ERR_RETURN(pf_input_init(pf_input_cb, NULL));
     TUYA_CALL_ERR_RETURN(pf_ui_init());
     TUYA_CALL_ERR_RETURN(pf_transport_init(pf_transport_cb, NULL));
+    TUYA_CALL_ERR_RETURN(pf_wifi_init(pf_wifi_cb, NULL));
 
     rt = tal_thread_create_and_start(&sg_capture_thread, NULL, NULL,
                                      pf_capture_task, NULL, &capture_cfg);
@@ -490,5 +601,6 @@ OPERATE_RET pf_app_start(void)
     }
 
     sg_app_started = true;
-    return pf_transport_start();
+    TUYA_CALL_ERR_RETURN(pf_transport_start());
+    return pf_wifi_start();
 }

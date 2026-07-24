@@ -2,6 +2,7 @@
 #define PF_UI_H
 
 #include "tuya_cloud_types.h"
+#include "pf_wifi_config.h"
 
 #ifdef __cplusplus
 extern "C" {
@@ -16,6 +17,9 @@ typedef enum {
     PF_UI_PAGE_RESULT,
     PF_UI_PAGE_DND,
     PF_UI_PAGE_ERROR,
+    PF_UI_PAGE_WIFI_SCAN,
+    PF_UI_PAGE_WIFI_PASSWORD,
+    PF_UI_PAGE_WIFI_CONNECT,
 } PF_UI_PAGE_E;
 
 OPERATE_RET pf_ui_init(void);
@@ -29,6 +33,13 @@ void pf_ui_preview_stop(void);
 OPERATE_RET pf_ui_show_photo(uint16_t width, uint16_t height,
                              uint8_t *jpeg, uint32_t len);
 void pf_ui_show_error(const char *message);
+void pf_ui_set_wifi_status(bool connected, bool busy);
+void pf_ui_wifi_show_scan(void);
+void pf_ui_wifi_set_results(const PF_WIFI_AP_T *aps, uint8_t count);
+void pf_ui_wifi_show_password(const char *ssid);
+void pf_ui_wifi_show_connecting(const char *ssid);
+void pf_ui_wifi_show_connected(const char *ip);
+void pf_ui_wifi_show_failed(const char *message);
 
 #ifdef __cplusplus
 }

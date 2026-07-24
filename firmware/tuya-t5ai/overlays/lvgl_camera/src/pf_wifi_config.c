@@ -384,6 +384,8 @@ OPERATE_RET pf_wifi_init(PF_WIFI_CB cb, void *ctx)
     TUYA_CALL_ERR_RETURN(tal_queue_create_init(&sg_wifi_queue,
                                                 sizeof(PF_WIFI_COMMAND_T),
                                                 PF_WIFI_COMMAND_QUEUE_LENGTH));
+    sg_wifi_cb = cb;
+    sg_wifi_cb_ctx = ctx;
     TUYA_CALL_ERR_RETURN(tal_wifi_init(pf_wifi_driver_cb));
     TUYA_CALL_ERR_RETURN(tal_wifi_set_work_mode(WWM_STATION));
     rt = tal_thread_create_and_start(&sg_wifi_thread, NULL, NULL,
@@ -391,8 +393,6 @@ OPERATE_RET pf_wifi_init(PF_WIFI_CB cb, void *ctx)
     if (rt != OPRT_OK) {
         return rt;
     }
-    sg_wifi_cb = cb;
-    sg_wifi_cb_ctx = ctx;
     sg_initialized = true;
     return OPRT_OK;
 }

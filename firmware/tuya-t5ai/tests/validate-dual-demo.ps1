@@ -161,6 +161,13 @@ $motorInputSymbols = @(
     'PF_INPUT_OPEN_CAMERA'
     'PF_INPUT_CLOSE_CAMERA'
     'PF_INPUT_RETRY'
+    'PF_INPUT_OPEN_WIFI'
+    'PF_INPUT_WIFI_SCAN'
+    'PF_INPUT_WIFI_SELECT'
+    'PF_INPUT_WIFI_CONNECT'
+    'PF_INPUT_WIFI_RETRY'
+    'PF_INPUT_EVENT_T'
+    'pf_input_post_wifi_from_ui'
     'pf_input_init'
     'pf_input_post_from_ui'
     'pf_input_set_mode'
@@ -230,6 +237,9 @@ $uiRequired = @(
     'PF_UI_PAGE_RESULT'
     'PF_UI_PAGE_DND'
     'PF_UI_PAGE_ERROR'
+    'PF_UI_PAGE_WIFI_SCAN'
+    'PF_UI_PAGE_WIFI_PASSWORD'
+    'PF_UI_PAGE_WIFI_CONNECT'
     'PF_UI_TOUCH_TARGET'
     'lv_canvas_set_buffer'
     'tal_image_convert_yuv422_to_rgb565'
@@ -237,6 +247,12 @@ $uiRequired = @(
     'pf_input_post_from_ui'
     'pf_ui_camera_frame_cb'
     'pf_camera_set_frame_cb(pf_ui_camera_frame_cb)'
+    'lv_textarea_set_password_mode'
+    'lv_textarea_set_max_length'
+    'lv_keyboard_create'
+    'lv_keyboard_set_textarea'
+    'pf_ui_wifi_set_results'
+    'pf_ui_wifi_show_connecting'
 )
 
 foreach ($symbol in $uiRequired) {
@@ -321,6 +337,7 @@ $appRequired = @(
     'PF_APP_EVENT_TRANSPORT'
     'PF_APP_EVENT_TIMER'
     'PF_APP_EVENT_CAPTURE_DONE'
+    'PF_APP_EVENT_WIFI'
     'PF_APP_QUEUE_LENGTH 16'
     'tal_queue_create_init'
     'tal_queue_post'
@@ -332,6 +349,11 @@ $appRequired = @(
     'pf_ui_init'
     'pf_transport_init'
     'pf_transport_start'
+    'pf_wifi_init'
+    'pf_wifi_start'
+    'pf_handle_wifi'
+    'pf_transport_network_up'
+    'pf_transport_network_down'
     'PF_MSG_CAPTURE_PREPARE'
     'PF_MSG_PREPARE_ACK'
     'PF_MSG_CAPTURE'
@@ -346,6 +368,24 @@ foreach ($symbol in $appRequired) {
     if (-not $app.Contains($symbol)) {
         throw "Missing integrated app contract: $symbol"
     }
+}
+
+if (-not $app.Contains('sg_wifi_selected >= sg_wifi_ap_count')) {
+    throw 'Wi-Fi connect and retry must reject a stale AP selection'
+}
+
+$passwordClearCount = ([regex]::Matches(
+    $app, 'memset\(event\.data\.input\.text, 0, sizeof\(event\.data\.input\.text\)\)'
+)).Count
+if ($passwordClearCount -lt 2) {
+    throw 'App must clear input password copies after posting and handling'
+}
+
+$wifiCallbackIndex = $wifi.IndexOf('sg_wifi_cb = cb')
+$wifiThreadIndex = $wifi.IndexOf('tal_thread_create_and_start')
+if ($wifiCallbackIndex -lt 0 -or $wifiThreadIndex -lt 0 -or
+    $wifiCallbackIndex -gt $wifiThreadIndex) {
+    throw 'Wi-Fi callback must be installed before the worker thread starts'
 }
 
 foreach ($symbol in @('OPERATE_RET rt', 'board_register_hardware()',
