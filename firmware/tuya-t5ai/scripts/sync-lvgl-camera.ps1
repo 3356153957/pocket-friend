@@ -25,23 +25,7 @@ foreach ($path in @($overlaySource, $overlayInclude, $boardConfig, $exampleRoot)
     }
 }
 
-if ([string]::IsNullOrWhiteSpace($env:PF_WIFI_SSID)) {
-    throw 'PF_WIFI_SSID must be set before syncing the dual-device demo'
-}
-
-if ([string]::IsNullOrWhiteSpace($env:PF_WIFI_PASSWORD)) {
-    throw 'PF_WIFI_PASSWORD must be set before syncing the dual-device demo'
-}
-
-function ConvertTo-CStringLiteral {
-    param([Parameter(Mandatory)][string]$Value)
-
-    return $Value.Replace('\', '\\').Replace('"', '\"').Replace("`r", '\r').Replace("`n", '\n')
-}
-
 $peerId = if ($DeviceId -eq 'A') { 'B' } else { 'A' }
-$wifiSsid = ConvertTo-CStringLiteral $env:PF_WIFI_SSID
-$wifiPassword = ConvertTo-CStringLiteral $env:PF_WIFI_PASSWORD
 
 New-Item -ItemType Directory -Path $targetSource, $targetInclude -Force | Out-Null
 Copy-Item -Path (Join-Path $overlaySource '*') -Destination $targetSource -Recurse -Force
@@ -55,8 +39,6 @@ $runtimeHeader = @"
 
 #define PF_DEVICE_ID '$DeviceId'
 #define PF_PEER_ID '$peerId'
-#define PF_WIFI_SSID "$wifiSsid"
-#define PF_WIFI_PASSWORD "$wifiPassword"
 
 #endif
 "@

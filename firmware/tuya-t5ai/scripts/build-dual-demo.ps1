@@ -2,13 +2,6 @@ param([string]$TuyaOpenRoot = 'D:\TuyaOpen')
 
 $ErrorActionPreference = 'Stop'
 
-if ([string]::IsNullOrWhiteSpace($env:PF_WIFI_SSID)) {
-    throw 'PF_WIFI_SSID must be set before building the dual-device demo'
-}
-if ([string]::IsNullOrWhiteSpace($env:PF_WIFI_PASSWORD)) {
-    throw 'PF_WIFI_PASSWORD must be set before building the dual-device demo'
-}
-
 $projectRoot = (Resolve-Path (Join-Path $PSScriptRoot '..\..\..')).Path
 $syncPath = Join-Path $PSScriptRoot 'sync-lvgl-camera.ps1'
 $exampleRoot = Join-Path $TuyaOpenRoot 'examples\graphics\lvgl_camera'

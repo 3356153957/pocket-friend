@@ -11,8 +11,6 @@ $sync = Get-Content -LiteralPath $syncPath -Raw
 $requiredSyncContract = @(
     '[ValidateSet(''A'', ''B'')]'
     '$DeviceId'
-    'PF_WIFI_SSID'
-    'PF_WIFI_PASSWORD'
     'pf_demo_runtime_config.h'
     "Join-Path `$overlayRoot 'src'"
     "Join-Path `$overlayRoot 'include'"
@@ -411,8 +409,6 @@ if (-not (Test-Path -LiteralPath $buildScriptPath)) {
 $buildScript = Get-Content -LiteralPath $buildScriptPath -Raw
 $buildRequired = @(
     "param([string]`$TuyaOpenRoot = 'D:\TuyaOpen')"
-    'PF_WIFI_SSID'
-    'PF_WIFI_PASSWORD'
     "-DeviceId `$deviceId"
     'tos.py clean -f'
     'tos.py build'
@@ -427,6 +423,14 @@ $buildRequired = @(
 foreach ($symbol in $buildRequired) {
     if (-not $buildScript.Contains($symbol)) {
         throw "Missing dual build contract: $symbol"
+    }
+}
+
+foreach ($script in @($sync, $buildScript)) {
+    foreach ($forbidden in @('PF_WIFI_SSID', 'PF_WIFI_PASSWORD')) {
+        if ($script.Contains($forbidden)) {
+            throw "Build scripts must not require Wi-Fi credentials: $forbidden"
+        }
     }
 }
 
