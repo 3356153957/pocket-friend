@@ -209,7 +209,6 @@ $motorInputSymbols = @(
     'PF_INPUT_COMPLETE'
     'PF_INPUT_TOGGLE_DND'
     'PF_INPUT_OPEN_CAMERA'
-    'PF_INPUT_CAPTURE_PHOTO'
     'PF_INPUT_PHOTO_NAME_SUBMIT'
     'PF_INPUT_PHOTO_NAME_BACK'
     'PF_INPUT_CLOSE_CAMERA'
@@ -313,7 +312,6 @@ $uiRequired = @(
     'pf_input_post_from_ui'
     'pf_ui_camera_frame_cb'
     'pf_camera_set_frame_cb(pf_ui_camera_frame_cb)'
-    'LV_SYMBOL_IMAGE, PF_INPUT_CAPTURE_PHOTO'
     'pf_ui_create_photo_name_input_page'
     'pf_ui_show_photo_name_input'
     'lv_textarea_set_password_mode'
@@ -352,6 +350,18 @@ if ($ui -match 'lv_ime_pinyin_set_keyboard\([^,]+,\s*sg_ui\.wifi_keyboard\)') {
     throw 'Pinyin IME must not attach to the Wi-Fi password keyboard'
 }
 
+$customPinyinDictUseCount = ([regex]::Matches(
+    $ui,
+    'lv_ime_pinyin_set_dict\([^,]+,\s*sg_pinyin_name_dict\s*\)'
+)).Count
+if ($customPinyinDictUseCount -ne 2) {
+    throw 'Both pinyin IMEs must use the expanded name dictionary'
+}
+
+if ($ui -notmatch '\{\s*"shi",\s*"[^"]{18,}"\s*\}') {
+    throw 'Expanded pinyin name dictionary must keep high-frequency syllables beyond two candidate pages'
+}
+
 if ($ui -notmatch 'lv_obj_set_parent\(\s*cand_panel,\s*sg_ui\.pages\[PF_UI_PAGE_PINYIN_INPUT\]\s*\)') {
     throw 'Pinyin candidate panel must be reparented to the pinyin page'
 }
@@ -368,6 +378,23 @@ if ($ui -notmatch 'lv_obj_set_style_bg_opa\(\s*cand_panel,\s*LV_OPA_COVER,\s*0\s
     throw 'Pinyin candidate panel must have an opaque background'
 }
 
+if ($ui -notmatch '#define\s+PF_UI_PINYIN_CAND_WIDTH\s+304' -or
+    $ui -notmatch '#define\s+PF_UI_PINYIN_CAND_HEIGHT\s+52') {
+    throw 'Pinyin candidate panel must be tall enough to avoid cramped candidate columns'
+}
+
+$candPanelSizeUseCount = ([regex]::Matches(
+    $ui,
+    'lv_obj_set_size\(\s*cand_panel,\s*PF_UI_PINYIN_CAND_WIDTH,\s*PF_UI_PINYIN_CAND_HEIGHT\s*\)'
+)).Count
+if ($candPanelSizeUseCount -ne 2) {
+    throw 'Both pinyin candidate panels must use the shared candidate size'
+}
+
+if ($ui -notmatch 'lv_obj_set_style_pad_all\(\s*cand_panel,\s*4,\s*0\s*\)') {
+    throw 'Pinyin candidate panel must use compact padding so more candidates fit'
+}
+
 $configPath = Join-Path $root 'config\TUYA_T5AI_BOARD_LCD_3.5.config'
 if (-not (Test-Path -LiteralPath $configPath)) {
     throw "Missing T5AI LCD config: $configPath"
@@ -376,6 +403,7 @@ $lcdConfig = Get-Content -LiteralPath $configPath -Raw
 foreach ($symbol in @(
     'CONFIG_LV_USE_IME_PINYIN=y'
     'CONFIG_LV_IME_PINYIN_USE_DEFAULT_DICT=y'
+    'CONFIG_LV_IME_PINYIN_CAND_TEXT_NUM=8'
     'CONFIG_LV_FONT_SIMSUN_16_CJK=y'
 )) {
     if (-not $lcdConfig.Contains($symbol)) {
@@ -506,7 +534,6 @@ $appRequired = @(
     'pf_server_heartbeat_init'
     'pf_server_heartbeat_network_up'
     'pf_server_heartbeat_network_down'
-    'PF_INPUT_CAPTURE_PHOTO'
     'PF_INPUT_PHOTO_NAME_SUBMIT'
     'pf_ui_show_photo_name_input'
     'sg_photo_filename'
@@ -532,22 +559,38 @@ foreach ($symbol in $appRequired) {
 if (-not $app.Contains('sg_wifi_selected >= sg_wifi_ap_count')) {
     throw 'Wi-Fi connect and retry must reject a stale AP selection'
 }
+if ($app -match 'case PF_INPUT_WIFI_SELECT:[\s\S]*pf_wifi_connect_async\(sg_wifi_selected,\s*""\)') {
+    throw 'Wi-Fi AP selection must not auto-connect with an empty password'
+}
+if ($app -notmatch 'case PF_INPUT_WIFI_SELECT:[\s\S]*pf_ui_wifi_show_password\(sg_wifi_aps\[sg_wifi_selected\]\.ssid\);[\s\S]*break;') {
+    throw 'Wi-Fi AP selection must open the password page'
+}
+if ($app -notmatch 'case PF_WIFI_EVENT_CONNECT_FAILED:[\s\S]*if \(sg_wifi_manual_connecting\) \{[\s\S]*pf_ui_wifi_show_failed\("Password wrong or network unavailable"\);[\s\S]*\}[\s\S]*break;') {
+    throw 'Auto-connect failures must not replace the Wi-Fi scan page with a password error'
+}
 if ($app -notmatch 'case PF_STATE_COUNTDOWN:[\s\S]*pf_camera_prepare_capture_stream\(\)') {
     throw 'Synchronized capture must warm the camera stream during the countdown'
 }
-if ($app -notmatch 'case PF_INPUT_CAPTURE_PHOTO:[\s\S]*pf_ui_show_photo_name_input\(\);[\s\S]*break;') {
-    throw 'Manual capture must ask for the photographer name before taking the photo'
+if ($ui -notmatch '"Start"[\s\S]*PF_INPUT_OPEN_CAMERA' -or
+    $ui -match 'LV_SYMBOL_IMAGE,\s*PF_INPUT_CAPTURE_PHOTO') {
+    throw 'Idle page must use Start as the only manual photo entry point'
+}
+if ($app -notmatch 'case PF_STATE_CAMERA_PREVIEW:[\s\S]*pf_ui_show_photo_name_input\(\);[\s\S]*break;') {
+    throw 'Manual capture flow must open the photographer name page before taking the photo'
 }
 $photoNameSubmitIndex = $app.IndexOf('case PF_INPUT_PHOTO_NAME_SUBMIT:')
 $photoFilenameIndex = $app.IndexOf(
     'pf_app_build_photo_filename(input->text, sg_photo_filename',
     $photoNameSubmitIndex)
-$photoCapturePostIndex = $app.IndexOf(
-    'tal_semaphore_post(sg_capture_request);',
+$manualCountdownIndex = $app.IndexOf(
+    'pf_start_countdown();',
     $photoFilenameIndex)
 if ($photoNameSubmitIndex -lt 0 -or $photoFilenameIndex -lt 0 -or
-    $photoCapturePostIndex -lt 0) {
-    throw 'Photo name submit must build the filename from the typed name before capture'
+    $manualCountdownIndex -lt 0) {
+    throw 'Photo name submit must build the filename and start a countdown before capture'
+}
+if ($app -notmatch 'sg_manual_capture_requested &&[\s\S]*sg_state\.state == PF_STATE_CAMERA_PREVIEW[\s\S]*tal_semaphore_post\(sg_capture_request\);') {
+    throw 'Manual capture must be triggered only after the countdown reaches zero'
 }
 if ($app -notmatch 'sg_state\.state == PF_STATE_PEER_FOUND[\s\S]*sg_state\.state == PF_STATE_WAITING_CONFIRM[\s\S]*pf_dispatch\(PF_EVENT_RESET\);[\s\S]*return;') {
     throw 'Peer discovery or confirmation timeout must reset to idle instead of showing capture failed'

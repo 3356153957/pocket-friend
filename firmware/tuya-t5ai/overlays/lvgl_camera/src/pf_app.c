@@ -61,6 +61,7 @@ static PF_WIFI_AP_T sg_wifi_aps[PF_WIFI_MAX_APS];
 static uint8_t sg_wifi_ap_count;
 static uint8_t sg_wifi_selected;
 static char sg_wifi_password[PF_WIFI_PASSWORD_MAX + 1U];
+static bool sg_wifi_manual_connecting;
 static volatile bool sg_manual_capture_requested;
 static bool sg_manual_result_visible;
 
@@ -252,9 +253,7 @@ static void pf_refresh_ui(PF_STATE_E previous_state)
         break;
     case PF_STATE_CAMERA_PREVIEW:
         pf_input_set_mode(PF_INPUT_MODE_PREVIEW);
-        if (pf_ui_preview_start(PF_CAMERA_WIDTH, PF_CAMERA_HEIGHT) == OPRT_OK) {
-            pf_camera_preview_enable(true);
-        }
+        pf_ui_show_photo_name_input();
         break;
     case PF_STATE_PEER_FOUND:
         pf_input_set_mode(PF_INPUT_MODE_MATCH);
@@ -406,14 +405,6 @@ static void pf_handle_input(const PF_INPUT_EVENT_T *input)
     case PF_INPUT_OPEN_CAMERA:
         pf_dispatch(PF_EVENT_OPEN_CAMERA);
         break;
-    case PF_INPUT_CAPTURE_PHOTO:
-        if (sg_state.state == PF_STATE_CAMERA_PREVIEW &&
-            !sg_manual_capture_requested) {
-            pf_input_set_mode(PF_INPUT_MODE_LOCKED);
-            pf_stop_preview();
-            pf_ui_show_photo_name_input();
-        }
-        break;
     case PF_INPUT_PHOTO_NAME_SUBMIT:
         if (sg_state.state == PF_STATE_CAMERA_PREVIEW &&
             !sg_manual_capture_requested) {
@@ -423,13 +414,14 @@ static void pf_handle_input(const PF_INPUT_EVENT_T *input)
             sg_manual_result_visible = false;
             pf_input_set_mode(PF_INPUT_MODE_LOCKED);
             pf_ui_show_page(PF_UI_PAGE_COUNTDOWN);
-            tal_semaphore_post(sg_capture_request);
+            pf_camera_prepare_capture_stream();
+            pf_start_countdown();
         }
         break;
     case PF_INPUT_PHOTO_NAME_BACK:
         if (sg_state.state == PF_STATE_CAMERA_PREVIEW &&
             !sg_manual_capture_requested) {
-            pf_refresh_ui(PF_STATE_CAMERA_PREVIEW);
+            pf_dispatch(PF_EVENT_CLOSE_CAMERA);
         }
         break;
     case PF_INPUT_CLOSE_CAMERA:
@@ -440,7 +432,7 @@ static void pf_handle_input(const PF_INPUT_EVENT_T *input)
         if (sg_state.state == PF_STATE_CAMERA_PREVIEW &&
             sg_manual_result_visible) {
             sg_manual_result_visible = false;
-            pf_refresh_ui(PF_STATE_CAMERA_PREVIEW);
+            pf_dispatch(PF_EVENT_CLOSE_CAMERA);
         } else {
             pf_dispatch(PF_EVENT_RESET);
         }
@@ -453,6 +445,7 @@ static void pf_handle_input(const PF_INPUT_EVENT_T *input)
         break;
     case PF_INPUT_OPEN_WIFI:
     case PF_INPUT_WIFI_SCAN:
+        sg_wifi_manual_connecting = false;
         pf_ui_wifi_show_scan();
         (void)pf_wifi_scan_async();
         break;
@@ -462,12 +455,7 @@ static void pf_handle_input(const PF_INPUT_EVENT_T *input)
         }
         sg_wifi_selected = input->index;
         memset(sg_wifi_password, 0, sizeof(sg_wifi_password));
-        if (sg_wifi_aps[sg_wifi_selected].security == 0U) {
-            pf_ui_wifi_show_connecting(sg_wifi_aps[sg_wifi_selected].ssid);
-            (void)pf_wifi_connect_async(sg_wifi_selected, "");
-        } else {
-            pf_ui_wifi_show_password(sg_wifi_aps[sg_wifi_selected].ssid);
-        }
+        pf_ui_wifi_show_password(sg_wifi_aps[sg_wifi_selected].ssid);
         break;
     case PF_INPUT_WIFI_CONNECT:
         if (sg_wifi_ap_count == 0U || sg_wifi_selected >= sg_wifi_ap_count) {
@@ -475,6 +463,7 @@ static void pf_handle_input(const PF_INPUT_EVENT_T *input)
         }
         snprintf(sg_wifi_password, sizeof(sg_wifi_password), "%s", input->text);
         pf_ui_wifi_show_connecting(sg_wifi_aps[sg_wifi_selected].ssid);
+        sg_wifi_manual_connecting = true;
         (void)pf_wifi_connect_async(sg_wifi_selected, sg_wifi_password);
         break;
     case PF_INPUT_WIFI_RETRY:
@@ -482,9 +471,11 @@ static void pf_handle_input(const PF_INPUT_EVENT_T *input)
             break;
         }
         pf_ui_wifi_show_connecting(sg_wifi_aps[sg_wifi_selected].ssid);
+        sg_wifi_manual_connecting = true;
         (void)pf_wifi_connect_async(sg_wifi_selected, sg_wifi_password);
         break;
     case PF_INPUT_WIFI_BACK:
+        sg_wifi_manual_connecting = false;
         memset(sg_wifi_password, 0, sizeof(sg_wifi_password));
         pf_ui_show_page(PF_UI_PAGE_IDLE);
         break;
@@ -521,6 +512,7 @@ static void pf_handle_wifi(PF_WIFI_EVENT_E wifi_event)
             pf_ui_wifi_show_failed("Wi-Fi connected, UDP failed");
             break;
         }
+        sg_wifi_manual_connecting = false;
         pf_ui_set_wifi_status(true, false);
         if (sg_state.state != PF_STATE_CAMERA_PREVIEW) {
             pf_ui_wifi_show_connected(pf_wifi_get_ip());
@@ -529,7 +521,10 @@ static void pf_handle_wifi(PF_WIFI_EVENT_E wifi_event)
         break;
     case PF_WIFI_EVENT_CONNECT_FAILED:
         pf_ui_set_wifi_status(false, false);
-        pf_ui_wifi_show_failed("Password wrong or network unavailable");
+        if (sg_wifi_manual_connecting) {
+            sg_wifi_manual_connecting = false;
+            pf_ui_wifi_show_failed("Password wrong or network unavailable");
+        }
         break;
     case PF_WIFI_EVENT_DISCONNECTED:
         pf_server_heartbeat_network_down();
@@ -644,6 +639,23 @@ static void pf_handle_timer(PF_EVENT_E timer_event)
         }
         tal_sw_timer_stop(sg_flow_timer);
         (void)pf_motor_stop();
+    }
+    if (sg_manual_capture_requested &&
+        sg_state.state == PF_STATE_CAMERA_PREVIEW &&
+        sg_countdown_remaining > 0U) {
+        --sg_countdown_remaining;
+        if (sg_countdown_remaining > 0U) {
+            pf_ui_set_countdown(sg_countdown_remaining);
+            if (sg_countdown_remaining == 1U) {
+                (void)pf_motor_play(PF_MOTOR_PATTERN_LOCAL_CONFIRMED);
+            }
+            return;
+        }
+        tal_sw_timer_stop(sg_flow_timer);
+        sg_countdown_remaining = 0U;
+        (void)pf_motor_stop();
+        tal_semaphore_post(sg_capture_request);
+        return;
     }
     if (sg_state.state == PF_STATE_PEER_FOUND ||
         sg_state.state == PF_STATE_WAITING_CONFIRM) {
