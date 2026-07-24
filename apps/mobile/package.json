@@ -3,23 +3,23 @@
   "version": "0.1.0",
   "private": true,
   "type": "module",
-  "main": "index.ts",
   "scripts": {
-    "start": "expo start",
-    "build:web": "expo export --platform web --output-dir ../../dist/web"
+    "start": "vite --host 0.0.0.0",
+    "build:web": "vite build",
+    "typecheck": "tsc --noEmit"
   },
   "dependencies": {
     "@amap/amap-jsapi-loader": "^1.0.1",
-    "@expo/metro-runtime": "^57.0.7",
-    "expo": "^57.0.8",
-    "expo-haptics": "^57.0.1",
-    "expo-location": "^57.0.6",
+    "lucide-react": "^0.575.0",
     "react": "19.2.3",
-    "react-dom": "19.2.3",
-    "react-native": "^0.86.0",
-    "react-native-web": "^0.21.2"
+    "react-dom": "19.2.3"
   },
   "devDependencies": {
-    "@amap/amap-jsapi-types": "^0.0.15"
+    "@amap/amap-jsapi-types": "^0.0.15",
+    "@tailwindcss/vite": "^4.2.1",
+    "@types/react-dom": "^19.2.3",
+    "@vitejs/plugin-react": "^5.2.0",
+    "tailwindcss": "^4.2.1",
+    "vite": "^8.0.16"
   }
 }
