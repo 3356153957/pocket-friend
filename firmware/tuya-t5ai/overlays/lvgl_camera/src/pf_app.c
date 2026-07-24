@@ -249,7 +249,11 @@ static void pf_refresh_ui(PF_STATE_E previous_state)
     switch (sg_state.state) {
     case PF_STATE_ONLINE_IDLE:
         pf_input_set_mode(PF_INPUT_MODE_IDLE);
-        pf_ui_show_page(PF_UI_PAGE_IDLE);
+        if (!pf_ui_is_started()) {
+            pf_ui_show_page(PF_UI_PAGE_START);
+        } else {
+            pf_ui_show_page(PF_UI_PAGE_IDLE);
+        }
         break;
     case PF_STATE_CAMERA_PREVIEW:
         pf_input_set_mode(PF_INPUT_MODE_PREVIEW);
@@ -296,7 +300,7 @@ static void pf_refresh_ui(PF_STATE_E previous_state)
         break;
     case PF_STATE_DND:
         pf_input_set_mode(PF_INPUT_MODE_LOCKED);
-        pf_ui_show_page(PF_UI_PAGE_DND);
+        pf_ui_show_page(PF_UI_PAGE_SLEEP);
         break;
     case PF_STATE_ERROR:
         pf_input_set_mode(PF_INPUT_MODE_RESULT);
@@ -307,7 +311,8 @@ static void pf_refresh_ui(PF_STATE_E previous_state)
     case PF_STATE_RECONNECTING:
     default:
         pf_input_set_mode(PF_INPUT_MODE_LOCKED);
-        pf_ui_show_page(PF_UI_PAGE_IDLE);
+        pf_ui_show_page(pf_ui_is_started() ? PF_UI_PAGE_IDLE
+                                           : PF_UI_PAGE_START);
         break;
     }
 }
@@ -386,6 +391,18 @@ static void pf_handle_input(const PF_INPUT_EVENT_T *input)
         return;
     }
     switch (input->action) {
+    case PF_INPUT_START:
+        pf_ui_mark_started(true);
+        pf_ui_show_page(PF_UI_PAGE_IDLE);
+        break;
+    case PF_INPUT_WAKE:
+        if (sg_state.state == PF_STATE_DND) {
+            pf_dispatch(PF_EVENT_EXIT_DND);
+        } else {
+            pf_ui_show_page(pf_ui_is_started() ? PF_UI_PAGE_IDLE
+                                               : PF_UI_PAGE_START);
+        }
+        break;
     case PF_INPUT_CONFIRM:
         if (PF_DEVICE_ID == 'A' && sg_state.session_id == 0U) {
             sg_state.session_id = (uint32_t)tal_system_get_millisecond();

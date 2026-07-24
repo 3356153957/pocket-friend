@@ -9,6 +9,8 @@ extern "C" {
 #endif
 
 typedef enum {
+    PF_INPUT_START,
+    PF_INPUT_WAKE,
     PF_INPUT_CONFIRM,
     PF_INPUT_CANCEL,
     PF_INPUT_COMPLETE,

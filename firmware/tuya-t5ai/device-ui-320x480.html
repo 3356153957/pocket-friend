@@ -1,0 +1,490 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no" />
+  <title>Pocket Friend - 320x480 Device UI</title>
+  <link href="https://fonts.googleapis.com/css2?family=Press+Start+2P&display=swap" rel="stylesheet" />
+  <style>
+    :root {
+      --sky: #0091FF;
+      --lime: #C8FF00;
+      --cyan: #00E5FF;
+      --pink: #FF2D9B;
+      --yellow: #FFEA00;
+      --ink: #111111;
+      --cream: #FFF8FC;
+      --night: #0A1030;
+      --sleep-txt: #A8C4FF;
+      --mint: #E8FFF0;
+      --device: #B8F000;
+      --device-ring: #FFE600;
+      --pixel: "Press Start 2P", monospace;
+      --cjk: "Microsoft YaHei", "PingFang SC", "Noto Sans SC", sans-serif;
+    }
+
+    * { box-sizing: border-box; margin: 0; padding: 0; }
+
+    html, body {
+      min-height: 100%;
+      background: #1a1a22;
+      font-family: var(--pixel);
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+      gap: 16px;
+      padding: 24px 12px;
+      color: #eee;
+    }
+
+    h1 {
+      font-size: 10px;
+      letter-spacing: 1px;
+      color: #9aa;
+      font-weight: 400;
+    }
+
+    .toolbar {
+      display: flex;
+      gap: 8px;
+      flex-wrap: wrap;
+      justify-content: center;
+    }
+
+    .toolbar button {
+      font-family: var(--pixel);
+      font-size: 8px;
+      padding: 10px 14px;
+      border: 3px solid var(--ink);
+      background: var(--lime);
+      color: var(--ink);
+      cursor: pointer;
+      box-shadow: 4px 4px 0 var(--ink);
+    }
+
+    .toolbar button.cjk {
+      font-family: var(--cjk);
+      font-size: 14px;
+      font-weight: 800;
+      letter-spacing: 2px;
+    }
+
+    .toolbar button.active {
+      background: var(--pink);
+      color: #fff;
+    }
+
+    .toolbar button:active {
+      transform: translate(2px, 2px);
+      box-shadow: 2px 2px 0 var(--ink);
+    }
+
+    .bezel {
+      padding: 10px;
+      background: #2a2a33;
+      border-radius: 18px;
+      box-shadow:
+        0 0 0 3px #111,
+        0 12px 40px rgba(0,0,0,.45);
+    }
+
+    /* Exact panel size for ILI9488 320x480 */
+    .screen {
+      width: 320px;
+      height: 480px;
+      position: relative;
+      overflow: hidden;
+      image-rendering: pixelated;
+      border: 3px solid #000;
+      background: var(--sky);
+    }
+
+    .page {
+      position: absolute;
+      inset: 0;
+      display: none;
+      flex-direction: column;
+      align-items: center;
+    }
+
+    .page.visible { display: flex; }
+
+    /* ---- START ---- */
+    #page-start {
+      background: var(--sky);
+      background-image:
+        linear-gradient(rgba(255,255,255,.12) 1px, transparent 1px),
+        linear-gradient(90deg, rgba(255,255,255,.08) 1px, transparent 1px);
+      background-size: 16px 16px, 24px 24px;
+    }
+
+    .cloud {
+      position: absolute;
+      background: #fff;
+      border: 3px solid var(--ink);
+      height: 18px;
+      border-radius: 2px;
+      opacity: .95;
+    }
+    .cloud::before, .cloud::after {
+      content: "";
+      position: absolute;
+      background: #fff;
+      border: 3px solid var(--ink);
+      border-radius: 2px;
+    }
+    .c1 { top: 36px; left: 28px; width: 52px; }
+    .c1::before { width: 28px; height: 14px; top: -12px; left: 8px; }
+    .c1::after { width: 22px; height: 12px; top: -8px; left: 28px; }
+    .c2 { top: 72px; right: 24px; width: 44px; }
+    .c2::before { width: 22px; height: 12px; top: -10px; left: 10px; }
+
+    .brand {
+      margin-top: 28px;
+      text-align: center;
+      z-index: 2;
+      line-height: 1.35;
+    }
+
+    .brand .pocket {
+      font-size: 18px;
+      color: var(--cyan);
+      text-shadow:
+        -2px -2px 0 #fff, 2px -2px 0 #fff, -2px 2px 0 #fff, 2px 2px 0 #fff,
+        3px 3px 0 #000, -1px 3px 0 #000, 3px -1px 0 #000;
+    }
+
+    .brand .friend {
+      font-size: 18px;
+      color: var(--lime);
+      text-shadow:
+        -2px -2px 0 #fff, 2px -2px 0 #fff, -2px 2px 0 #fff, 2px 2px 0 #fff,
+        3px 3px 0 #000, -1px 3px 0 #000, 3px -1px 0 #000;
+    }
+
+    .device-wrap {
+      margin-top: 28px;
+      position: relative;
+      width: 168px;
+      height: 200px;
+      z-index: 2;
+    }
+
+    .chain {
+      position: absolute;
+      left: 50%;
+      top: -6px;
+      transform: translateX(-50%);
+      width: 28px;
+      height: 22px;
+      border: 4px solid #3a4a8a;
+      border-radius: 50%;
+      background: transparent;
+      z-index: 3;
+    }
+
+    .glow {
+      position: absolute;
+      left: 50%;
+      top: 52%;
+      transform: translate(-50%, -50%);
+      width: 150px;
+      height: 150px;
+      background: radial-gradient(circle, rgba(255,255,200,.55) 0%, transparent 68%);
+      pointer-events: none;
+    }
+
+    .egg {
+      position: absolute;
+      left: 50%;
+      top: 18px;
+      transform: translateX(-50%);
+      width: 132px;
+      height: 168px;
+      background:
+        radial-gradient(ellipse at 35% 28%, #fff6 0 18%, transparent 19%),
+        repeating-radial-gradient(
+          ellipse at 50% 50%,
+          var(--device) 0 10px,
+          var(--device-ring) 10px 18px
+        );
+      border: 4px solid var(--ink);
+      border-radius: 50% 50% 48% 48% / 46% 46% 54% 54%;
+      box-shadow: 6px 8px 0 rgba(0,0,0,.25);
+    }
+
+    .egg-screen {
+      position: absolute;
+      left: 50%;
+      top: 42px;
+      transform: translateX(-50%);
+      width: 64px;
+      height: 56px;
+      background: #f4f8ff;
+      border: 3px solid var(--ink);
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      overflow: hidden;
+    }
+
+    .pet {
+      width: 36px;
+      height: 36px;
+      image-rendering: pixelated;
+    }
+
+    .btns {
+      position: absolute;
+      left: 50%;
+      bottom: 28px;
+      transform: translateX(-50%);
+      display: flex;
+      gap: 10px;
+    }
+
+    .btns i {
+      width: 14px;
+      height: 14px;
+      border-radius: 50%;
+      border: 3px solid var(--ink);
+      background: var(--pink);
+      display: block;
+    }
+    .btns i:nth-child(2) { background: var(--lime); transform: translateY(4px); }
+
+    .start-btn {
+      margin-top: auto;
+      margin-bottom: 48px;
+      width: 220px;
+      height: 64px;
+      border: 4px solid var(--ink);
+      background: linear-gradient(#ff7ec8, var(--pink));
+      color: #fff;
+      font-family: inherit;
+      font-size: 18px;
+      letter-spacing: 2px;
+      cursor: pointer;
+      box-shadow: 6px 6px 0 var(--ink);
+      text-shadow: 2px 2px 0 #000;
+      position: relative;
+      z-index: 2;
+    }
+
+    .start-btn::after {
+      content: "";
+      position: absolute;
+      left: 8px;
+      top: 6px;
+      width: 18px;
+      height: 8px;
+      background: rgba(255,255,255,.55);
+    }
+
+    .start-btn:active {
+      transform: translate(3px, 3px);
+      box-shadow: 3px 3px 0 var(--ink);
+    }
+
+    .hint {
+      position: absolute;
+      bottom: 18px;
+      font-size: 7px;
+      color: rgba(255,255,255,.85);
+      text-shadow: 1px 1px 0 #000;
+      z-index: 2;
+    }
+
+    /* ---- SLEEP ---- */
+    #page-sleep {
+      background: var(--night);
+      background-image:
+        radial-gradient(2px 2px at 40px 60px, #a8c4ff 50%, transparent 51%),
+        radial-gradient(2px 2px at 120px 120px, #fff8 50%, transparent 51%),
+        radial-gradient(2px 2px at 250px 80px, #a8c4ff 50%, transparent 51%),
+        radial-gradient(2px 2px at 280px 200px, #fff6 50%, transparent 51%),
+        radial-gradient(2px 2px at 60px 280px, #a8c4ff 50%, transparent 51%),
+        radial-gradient(2px 2px at 200px 340px, #fff5 50%, transparent 51%);
+    }
+
+    #page-sleep .device-wrap { margin-top: 88px; filter: brightness(.78) saturate(.7); }
+
+    #page-sleep .egg {
+      background:
+        radial-gradient(ellipse at 35% 28%, #fff3 0 18%, transparent 19%),
+        #3A6A20;
+    }
+
+    #page-sleep .egg-screen { background: #1a2238; }
+
+    .zzz {
+      position: absolute;
+      right: -8px;
+      top: 28px;
+      font-size: 12px;
+      color: var(--pink);
+      text-shadow: 2px 2px 0 #000;
+      animation: floatZ 1.6s ease-in-out infinite;
+      z-index: 4;
+    }
+
+    .zzz.z2 {
+      right: -22px;
+      top: 8px;
+      font-size: 10px;
+      color: var(--cyan);
+      animation-delay: .4s;
+    }
+
+    @keyframes floatZ {
+      0%, 100% { transform: translateY(0); opacity: .85; }
+      50% { transform: translateY(-10px); opacity: 1; }
+    }
+
+    .sleep-badge {
+      margin-top: 36px;
+      padding: 16px 28px;
+      background: #162048;
+      border: 4px solid var(--ink);
+      box-shadow: 6px 6px 0 #000;
+      color: var(--sleep-txt);
+      font-family: var(--cjk);
+      font-size: 28px;
+      font-weight: 800;
+      letter-spacing: 6px;
+      text-align: center;
+      text-shadow: 3px 3px 0 #000;
+    }
+
+    .wake-hint {
+      margin-top: auto;
+      margin-bottom: 36px;
+      font-size: 8px;
+      color: #6a7aaa;
+      animation: pulse 1.4s ease-in-out infinite;
+    }
+
+    @keyframes pulse {
+      0%, 100% { opacity: .45; }
+      50% { opacity: 1; }
+    }
+
+    .meta {
+      font-size: 8px;
+      color: #777;
+      text-align: center;
+      line-height: 1.6;
+      max-width: 320px;
+    }
+  </style>
+</head>
+<body>
+  <h1>POCKET FRIEND · ILI9488 320x480 + GT1151</h1>
+  <div class="toolbar">
+    <button type="button" id="tab-start" class="active" onclick="showPage('start')">START</button>
+    <button type="button" id="tab-sleep" class="cjk" onclick="showPage('sleep')">&#24050;&#20241;&#30496;</button>
+  </div>
+
+  <div class="bezel">
+    <div class="screen" id="screen" role="application" aria-label="Pocket Friend device screen">
+      <!-- START -->
+      <div class="page visible" id="page-start">
+        <div class="cloud c1"></div>
+        <div class="cloud c2"></div>
+        <div class="brand">
+          <div class="pocket">POCKET</div>
+          <div class="friend">FRIEND</div>
+        </div>
+        <div class="device-wrap">
+          <div class="glow"></div>
+          <div class="chain"></div>
+          <div class="egg">
+            <div class="egg-screen">
+              <canvas class="pet" id="pet-awake" width="36" height="36"></canvas>
+            </div>
+            <div class="btns"><i></i><i></i><i></i></div>
+          </div>
+        </div>
+        <button type="button" class="start-btn" id="btn-start">START</button>
+        <div class="hint">TAP TO BEGIN</div>
+      </div>
+
+      <!-- SLEEP -->
+      <div class="page" id="page-sleep">
+        <div class="device-wrap">
+          <div class="zzz">Z</div>
+          <div class="zzz z2">z</div>
+          <div class="chain"></div>
+          <div class="egg">
+            <div class="egg-screen">
+              <canvas class="pet" id="pet-sleep" width="36" height="36"></canvas>
+            </div>
+            <div class="btns"><i></i><i></i><i></i></div>
+          </div>
+        </div>
+        <div class="sleep-badge">&#24050;&#20241;&#30496;</div>
+        <div class="wake-hint">TOUCH TO WAKE</div>
+      </div>
+    </div>
+  </div>
+
+  <p class="meta">
+    Fixed 320&times;480 panel preview for ILI9488 + GT1151.<br />
+    Tap START to enter sleep; tap screen to wake. Palette: Sky #0091FF � Lime #C8FF00 � Cyan #00E5FF � Pink #FF2D9B
+  </p>
+
+  <script>
+    function drawPet(canvas, asleep) {
+      const ctx = canvas.getContext("2d");
+      ctx.imageSmoothingEnabled = false;
+      ctx.clearRect(0, 0, 36, 36);
+      const px = (x, y, w, h, c) => { ctx.fillStyle = c; ctx.fillRect(x, y, w, h); };
+
+      // body
+      px(8, 10, 20, 18, "#1A4A9A");
+      px(6, 14, 24, 12, "#1A4A9A");
+      // ears
+      px(8, 6, 6, 6, "#1A4A9A");
+      px(22, 6, 6, 6, "#1A4A9A");
+      px(10, 8, 2, 2, "#FF2D9B");
+      px(24, 8, 2, 2, "#FF2D9B");
+      // face
+      px(12, 16, 4, 4, "#FFF8FC");
+      px(20, 16, 4, 4, "#FFF8FC");
+      if (asleep) {
+        px(12, 18, 4, 2, "#111");
+        px(20, 18, 4, 2, "#111");
+      } else {
+        px(13, 17, 2, 2, "#111");
+        px(21, 17, 2, 2, "#111");
+      }
+      px(16, 22, 4, 2, "#111");
+      // sparkles when awake
+      if (!asleep) {
+        px(2, 8, 2, 2, "#00E5FF");
+        px(32, 12, 2, 2, "#C8FF00");
+        px(4, 28, 2, 2, "#FF2D9B");
+      }
+    }
+
+    drawPet(document.getElementById("pet-awake"), false);
+    drawPet(document.getElementById("pet-sleep"), true);
+
+    function showPage(name) {
+      document.getElementById("page-start").classList.toggle("visible", name === "start");
+      document.getElementById("page-sleep").classList.toggle("visible", name === "sleep");
+      document.getElementById("tab-start").classList.toggle("active", name === "start");
+      document.getElementById("tab-sleep").classList.toggle("active", name === "sleep");
+    }
+
+    document.getElementById("btn-start").addEventListener("click", () => {
+      showPage("sleep");
+    });
+
+    document.getElementById("page-sleep").addEventListener("click", () => {
+      showPage("start");
+    });
+  </script>
+</body>
+</html>
