@@ -29,8 +29,18 @@ jobs:
     steps:
       - name: Repair self-hosted workspace permissions
         run: |
-          sudo chown -R "$(id -u):$(id -g)" "$GITHUB_WORKSPACE" || true
-          sudo chown -R "$(id -u):$(id -g)" "$(dirname "$GITHUB_WORKSPACE")" || true
+          case "$GITHUB_WORKSPACE" in
+            /opt/actions-runner/_work/pocket-friend/pocket-friend)
+              cd "$RUNNER_TEMP"
+              sudo rm -rf "$GITHUB_WORKSPACE"
+              sudo mkdir -p "$GITHUB_WORKSPACE"
+              sudo chown -R "$(id -u):$(id -g)" "$(dirname "$GITHUB_WORKSPACE")"
+              ;;
+            *)
+              echo "Refusing to repair unexpected workspace: $GITHUB_WORKSPACE" >&2
+              exit 1
+              ;;
+          esac
 
       - name: Check out the triggering commit
         # actions/checkout v7.0.1
