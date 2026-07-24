@@ -52,6 +52,63 @@ describe("admin router", () => {
     assert.equal(board?.batteryPercent, 78);
   });
 
+  test("stores an authenticated board JPEG and serves the latest photo to admins", async () => {
+    const route = createAdminRouter({ env, registry: new DeviceStatusRegistry(), now: () => 10_000 });
+    const jpeg = Uint8Array.from([0xff, 0xd8, 0x01, 0x02, 0xff, 0xd9]);
+
+    const upload = await route(new Request("http://localhost/api/photos?deviceId=board-a", {
+      method: "POST",
+      headers: {
+        Authorization: "Bearer board-secret",
+        "Content-Type": "image/jpeg",
+      },
+      body: jpeg,
+    }));
+    assert.equal(upload.status, 204);
+
+    const photo = await route(new Request("http://localhost/api/photos/board-a/latest", {
+      headers: { Authorization: `Basic ${credentials}` },
+    }));
+    assert.equal(photo.status, 200);
+    assert.equal(photo.headers.get("content-type"), "image/jpeg");
+    assert.deepEqual(new Uint8Array(await photo.arrayBuffer()), jpeg);
+  });
+
+  test("rejects unauthenticated, invalid, and non-JPEG photo uploads", async () => {
+    const route = createAdminRouter({ env, registry: new DeviceStatusRegistry() });
+    const upload = (url: string, token: string, contentType: string, body: Uint8Array) =>
+      route(new Request(url, {
+        method: "POST",
+        headers: { Authorization: `Bearer ${token}`, "Content-Type": contentType },
+        body,
+      }));
+
+    assert.equal((await upload(
+      "http://localhost/api/photos?deviceId=board-a",
+      "wrong",
+      "image/jpeg",
+      Uint8Array.from([0xff, 0xd8, 0xff, 0xd9]),
+    )).status, 401);
+    assert.equal((await upload(
+      "http://localhost/api/photos?deviceId=web",
+      "board-secret",
+      "image/jpeg",
+      Uint8Array.from([0xff, 0xd8, 0xff, 0xd9]),
+    )).status, 400);
+    assert.equal((await upload(
+      "http://localhost/api/photos?deviceId=board-a",
+      "board-secret",
+      "application/octet-stream",
+      Uint8Array.from([0xff, 0xd8, 0xff, 0xd9]),
+    )).status, 415);
+    assert.equal((await upload(
+      "http://localhost/api/photos?deviceId=board-a",
+      "board-secret",
+      "image/jpeg",
+      Uint8Array.from([0x00, 0x01]),
+    )).status, 400);
+  });
+
   test("accepts web heartbeats only from the same public hostname", async () => {
     const registry = new DeviceStatusRegistry();
     const route = createAdminRouter({ env, registry, now: () => 10_000 });

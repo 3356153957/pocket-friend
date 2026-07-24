@@ -6,6 +6,11 @@ import {
   type DeviceId,
   type Heartbeat
 } from "./status.ts";
+import {
+  LatestPhotoStore,
+  MAX_PHOTO_BYTES,
+  type BoardDeviceId,
+} from "./photos.ts";
 
 export type AdminEnvironment = Record<string, string | undefined>;
 export type AdminRouter = (request: Request) => Promise<Response>;
@@ -13,6 +18,7 @@ export type AdminRouter = (request: Request) => Promise<Response>;
 export interface AdminRouterOptions {
   env: AdminEnvironment;
   registry: DeviceStatusRegistry;
+  photos?: LatestPhotoStore;
   now?: () => number;
 }
 
@@ -63,6 +69,12 @@ function unauthorized(): Response {
   return result;
 }
 
+function isDeviceAuthorized(request: Request, env: AdminEnvironment): boolean {
+  const expected = env.PF_DEVICE_HEARTBEAT_TOKEN;
+  const supplied = request.headers.get("authorization")?.replace(/^Bearer\s+/u, "") ?? "";
+  return Boolean(expected && supplied && constantTimeEqual(supplied, expected));
+}
+
 function allowedWebOrigin(request: Request, env: AdminEnvironment): string | null {
   const origin = request.headers.get("origin");
   if (!origin) return null;
@@ -80,6 +92,16 @@ function allowedWebOrigin(request: Request, env: AdminEnvironment): string | nul
 
 function isDeviceId(value: unknown): value is DeviceId {
   return value === "web" || value === "board-a" || value === "board-b";
+}
+
+function isBoardDeviceId(value: unknown): value is BoardDeviceId {
+  return value === "board-a" || value === "board-b";
+}
+
+function isJpeg(bytes: Uint8Array): boolean {
+  return bytes.length >= 4 &&
+    bytes[0] === 0xff && bytes[1] === 0xd8 &&
+    bytes[bytes.length - 2] === 0xff && bytes[bytes.length - 1] === 0xd9;
 }
 
 function parseHeartbeat(value: unknown): Heartbeat | null {
@@ -111,6 +133,7 @@ function parseHeartbeat(value: unknown): Heartbeat | null {
 
 export function createAdminRouter(options: AdminRouterOptions): AdminRouter {
   const now = options.now ?? Date.now;
+  const photos = options.photos ?? new LatestPhotoStore();
   return async (request) => {
     const url = new URL(request.url);
 
@@ -142,11 +165,13 @@ export function createAdminRouter(options: AdminRouterOptions): AdminRouter {
       if (heartbeat.deviceId === "web") {
         origin = allowedWebOrigin(request, options.env);
         if (!origin) return json({ error: { code: "ORIGIN_DENIED", message: "Origin not allowed." } }, 403);
-        heartbeat.userAgent = request.headers.get("user-agent") ?? undefined; heartbeat.ip = request.headers.get("x-real-ip") ?? undefined; options.registry.record(heartbeat, now());
+        const userAgent = request.headers.get("user-agent");
+        const ip = request.headers.get("x-real-ip");
+        if (userAgent) heartbeat.userAgent = userAgent;
+        if (ip) heartbeat.ip = ip;
+        options.registry.record(heartbeat, now());
       } else {
-        const expected = options.env.PF_DEVICE_HEARTBEAT_TOKEN;
-        const supplied = request.headers.get("authorization")?.replace(/^Bearer\s+/u, "") ?? "";
-        if (!expected || !supplied || !constantTimeEqual(supplied, expected)) return unauthorized();
+        if (!isDeviceAuthorized(request, options.env)) return unauthorized();
         options.registry.record(heartbeat, now());
       }
 
@@ -156,6 +181,26 @@ export function createAdminRouter(options: AdminRouterOptions): AdminRouter {
         result.headers.set("Vary", "Origin");
       }
       return result;
+    }
+
+    if (url.pathname === "/api/photos" && request.method === "POST") {
+      if (!isDeviceAuthorized(request, options.env)) return unauthorized();
+      const deviceId = url.searchParams.get("deviceId");
+      if (!isBoardDeviceId(deviceId)) {
+        return json({ error: { code: "INVALID_DEVICE", message: "Board device is invalid." } }, 400);
+      }
+      if (request.headers.get("content-type")?.toLowerCase() !== "image/jpeg") {
+        return json({ error: { code: "UNSUPPORTED_MEDIA_TYPE", message: "A JPEG photo is required." } }, 415);
+      }
+      const bytes = new Uint8Array(await request.arrayBuffer());
+      if (bytes.length > MAX_PHOTO_BYTES) {
+        return json({ error: { code: "PHOTO_TOO_LARGE", message: "Photo exceeds 64 KiB." } }, 413);
+      }
+      if (!isJpeg(bytes)) {
+        return json({ error: { code: "INVALID_JPEG", message: "Photo is not a valid JPEG." } }, 400);
+      }
+      photos.put(deviceId, bytes, now());
+      return response(null, 204, "text/plain; charset=utf-8");
     }
 
     if (!isAdminAuthorized(request, options.env)) return unauthorized();
@@ -168,6 +213,14 @@ export function createAdminRouter(options: AdminRouterOptions): AdminRouter {
 
     if (url.pathname === "/api/status") {
       return json(options.registry.snapshot(now()));
+    }
+    const photoMatch = /^\/api\/photos\/(board-a|board-b)\/latest$/u.exec(url.pathname);
+    if (photoMatch) {
+      const photo = photos.get(photoMatch[1] as BoardDeviceId);
+      if (!photo) return json({ error: { code: "PHOTO_NOT_FOUND", message: "No photo has been uploaded." } }, 404);
+      const result = response(photo.bytes, 200, "image/jpeg");
+      result.headers.set("X-Captured-At", photo.capturedAt);
+      return result;
     }
     if (url.pathname === "/" || url.pathname === "/index.html") {
       return response(request.method === "HEAD" ? null : adminHtml, 200, "text/html; charset=utf-8");

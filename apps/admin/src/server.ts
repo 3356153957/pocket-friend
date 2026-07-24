@@ -8,12 +8,14 @@ import {
   type AdminRouterOptions,
 } from "./router.ts";
 import { DeviceStatusRegistry } from "./status.ts";
+import { LatestPhotoStore, MAX_PHOTO_BYTES } from "./photos.ts";
 
-const maxBodyBytes = 16 * 1024;
+const maxBodyBytes = MAX_PHOTO_BYTES;
 
 export interface AdminServerOptions extends Partial<Omit<AdminRouterOptions, "env" | "registry">> {
   env?: AdminEnvironment;
   registry?: DeviceStatusRegistry;
+  photos?: LatestPhotoStore;
 }
 
 async function readBody(request: IncomingMessage): Promise<Uint8Array | undefined> {
@@ -50,6 +52,7 @@ export function createAdminServer(options: AdminServerOptions = {}): Server {
   const route = createAdminRouter({
     env,
     registry: options.registry ?? new DeviceStatusRegistry(),
+    photos: options.photos ?? new LatestPhotoStore(),
     ...(options.now ? { now: options.now } : {}),
   });
 
