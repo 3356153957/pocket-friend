@@ -400,7 +400,9 @@ static void pf_handle_wifi(PF_WIFI_EVENT_E wifi_event)
             break;
         }
         pf_ui_set_wifi_status(true, false);
-        pf_ui_wifi_show_connected(pf_wifi_get_ip());
+        if (sg_state.state != PF_STATE_CAMERA_PREVIEW) {
+            pf_ui_wifi_show_connected(pf_wifi_get_ip());
+        }
         memset(sg_wifi_password, 0, sizeof(sg_wifi_password));
         break;
     case PF_WIFI_EVENT_CONNECT_FAILED:

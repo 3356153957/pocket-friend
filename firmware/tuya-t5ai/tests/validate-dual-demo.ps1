@@ -387,6 +387,10 @@ if (-not $app.Contains('sg_wifi_selected >= sg_wifi_ap_count')) {
     throw 'Wi-Fi connect and retry must reject a stale AP selection'
 }
 
+if ($app -notmatch 'pf_ui_set_wifi_status\(true, false\);\s*if \(sg_state\.state != PF_STATE_CAMERA_PREVIEW\) \{\s*pf_ui_wifi_show_connected\(pf_wifi_get_ip\(\)\);\s*\}') {
+    throw 'Wi-Fi connect success must not replace an active camera preview page'
+}
+
 $passwordClearCount = ([regex]::Matches(
     $app, 'memset\(event\.data\.input\.text, 0, sizeof\(event\.data\.input\.text\)\)'
 )).Count
