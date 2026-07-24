@@ -14,6 +14,7 @@ import test from "node:test";
 import {
   buildReleaseName,
   createCommandEnvironments,
+  createDeploymentRuntimeEnvironment,
   createWorkflowMaskCommands,
   maskWorkflowValue,
   parseEnvFile,
@@ -79,6 +80,27 @@ test("生产变量只注入构建命令并可安全注册 Actions 掩码", () =>
     createWorkflowMaskCommands(["a%b"], true),
     ["::add-mask::a%25b"],
   );
+});
+
+test("部署为 Metro 使用工作区内的专用临时目录", () => {
+  const workspace = path.resolve("runner-workspace");
+  const deployTemp = path.join(workspace, ".deploy-tmp");
+
+  assert.deepEqual(createDeploymentRuntimeEnvironment({
+    baseEnvironment: {
+      PATH: "/usr/bin",
+      TMPDIR: "/tmp",
+      TMP: "/tmp",
+      TEMP: "/tmp",
+    },
+    workspace,
+  }), {
+    PATH: "/usr/bin",
+    CI: "1",
+    TMPDIR: deployTemp,
+    TMP: deployTemp,
+    TEMP: deployTemp,
+  });
 });
 
 test("resolveAssetPath 接受站点绝对路径并拒绝目录穿越", () => {

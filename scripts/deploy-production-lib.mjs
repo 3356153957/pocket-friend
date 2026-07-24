@@ -69,6 +69,20 @@ export function createCommandEnvironments({
   };
 }
 
+export function createDeploymentRuntimeEnvironment({
+  baseEnvironment,
+  workspace,
+}) {
+  const deployTemp = path.join(path.resolve(workspace), ".deploy-tmp");
+  return {
+    ...baseEnvironment,
+    CI: "1",
+    TMPDIR: deployTemp,
+    TMP: deployTemp,
+    TEMP: deployTemp,
+  };
+}
+
 export function maskWorkflowValue(value) {
   return value
     .replaceAll("%", "%25")

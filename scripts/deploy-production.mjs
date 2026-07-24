@@ -15,6 +15,7 @@ import path from "node:path";
 import {
   buildReleaseName,
   createCommandEnvironments,
+  createDeploymentRuntimeEnvironment,
   createWorkflowMaskCommands,
   parseEnvFile,
   validateBuild,
@@ -121,11 +122,13 @@ async function main() {
   )) {
     console.log(command);
   }
+  const runtimeEnvironment = createDeploymentRuntimeEnvironment({
+    baseEnvironment: process.env,
+    workspace: config.workspace,
+  });
+  await mkdir(runtimeEnvironment.TMPDIR, { recursive: true });
   const { safeEnvironment, buildEnvironment } = createCommandEnvironments({
-    baseEnvironment: {
-      ...process.env,
-      CI: "1",
-    },
+    baseEnvironment: runtimeEnvironment,
     publicEnv,
   });
 
