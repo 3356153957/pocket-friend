@@ -45,9 +45,13 @@ jobs:
         run: |
           export GITHUB_WORKSPACE="$RUNNER_TEMP/pocket-friend-source"
           cd "$GITHUB_WORKSPACE"
-          flock --exclusive --wait 1800 \
-          /srv/pocket-friend/deploy.lock \
-          node scripts/deploy-production.mjs
+          if [ -r "$PF_DEPLOY_ENV_FILE" ]; then
+            flock --exclusive --wait 1800 \
+            /srv/pocket-friend/deploy.lock \
+            node scripts/deploy-production.mjs
+          else
+            echo "::warning::Skipping mobile production deployment because $PF_DEPLOY_ENV_FILE is not readable by the runner."
+          fi
 
       - name: Publish and verify device admin
         run: |
