@@ -330,6 +330,18 @@ if ($ui -match 'lv_ime_pinyin_set_keyboard\([^,]+,\s*sg_ui\.wifi_keyboard\)') {
     throw 'Pinyin IME must not attach to the Wi-Fi password keyboard'
 }
 
+if ($ui -notmatch 'lv_obj_set_parent\(\s*cand_panel,\s*sg_ui\.pages\[PF_UI_PAGE_PINYIN_INPUT\]\s*\)') {
+    throw 'Pinyin candidate panel must be reparented to the pinyin page'
+}
+
+if ($ui -notmatch 'lv_obj_set_style_text_color\(\s*cand_panel,\s*lv_color_hex\(PF_UI_COLOR_TEXT\),\s*0\s*\)') {
+    throw 'Pinyin candidate panel must use visible text on the dark page'
+}
+
+if ($ui -notmatch 'lv_obj_set_style_bg_opa\(\s*cand_panel,\s*LV_OPA_COVER,\s*0\s*\)') {
+    throw 'Pinyin candidate panel must have an opaque background'
+}
+
 $configPath = Join-Path $root 'config\TUYA_T5AI_BOARD_LCD_3.5.config'
 if (-not (Test-Path -LiteralPath $configPath)) {
     throw "Missing T5AI LCD config: $configPath"

@@ -219,9 +219,14 @@ static void pf_ui_create_pinyin_input_page(void)
                                &lv_font_simsun_16_cjk, 0);
 #endif
     cand_panel = lv_ime_pinyin_get_cand_panel(sg_ui.pinyin_ime);
+    lv_obj_set_parent(cand_panel, sg_ui.pages[PF_UI_PAGE_PINYIN_INPUT]);
     lv_obj_set_size(cand_panel, 304, 36);
     lv_obj_align_to(cand_panel, sg_ui.pinyin_keyboard,
                     LV_ALIGN_OUT_TOP_MID, 0, -4);
+    lv_obj_set_style_bg_color(cand_panel, lv_color_hex(PF_UI_COLOR_SURFACE), 0);
+    lv_obj_set_style_bg_opa(cand_panel, LV_OPA_COVER, 0);
+    lv_obj_set_style_radius(cand_panel, 8, 0);
+    lv_obj_set_style_text_color(cand_panel, lv_color_hex(PF_UI_COLOR_TEXT), 0);
 #if LV_FONT_SIMSUN_16_CJK
     lv_obj_set_style_text_font(cand_panel, &lv_font_simsun_16_cjk, 0);
 #endif
