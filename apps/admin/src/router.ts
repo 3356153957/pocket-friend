@@ -11,6 +11,7 @@ import {
   MAX_PHOTO_BYTES,
   type BoardDeviceId,
 } from "./photos.ts";
+import { PhotoDownloadTokenStore } from "./photoDownloadTokens.ts";
 
 export type AdminEnvironment = Record<string, string | undefined>;
 export type AdminRouter = (request: Request) => Promise<Response>;
@@ -19,6 +20,7 @@ export interface AdminRouterOptions {
   env: AdminEnvironment;
   registry: DeviceStatusRegistry;
   photos?: LatestPhotoStore;
+  photoDownloadTokens?: PhotoDownloadTokenStore;
   now?: () => number;
 }
 
@@ -75,14 +77,24 @@ function isDeviceAuthorized(request: Request, env: AdminEnvironment): boolean {
   return Boolean(expected && supplied && constantTimeEqual(supplied, expected));
 }
 
-function isPhotoDownloadAuthorized(request: Request, env: AdminEnvironment): boolean {
+async function isPhotoDownloadAuthorized(
+  request: Request,
+  env: AdminEnvironment,
+  tokenStore: PhotoDownloadTokenStore,
+): Promise<boolean> {
   const expected = env.PF_PHOTO_DOWNLOAD_TOKEN;
   const supplied = request.headers.get("authorization")?.replace(/^Bearer\s+/u, "") ?? "";
-  return Boolean(expected && supplied && constantTimeEqual(supplied, expected));
+  if (!supplied) return false;
+  if (expected && constantTimeEqual(supplied, expected)) return true;
+  return tokenStore.verify(supplied);
 }
 
-function isPhotoReaderAuthorized(request: Request, env: AdminEnvironment): boolean {
-  return isAdminAuthorized(request, env) || isPhotoDownloadAuthorized(request, env);
+async function isPhotoReaderAuthorized(
+  request: Request,
+  env: AdminEnvironment,
+  tokenStore: PhotoDownloadTokenStore,
+): Promise<boolean> {
+  return isAdminAuthorized(request, env) || await isPhotoDownloadAuthorized(request, env, tokenStore);
 }
 
 function allowedWebOrigin(request: Request, env: AdminEnvironment): string | null {
@@ -144,6 +156,7 @@ function parseHeartbeat(value: unknown): Heartbeat | null {
 export function createAdminRouter(options: AdminRouterOptions): AdminRouter {
   const now = options.now ?? Date.now;
   const photos = options.photos ?? new LatestPhotoStore();
+  const photoDownloadTokens = options.photoDownloadTokens ?? new PhotoDownloadTokenStore();
   return async (request) => {
     const url = new URL(request.url);
 
@@ -213,6 +226,11 @@ export function createAdminRouter(options: AdminRouterOptions): AdminRouter {
       return response(null, 204, "text/plain; charset=utf-8");
     }
 
+    if (url.pathname === "/api/photo-download-token" && request.method === "POST") {
+      if (!isAdminAuthorized(request, options.env)) return unauthorized();
+      return json(await photoDownloadTokens.generate(now()), 201);
+    }
+
     if (request.method !== "GET" && request.method !== "HEAD") {
       const result = json({ error: { code: "METHOD_NOT_ALLOWED", message: "Method not allowed." } }, 405);
       result.headers.set("Allow", "GET, HEAD");
@@ -225,7 +243,7 @@ export function createAdminRouter(options: AdminRouterOptions): AdminRouter {
     }
     const photoHistoryMatch = /^\/api\/photos\/(board-a)\/history$/u.exec(url.pathname);
     if (photoHistoryMatch) {
-      if (!isPhotoReaderAuthorized(request, options.env)) return unauthorized();
+      if (!await isPhotoReaderAuthorized(request, options.env, photoDownloadTokens)) return unauthorized();
       const deviceId = photoHistoryMatch[1] as BoardDeviceId;
       return json({
         photos: (await photos.listHistory(deviceId)).map((photo) => ({
@@ -237,7 +255,7 @@ export function createAdminRouter(options: AdminRouterOptions): AdminRouter {
 
     const archivedPhotoMatch = /^\/api\/photos\/(board-a)\/history\/([^/]+)$/u.exec(url.pathname);
     if (archivedPhotoMatch) {
-      if (!isPhotoReaderAuthorized(request, options.env)) return unauthorized();
+      if (!await isPhotoReaderAuthorized(request, options.env, photoDownloadTokens)) return unauthorized();
       const photo = await photos.getHistoryPhoto(
         archivedPhotoMatch[1] as BoardDeviceId,
         decodeURIComponent(archivedPhotoMatch[2] ?? ""),
@@ -250,7 +268,7 @@ export function createAdminRouter(options: AdminRouterOptions): AdminRouter {
 
     const photoMatch = /^\/api\/photos\/(board-a)\/latest$/u.exec(url.pathname);
     if (photoMatch) {
-      if (!isPhotoReaderAuthorized(request, options.env)) return unauthorized();
+      if (!await isPhotoReaderAuthorized(request, options.env, photoDownloadTokens)) return unauthorized();
       const photo = await photos.get(photoMatch[1] as BoardDeviceId);
       if (!photo) return json({ error: { code: "PHOTO_NOT_FOUND", message: "No photo has been uploaded." } }, 404);
       const result = response(photo.bytes, 200, "image/jpeg");

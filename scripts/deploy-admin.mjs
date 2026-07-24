@@ -1,5 +1,6 @@
 #!/usr/bin/env node
 
+import { createHash, randomBytes } from "node:crypto";
 import { spawn } from "node:child_process";
 import {
   cp,
@@ -9,6 +10,7 @@ import {
   rename,
   rm,
   symlink,
+  writeFile,
 } from "node:fs/promises";
 import path from "node:path";
 
@@ -44,6 +46,21 @@ async function pathExists(target) {
     if (error?.code === "ENOENT") return false;
     throw error;
   }
+}
+
+async function ensurePhotoDownloadToken(config) {
+  const tokenFile = path.join(config.deployRoot, "photo-download-token.json");
+  if (await pathExists(tokenFile)) {
+    return;
+  }
+
+  const token = randomBytes(32).toString("hex");
+  const record = {
+    digest: createHash("sha256").update(token).digest("hex"),
+    createdAt: new Date().toISOString(),
+  };
+  await writeFile(tokenFile, JSON.stringify(record), { mode: 0o644 });
+  console.log(`Photo download token generated: ${token}`);
 }
 
 async function replaceSymlink(link, target, temporaryLink) {
@@ -97,6 +114,7 @@ async function main() {
   const previous = previousLink ? await validateReleaseTarget({ deployRoot: config.deployRoot, target: previousLink }) : null;
   await replaceSymlink(currentLink, release, temporaryLink);
   try {
+    await ensurePhotoDownloadToken(config);
     await run("sudo", ["-n", "systemctl", "restart", config.service]);
     await waitForAdminHealth({ healthUrl: config.healthUrl });
   } catch (error) {

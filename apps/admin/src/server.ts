@@ -9,6 +9,7 @@ import {
 } from "./router.ts";
 import { DeviceStatusRegistry } from "./status.ts";
 import { LatestPhotoStore, MAX_PHOTO_BYTES } from "./photos.ts";
+import { PhotoDownloadTokenStore } from "./photoDownloadTokens.ts";
 
 const maxBodyBytes = MAX_PHOTO_BYTES;
 
@@ -54,6 +55,9 @@ export function createAdminServer(options: AdminServerOptions = {}): Server {
     registry: options.registry ?? new DeviceStatusRegistry(),
     photos: options.photos ?? new LatestPhotoStore({
       directory: env.PF_PHOTO_UPLOAD_DIR ?? "/var/lib/pocket-friend-admin/photos",
+    }),
+    photoDownloadTokens: options.photoDownloadTokens ?? new PhotoDownloadTokenStore({
+      file: env.PF_PHOTO_DOWNLOAD_TOKEN_FILE ?? "/srv/pocket-friend-admin/photo-download-token.json",
     }),
     ...(options.now ? { now: options.now } : {}),
   });

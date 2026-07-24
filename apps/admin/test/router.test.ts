@@ -153,6 +153,29 @@ describe("admin router", () => {
     assert.equal(deviceTokenDownload.status, 401);
   });
 
+  test("lets an admin generate a persisted photo download token", async () => {
+    const route = createAdminRouter({
+      env,
+      registry: new DeviceStatusRegistry(),
+      now: () => 10_000,
+    });
+    const generated = await route(new Request("http://localhost/api/photo-download-token", {
+      method: "POST",
+      headers: { Authorization: `Basic ${credentials}` },
+    }));
+
+    assert.equal(generated.status, 201);
+    const body = await generated.json() as { token: string; createdAt: string };
+    assert.equal(body.token.length, 64);
+    assert.equal(body.createdAt, new Date(10_000).toISOString());
+
+    const unauthorized = await route(new Request("http://localhost/api/photo-download-token", {
+      method: "POST",
+      headers: { Authorization: "Bearer board-secret" },
+    }));
+    assert.equal(unauthorized.status, 401);
+  });
+
   test("rejects unauthenticated, invalid, and non-JPEG photo uploads", async () => {
     const route = createAdminRouter({ env, registry: new DeviceStatusRegistry() });
     const upload = (url: string, token: string, contentType: string, body: Uint8Array) =>
