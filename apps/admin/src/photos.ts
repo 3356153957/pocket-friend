@@ -30,6 +30,10 @@ export interface PutPhotoOptions {
   name?: string;
 }
 
+function storedName(value: unknown): string | undefined {
+  return typeof value === "string" && value.trim() ? value.trim() : undefined;
+}
+
 export class LatestPhotoStore {
   private readonly photos = new Map<BoardDeviceId, LatestPhoto>();
   private readonly history = new Map<BoardDeviceId, ArchivedPhoto[]>();
@@ -68,6 +72,13 @@ export class LatestPhotoStore {
       .replace(/^-+|-+$/gu, "")
       .slice(0, 80);
     return `${safeName ? `${safeName}-` : ""}${timestamp}.jpg`;
+  }
+
+  private archiveName(id: string, capturedAt: string): string | undefined {
+    const suffix = this.archiveId(capturedAt);
+    if (!id.endsWith(suffix)) return undefined;
+    const name = id.slice(0, -suffix.length).replace(/-$/u, "");
+    return storedName(name);
   }
 
   async put(
@@ -118,10 +129,11 @@ export class LatestPhotoStore {
       ]);
       const parsed = JSON.parse(metadata) as { capturedAt?: unknown; name?: unknown };
       if (typeof parsed.capturedAt !== "string") return undefined;
+      const name = storedName(parsed.name);
       const stored = {
         bytes: Uint8Array.from(bytes),
         capturedAt: parsed.capturedAt,
-        ...(typeof parsed.name === "string" && parsed.name.trim() ? { name: parsed.name.trim() } : {}),
+        ...(name ? { name } : {}),
       };
       this.photos.set(deviceId, stored);
       return stored;
@@ -152,11 +164,12 @@ export class LatestPhotoStore {
             ]);
             const parsed = JSON.parse(metadata) as { capturedAt?: unknown; name?: unknown };
             if (typeof parsed.capturedAt !== "string") return undefined;
+            const name = storedName(parsed.name) ?? this.archiveName(id, parsed.capturedAt);
             return {
               id,
               capturedAt: parsed.capturedAt,
               bytes: bytes.byteLength,
-              ...(typeof parsed.name === "string" && parsed.name.trim() ? { name: parsed.name.trim() } : {}),
+              ...(name ? { name } : {}),
             };
           } catch {
             return undefined;
@@ -187,11 +200,12 @@ export class LatestPhotoStore {
       ]);
       const parsed = JSON.parse(metadata) as { capturedAt?: unknown; name?: unknown };
       if (typeof parsed.capturedAt !== "string") return undefined;
+      const name = storedName(parsed.name) ?? this.archiveName(id, parsed.capturedAt);
       return {
         id,
         bytes: Uint8Array.from(bytes),
         capturedAt: parsed.capturedAt,
-        ...(typeof parsed.name === "string" && parsed.name.trim() ? { name: parsed.name.trim() } : {}),
+        ...(name ? { name } : {}),
       };
     } catch {
       return undefined;

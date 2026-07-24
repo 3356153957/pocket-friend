@@ -1,5 +1,5 @@
 import assert from "node:assert/strict";
-import { mkdtemp, rm } from "node:fs/promises";
+import { mkdtemp, rm, writeFile } from "node:fs/promises";
 import { join } from "node:path";
 import { tmpdir } from "node:os";
 import { test } from "node:test";
@@ -64,6 +64,34 @@ test("photo history persists uploaded subject names", async () => {
 
     assert.equal(history[0]?.name, "阿狸");
     assert.equal(photo?.name, "阿狸");
+  } finally {
+    await rm(directory, { recursive: true, force: true });
+  }
+});
+
+test("photo history infers subject names from name-and-time archive filenames", async () => {
+  const directory = await mkdtemp(join(tmpdir(), "pf-admin-photos-"));
+  try {
+    const capturedAtMs = Date.parse("2026-07-24T22:55:00.000+08:00");
+    const capturedAt = new Date(capturedAtMs).toISOString();
+    const first = new LatestPhotoStore({ directory });
+    await first.put(
+      "board-a",
+      Uint8Array.from([0xff, 0xd8, 0x01, 0xff, 0xd9]),
+      capturedAtMs,
+      { name: "阿狸" },
+    );
+    const uploaded = (await first.listHistory("board-a"))[0];
+    assert.ok(uploaded);
+    await writeFile(
+      join(directory, "history", "board-a", `${uploaded.id}.json`),
+      JSON.stringify({ capturedAt }),
+    );
+
+    const restarted = new LatestPhotoStore({ directory });
+    const history = await restarted.listHistory("board-a");
+
+    assert.equal(history[0]?.name, "阿狸");
   } finally {
     await rm(directory, { recursive: true, force: true });
   }
