@@ -34,4 +34,57 @@ if ($trackedText -match '#define\s+PF_WIFI_PASSWORD\s+"(?![<$])[^"]+"') {
     throw 'A plaintext Wi-Fi password is tracked in firmware files'
 }
 
+$protocolHeaderPath = Join-Path $root 'overlays\lvgl_camera\include\pf_protocol.h'
+$protocolSourcePath = Join-Path $root 'overlays\lvgl_camera\src\pf_protocol.c'
+$stateHeaderPath = Join-Path $root 'overlays\lvgl_camera\include\pf_state_machine.h'
+$stateSourcePath = Join-Path $root 'overlays\lvgl_camera\src\pf_state_machine.c'
+
+foreach ($path in @($protocolHeaderPath, $protocolSourcePath, $stateHeaderPath, $stateSourcePath)) {
+    if (-not (Test-Path -LiteralPath $path)) {
+        throw "Missing dual-demo source file: $path"
+    }
+}
+
+$protocolAndState = @(
+    Get-Content -LiteralPath $protocolHeaderPath -Raw
+    Get-Content -LiteralPath $protocolSourcePath -Raw
+    Get-Content -LiteralPath $stateHeaderPath -Raw
+    Get-Content -LiteralPath $stateSourcePath -Raw
+) -join "`n"
+
+$requiredSymbols = @(
+    'PF_MSG_HELLO'
+    'PF_MSG_CONFIRM'
+    'PF_MSG_CANCEL'
+    'PF_MSG_CAPTURE_PREPARE'
+    'PF_MSG_PREPARE_ACK'
+    'PF_MSG_CAPTURE'
+    'PF_MSG_CAPTURED'
+    'PF_MSG_SUCCESS'
+    'PF_MSG_RESET'
+    'PF_WIRE_PACKET_SIZE'
+    'pf_protocol_encode'
+    'pf_protocol_decode'
+    'PF_STATE_ONLINE_IDLE'
+    'PF_STATE_PEER_FOUND'
+    'PF_STATE_WAITING_CONFIRM'
+    'PF_STATE_COUNTDOWN'
+    'PF_STATE_CAPTURING'
+    'PF_STATE_SUCCESS'
+    'PF_EFFECT_SEND_PREPARE'
+    'PF_EFFECT_SAFE_RESET'
+    'pf_state_dispatch'
+)
+
+foreach ($symbol in $requiredSymbols) {
+    if (-not $protocolAndState.Contains($symbol)) {
+        throw "Missing protocol/state symbol: $symbol"
+    }
+}
+
+$stateSource = Get-Content -LiteralPath $stateSourcePath -Raw
+if ($stateSource -match '\b(?:tal|tdl|lv|tkl)_') {
+    throw 'State machine must not call hardware, network, or UI APIs'
+}
+
 Write-Host 'PASS: dual-demo source contract.'
