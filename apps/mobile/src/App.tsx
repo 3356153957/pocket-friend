@@ -7,6 +7,8 @@ import {
   type Prefs,
 } from "./app/appFlow.ts";
 import { useNearbyDemo } from "./app/useNearbyDemo.ts";
+import type { ScreenResident } from "./app/screenResident.ts";
+import Arrival from "./components/Arrival.tsx";
 import AppShell, { PhoneFrame } from "./components/AppShell.tsx";
 import PendantSetup from "./components/PendantSetup.tsx";
 import Quiz from "./components/Quiz.tsx";
@@ -22,6 +24,7 @@ export default function App() {
   const [step, setStep] = useState<OnboardingStep>("welcome");
   const [tab, setTab] = useState<AppTab>("map");
   const [prefs, setPrefs] = useState<Prefs>(createInitialPrefs);
+  const [, setScreenResident] = useState<ScreenResident | null>(null);
   const nearby = useNearbyDemo(prefs);
 
   useEffect(() => {
@@ -48,7 +51,17 @@ export default function App() {
             prefs={prefs}
             setPrefs={setPrefs}
             onBack={() => setStep("quiz")}
-            onNext={() => setPhase("app")}
+            onNext={() => setStep("arrival")}
+          />
+        )}
+        {phase === "onboarding" && step === "arrival" && prefs.encounterProfile && (
+          <Arrival
+            profile={prefs.encounterProfile}
+            onDone={(resident) => {
+              setScreenResident(resident);
+              setTab("map");
+              setPhase("app");
+            }}
           />
         )}
         {phase === "app" && (

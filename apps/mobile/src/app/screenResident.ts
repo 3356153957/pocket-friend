@@ -1,0 +1,28 @@
+import type { EncounterProfile } from "./encounterProfile.ts";
+import type { DownloadedPhoto } from "./photoPipeline.ts";
+
+export interface ScreenResident {
+  id: string;
+  name: string;
+  magnetType: EncounterProfile["archetype"];
+  tags: string[];
+  portraitUrl?: string;
+  pixelPortraitUrl: string;
+  createdAt: string;
+  source: "hardware" | "demo";
+}
+
+const MOCK_RESIDENT_NAME = "Luna";
+
+export function buildScreenResident(profile: EncounterProfile, photo: DownloadedPhoto): ScreenResident {
+  return {
+    id: photo.id,
+    name: MOCK_RESIDENT_NAME,
+    magnetType: profile.archetype,
+    tags: profile.sceneTags,
+    portraitUrl: photo.originalDataUrl,
+    pixelPortraitUrl: photo.pixelPortraitUrl,
+    createdAt: photo.capturedAt,
+    source: photo.source,
+  };
+}

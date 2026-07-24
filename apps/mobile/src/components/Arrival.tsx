@@ -1,0 +1,103 @@
+import { Check, Loader2 } from "lucide-react";
+import { useEffect, useRef, useState } from "react";
+
+import type { EncounterProfile } from "../app/encounterProfile.ts";
+import { fetchLatestHardwarePhoto } from "../app/photoPipeline.ts";
+import { buildScreenResident, type ScreenResident } from "../app/screenResident.ts";
+import { AppLogo, PixelCard } from "./PixelUi.tsx";
+
+type ArrivalStage = "fetching" | "pixelating" | "entering" | "done";
+
+export default function Arrival({ profile, onDone }: {
+  profile: EncounterProfile;
+  onDone: (resident: ScreenResident) => void;
+}) {
+  const started = useRef(false);
+  const [stage, setStage] = useState<ArrivalStage>("fetching");
+  const [portraitUrl, setPortraitUrl] = useState<string | null>(null);
+  const [warning, setWarning] = useState<string | null>(null);
+
+  useEffect(() => {
+    if (started.current) return;
+    started.current = true;
+
+    let cancelled = false;
+    const timers: ReturnType<typeof setTimeout>[] = [];
+
+    async function runArrival() {
+      setStage("fetching");
+      const photo = await fetchLatestHardwarePhoto();
+      if (cancelled) return;
+
+      setStage("pixelating");
+      setPortraitUrl(photo.pixelPortraitUrl);
+      setWarning(photo.warning ?? null);
+
+      timers.push(setTimeout(() => {
+        if (cancelled) return;
+        setStage("entering");
+        const resident = buildScreenResident(profile, photo);
+        console.log("[screen-resident]", resident);
+        window.localStorage.setItem("pf:last-screen-resident", JSON.stringify(resident));
+        timers.push(setTimeout(() => {
+          if (cancelled) return;
+          setStage("done");
+          onDone(resident);
+        }, 1200));
+      }, 900));
+    }
+
+    void runArrival();
+
+    return () => {
+      cancelled = true;
+      timers.forEach((timer) => clearTimeout(timer));
+    };
+  }, [onDone, profile]);
+
+  const copy = stage === "fetching"
+    ? "FETCHING PHOTO..."
+    : stage === "pixelating"
+      ? "PIXELATING..."
+      : stage === "entering"
+        ? "ENTERING ISLAND..."
+        : "DONE";
+
+  return (
+    <section className="flex min-h-full flex-col justify-center gap-5 px-4 py-5">
+      <div>
+        <div className="font-pixel text-[8px] text-pink">03 · ARRIVAL</div>
+        <h1 className="mt-3 font-pixel text-[14px] leading-7 text-ink">正在把 <span className="text-pink">Luna</span> 接入小岛</h1>
+      </div>
+
+      <div className="pixel-border bg-mint-screen p-4">
+        <div className="relative grid min-h-64 place-items-center overflow-hidden bg-card bg-dotgrid">
+          <div className="absolute inset-x-5 top-6 h-2 bg-lime" />
+          <div className="absolute bottom-8 h-20 w-56 border-[3px] border-ink bg-lime" />
+          <div className="absolute bottom-20 h-24 w-24 border-[3px] border-ink bg-cyan" />
+          <div className="absolute bottom-24 left-10 h-12 w-12 border-[3px] border-ink bg-pink" />
+          <div className="absolute right-9 top-12 h-10 w-10 border-[3px] border-ink bg-lime" />
+
+          <div className={`relative z-10 grid h-28 w-28 place-items-center border-[4px] border-ink bg-card shadow-[5px_5px_0_var(--ink)] ${stage === "entering" ? "animate-float" : ""}`}>
+            {portraitUrl ? (
+              <img src={portraitUrl} alt="pixel portrait" className="h-20 w-20 object-contain pixel-image" />
+            ) : (
+              <AppLogo size={72} />
+            )}
+          </div>
+        </div>
+      </div>
+
+      <PixelCard color="card" className="space-y-3">
+        <div className="flex items-center gap-3">
+          {stage === "done" ? <Check size={18} /> : <Loader2 size={18} className="animate-spin" />}
+          <div>
+            <div className="font-pixel text-[9px] text-ink">{copy}</div>
+            <p className="mt-1 font-mono-pixel text-sm text-ink/70">磁场: {profile.archetype} · {profile.sceneTags.slice(0, 3).join(" / ")}</p>
+          </div>
+        </div>
+        {warning && <p className="font-mono-pixel text-xs leading-4 text-ink/60">照片接口暂不可用，已使用演示头像兜底：{warning}</p>}
+      </PixelCard>
+    </section>
+  );
+}
