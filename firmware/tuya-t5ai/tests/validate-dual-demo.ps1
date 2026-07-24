@@ -16,6 +16,13 @@ $requiredSyncContract = @(
     "Join-Path `$overlayRoot 'include'"
     'Copy-Item'
     '-Recurse'
+    'PF_ADMIN_HOST'
+    'PF_ADMIN_PORT'
+    'PF_DEVICE_HEARTBEAT_TOKEN'
+    'PF_DEFAULT_WIFI_SSID'
+    'PF_DEFAULT_WIFI_PASSWORD'
+    'PF_DEFAULT_WIFI_ENABLED'
+    'PF_CAMERA_ROTATION_180'
 )
 
 foreach ($item in $requiredSyncContract) {
@@ -30,6 +37,12 @@ $trackedText = $trackedText -join "`n"
 
 if ($trackedText -match '#define\s+PF_WIFI_PASSWORD\s+"(?![<$])[^"]+"') {
     throw 'A plaintext Wi-Fi password is tracked in firmware files'
+}
+if ($trackedText -match '#define\s+PF_DEFAULT_WIFI_PASSWORD\s+"(?![<$])') {
+    throw 'A plaintext default Wi-Fi password is tracked in firmware files'
+}
+if ($trackedText -match '#define\s+PF_DEVICE_HEARTBEAT_TOKEN\s+"(?![<$])[^"]+"') {
+    throw 'A plaintext server heartbeat token is tracked in firmware files'
 }
 
 $wifiHeaderPath = Join-Path $root 'overlays\lvgl_camera\include\pf_wifi_config.h'
@@ -71,6 +84,24 @@ foreach ($symbol in $wifiRequired) {
     if (-not $wifi.Contains($symbol)) {
         throw "Missing Wi-Fi provisioning contract: $symbol"
     }
+}
+
+$wifiStartIndex = $wifi.IndexOf('case PF_WIFI_COMMAND_START:')
+$wifiScanIndex = $wifi.IndexOf('case PF_WIFI_COMMAND_SCAN:', $wifiStartIndex)
+if ($wifiStartIndex -lt 0 -or $wifiScanIndex -lt 0) {
+    throw 'Missing Wi-Fi startup command block'
+}
+$wifiStartBlock = $wifi.Substring($wifiStartIndex,
+                                  $wifiScanIndex - $wifiStartIndex)
+$savedWifiIndex = $wifiStartBlock.IndexOf(
+    'pf_wifi_load_credentials(ssid, password)')
+$defaultWifiIndex = $wifiStartBlock.IndexOf('PF_DEFAULT_WIFI_ENABLED')
+if ($savedWifiIndex -lt 0 -or $defaultWifiIndex -lt 0 -or
+    $savedWifiIndex -gt $defaultWifiIndex) {
+    throw 'Saved Wi-Fi credentials must take priority over the build default'
+}
+if ($wifiStartBlock -notmatch 'pf_wifi_begin_connect\(PF_DEFAULT_WIFI_SSID,\s*PF_DEFAULT_WIFI_PASSWORD,\s*false,\s*true\)') {
+    throw 'Default Wi-Fi must auto-connect without being saved to KV'
 }
 
 $protocolHeaderPath = Join-Path $root 'overlays\lvgl_camera\include\pf_protocol.h'
@@ -266,12 +297,21 @@ $uiRequired = @(
     'lv_keyboard_set_textarea'
     'pf_ui_wifi_set_results'
     'pf_ui_wifi_show_connecting'
+    'PF_CAMERA_ROTATION_180'
+    'pf_ui_rotate_rgb565_180'
 )
 
 foreach ($symbol in $uiRequired) {
     if (-not $ui.Contains($symbol)) {
         throw "Missing UI contract: $symbol"
     }
+}
+
+$rotationUseCount = ([regex]::Matches(
+    $ui, 'pf_ui_rotate_rgb565_180\('
+)).Count
+if ($rotationUseCount -lt 3) {
+    throw 'A-board rotation must cover both preview and decoded photo output'
 }
 
 if ($ui -notmatch '#define\s+PF_UI_TOUCH_TARGET\s+64') {
@@ -329,6 +369,32 @@ foreach ($forbidden in @('tal_wifi_init', 'tal_wifi_set_work_mode',
     }
 }
 
+$serverHeartbeatHeaderPath = Join-Path $root 'overlays\lvgl_camera\include\pf_server_heartbeat.h'
+$serverHeartbeatSourcePath = Join-Path $root 'overlays\lvgl_camera\src\pf_server_heartbeat.c'
+foreach ($path in @($serverHeartbeatHeaderPath, $serverHeartbeatSourcePath)) {
+    if (-not (Test-Path -LiteralPath $path)) {
+        throw "Missing server heartbeat source file: $path"
+    }
+}
+$serverHeartbeat = @(
+    Get-Content -LiteralPath $serverHeartbeatHeaderPath -Raw
+    Get-Content -LiteralPath $serverHeartbeatSourcePath -Raw
+) -join "`n"
+foreach ($symbol in @(
+    'http_client_request'
+    'PF_ADMIN_HOST'
+    'PF_ADMIN_PORT'
+    'PF_DEVICE_HEARTBEAT_TOKEN'
+    'PF_SERVER_HEARTBEAT_MS'
+    'pf_server_heartbeat_init'
+    'pf_server_heartbeat_network_up'
+    'pf_server_heartbeat_network_down'
+)) {
+    if (-not $serverHeartbeat.Contains($symbol)) {
+        throw "Missing server heartbeat contract: $symbol"
+    }
+}
+
 $appHeaderPath = Join-Path $root 'overlays\lvgl_camera\include\pf_app.h'
 $appSourcePath = Join-Path $root 'overlays\lvgl_camera\src\pf_app.c'
 $entryPath = Join-Path $root 'overlays\lvgl_camera\src\example_lvgl_camera.c'
@@ -367,6 +433,9 @@ $appRequired = @(
     'pf_handle_wifi'
     'pf_transport_network_up'
     'pf_transport_network_down'
+    'pf_server_heartbeat_init'
+    'pf_server_heartbeat_network_up'
+    'pf_server_heartbeat_network_down'
     'PF_MSG_CAPTURE_PREPARE'
     'PF_MSG_PREPARE_ACK'
     'PF_MSG_CAPTURE'

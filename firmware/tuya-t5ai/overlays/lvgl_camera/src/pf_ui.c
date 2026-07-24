@@ -6,6 +6,7 @@
 #include "lv_vendor.h"
 #include "lvgl.h"
 #include "pf_camera.h"
+#include "pf_demo_runtime_config.h"
 #include "pf_input.h"
 #include "tal_api.h"
 #include "tal_image.h"
@@ -442,6 +443,33 @@ static void pf_ui_camera_frame_cb(uint8_t *yuv, uint16_t width,
     pf_ui_preview_flush(width, height, yuv);
 }
 
+static void pf_ui_rotate_rgb565_180(uint8_t *buffer, uint16_t width,
+                                    uint16_t height)
+{
+#if PF_CAMERA_ROTATION_180
+    uint16_t *pixels;
+    uint32_t left = 0U;
+    uint32_t right;
+
+    if (buffer == NULL || width == 0U || height == 0U) {
+        return;
+    }
+    pixels = (uint16_t *)buffer;
+    right = (uint32_t)width * height - 1U;
+    while (left < right) {
+        uint16_t swap = pixels[left];
+        pixels[left] = pixels[right];
+        pixels[right] = swap;
+        ++left;
+        --right;
+    }
+#else
+    (void)buffer;
+    (void)width;
+    (void)height;
+#endif
+}
+
 OPERATE_RET pf_ui_preview_start(uint16_t width, uint16_t height)
 {
     uint32_t buffer_size;
@@ -500,6 +528,7 @@ void pf_ui_preview_flush(uint16_t width, uint16_t height, uint8_t *yuv)
     conversion.out_width = width;
     conversion.out_height = height;
     if (tal_image_convert_yuv422_to_rgb565(&conversion) == OPRT_OK) {
+        pf_ui_rotate_rgb565_180(sg_preview_buffer, width, height);
         lv_vendor_disp_lock();
         lv_obj_invalidate(sg_ui.preview_canvas);
         lv_vendor_disp_unlock();
@@ -557,6 +586,7 @@ OPERATE_RET pf_ui_show_photo(uint16_t width, uint16_t height,
         tal_psram_free(buffer);
         return rt;
     }
+    pf_ui_rotate_rgb565_180(buffer, width, height);
 
     lv_vendor_disp_lock();
     old_buffer = sg_result_buffer;

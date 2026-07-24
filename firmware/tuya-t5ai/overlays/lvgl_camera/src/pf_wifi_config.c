@@ -1,5 +1,6 @@
 #include "pf_wifi_config.h"
 
+#include "pf_demo_runtime_config.h"
 #include "tal_api.h"
 #include "tal_kv.h"
 #include "tal_wifi.h"
@@ -311,8 +312,15 @@ static void pf_wifi_worker(void *arg)
             memset(password, 0, sizeof(password));
             if (pf_wifi_load_credentials(ssid, password) == OPRT_OK) {
                 (void)pf_wifi_begin_connect(ssid, password, false, true);
+#if PF_DEFAULT_WIFI_ENABLED
+            } else {
+                (void)pf_wifi_begin_connect(PF_DEFAULT_WIFI_SSID,
+                                            PF_DEFAULT_WIFI_PASSWORD,
+                                            false, true);
+#else
             } else {
                 pf_wifi_notify(PF_WIFI_EVENT_UNCONFIGURED);
+#endif
             }
             memset(password, 0, sizeof(password));
             break;
