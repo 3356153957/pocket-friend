@@ -31,6 +31,17 @@ LV_FONT_DECLARE(pf_font_names_16);
 #define PF_UI_COLOR_SUCCESS  0x22C55EU
 #define PF_UI_COLOR_ERROR    0xDC2626U
 
+/* Pocket Friend brand palette (320x480 / ILI9488) */
+#define PF_UI_COLOR_SKY        0x0091FFU
+#define PF_UI_COLOR_LIME       0xC8FF00U
+#define PF_UI_COLOR_CYAN       0x00E5FFU
+#define PF_UI_COLOR_PINK       0xFF2D9BU
+#define PF_UI_COLOR_NIGHT      0x0A1030U
+#define PF_UI_COLOR_INK        0x000000U
+#define PF_UI_COLOR_SLEEP_TXT  0xA8C4FFU
+#define PF_UI_COLOR_PET        0x1A4A9AU
+#define PF_UI_COLOR_DEVICE_DIM 0x3A6A20U
+
 typedef struct {
     lv_obj_t *pages[PF_UI_PAGE_COUNT];
     lv_obj_t *preview_canvas;
@@ -64,6 +75,7 @@ static uint8_t *sg_preview_pending = NULL;
 static uint8_t *sg_result_buffer = NULL;
 static lv_image_dsc_t sg_result_descriptor;
 static bool sg_ui_initialized = false;
+static bool sg_ui_started = false;
 
 static lv_pinyin_dict_t sg_pinyin_name_dict[] = {
     {"a", "安昂奥"},
@@ -549,6 +561,171 @@ static void pf_ui_style_pinyin_candidate_panel(lv_obj_t *cand_panel)
     lv_obj_set_style_text_font(cand_panel, &pf_font_names_16, 0);
 }
 
+static lv_obj_t *pf_ui_create_blank_page(uint32_t bg_color)
+{
+    lv_obj_t *page = lv_obj_create(NULL);
+
+    lv_obj_set_size(page, PF_UI_WIDTH, PF_UI_HEIGHT);
+    lv_obj_set_style_bg_color(page, lv_color_hex(bg_color), 0);
+    lv_obj_set_style_border_width(page, 0, 0);
+    lv_obj_set_style_pad_all(page, 0, 0);
+    lv_obj_clear_flag(page, LV_OBJ_FLAG_SCROLLABLE);
+    return page;
+}
+
+static lv_obj_t *pf_ui_draw_pet_device(lv_obj_t *parent, bool asleep)
+{
+    lv_obj_t *body;
+    lv_obj_t *screen;
+    lv_obj_t *pet;
+    lv_obj_t *btn;
+    int16_t i;
+
+    body = lv_obj_create(parent);
+    lv_obj_set_size(body, 132, 168);
+    lv_obj_set_style_radius(body, LV_RADIUS_CIRCLE, 0);
+    lv_obj_set_style_bg_color(body,
+                              lv_color_hex(asleep ? PF_UI_COLOR_DEVICE_DIM
+                                                  : PF_UI_COLOR_LIME),
+                              0);
+    lv_obj_set_style_border_color(body, lv_color_hex(PF_UI_COLOR_INK), 0);
+    lv_obj_set_style_border_width(body, 4, 0);
+    lv_obj_set_style_shadow_width(body, 0, 0);
+    lv_obj_set_style_pad_all(body, 0, 0);
+    lv_obj_clear_flag(body, LV_OBJ_FLAG_SCROLLABLE);
+
+    screen = lv_obj_create(body);
+    lv_obj_set_size(screen, 64, 56);
+    lv_obj_align(screen, LV_ALIGN_TOP_MID, 0, 36);
+    lv_obj_set_style_radius(screen, 2, 0);
+    lv_obj_set_style_bg_color(screen,
+                              lv_color_hex(asleep ? 0x1A2238U : 0xF4F8FFU),
+                              0);
+    lv_obj_set_style_border_color(screen, lv_color_hex(PF_UI_COLOR_INK), 0);
+    lv_obj_set_style_border_width(screen, 3, 0);
+    lv_obj_set_style_pad_all(screen, 0, 0);
+    lv_obj_clear_flag(screen, LV_OBJ_FLAG_SCROLLABLE);
+
+    pet = lv_label_create(screen);
+    lv_label_set_text(pet, asleep ? "(-_-)" : "(o_o)");
+    lv_obj_set_style_text_color(pet, lv_color_hex(PF_UI_COLOR_PET), 0);
+    lv_obj_center(pet);
+
+    for (i = 0; i < 3; i++) {
+        btn = lv_obj_create(body);
+        lv_obj_set_size(btn, 14, 14);
+        lv_obj_set_style_radius(btn, LV_RADIUS_CIRCLE, 0);
+        lv_obj_set_style_bg_color(btn,
+                                  lv_color_hex(i == 1 ? PF_UI_COLOR_LIME
+                                                      : PF_UI_COLOR_PINK),
+                                  0);
+        lv_obj_set_style_border_color(btn, lv_color_hex(PF_UI_COLOR_INK), 0);
+        lv_obj_set_style_border_width(btn, 2, 0);
+        lv_obj_set_style_pad_all(btn, 0, 0);
+        lv_obj_clear_flag(btn, LV_OBJ_FLAG_SCROLLABLE);
+        lv_obj_align(btn, LV_ALIGN_BOTTOM_MID, (int32_t)((i - 1) * 22),
+                     i == 1 ? -22 : -28);
+    }
+
+    return body;
+}
+
+static void pf_ui_create_start_page(void)
+{
+    lv_obj_t *page;
+    lv_obj_t *label;
+    lv_obj_t *device;
+    lv_obj_t *button;
+    lv_obj_t *shadow;
+
+    page = pf_ui_create_blank_page(PF_UI_COLOR_SKY);
+    sg_ui.pages[PF_UI_PAGE_START] = page;
+
+    label = lv_label_create(page);
+    lv_label_set_text(label, "POCKET");
+    lv_obj_set_style_text_color(label, lv_color_hex(PF_UI_COLOR_CYAN), 0);
+    lv_obj_set_style_text_font(label, &lv_font_montserrat_24, 0);
+    lv_obj_align(label, LV_ALIGN_TOP_MID, 0, 36);
+
+    label = lv_label_create(page);
+    lv_label_set_text(label, "FRIEND");
+    lv_obj_set_style_text_color(label, lv_color_hex(PF_UI_COLOR_LIME), 0);
+    lv_obj_set_style_text_font(label, &lv_font_montserrat_24, 0);
+    lv_obj_align(label, LV_ALIGN_TOP_MID, 0, 68);
+
+    device = pf_ui_draw_pet_device(page, false);
+    lv_obj_align(device, LV_ALIGN_TOP_MID, 0, 120);
+
+    shadow = lv_obj_create(page);
+    lv_obj_set_size(shadow, PF_UI_PRIMARY_WIDTH, PF_UI_PRIMARY_HEIGHT);
+    lv_obj_set_style_bg_color(shadow, lv_color_hex(PF_UI_COLOR_INK), 0);
+    lv_obj_set_style_border_width(shadow, 0, 0);
+    lv_obj_set_style_radius(shadow, 4, 0);
+    lv_obj_set_style_pad_all(shadow, 0, 0);
+    lv_obj_clear_flag(shadow, LV_OBJ_FLAG_SCROLLABLE | LV_OBJ_FLAG_CLICKABLE);
+    lv_obj_align(shadow, LV_ALIGN_BOTTOM_MID, 6, -42);
+
+    button = pf_ui_create_button(page, "START", PF_INPUT_START,
+                                 PF_UI_COLOR_PINK, false);
+    lv_obj_set_style_radius(button, 4, 0);
+    lv_obj_set_style_border_color(button, lv_color_hex(PF_UI_COLOR_INK), 0);
+    lv_obj_set_style_border_width(button, 4, 0);
+    lv_obj_set_style_text_font(lv_obj_get_child(button, 0),
+                               &lv_font_montserrat_24, 0);
+    lv_obj_align(button, LV_ALIGN_BOTTOM_MID, 0, -48);
+
+    label = lv_label_create(page);
+    lv_label_set_text(label, "TAP TO BEGIN");
+    lv_obj_set_style_text_color(label, lv_color_hex(0xE8F4FFU), 0);
+    lv_obj_align(label, LV_ALIGN_BOTTOM_MID, 0, -16);
+}
+
+static void pf_ui_create_sleep_page(void)
+{
+    lv_obj_t *page;
+    lv_obj_t *label;
+    lv_obj_t *device;
+    lv_obj_t *badge;
+    lv_obj_t *zzz;
+
+    page = pf_ui_create_blank_page(PF_UI_COLOR_NIGHT);
+    sg_ui.pages[PF_UI_PAGE_SLEEP] = page;
+    lv_obj_add_flag(page, LV_OBJ_FLAG_CLICKABLE);
+    lv_obj_add_event_cb(page, pf_ui_button_cb, LV_EVENT_CLICKED,
+                        (void *)(uintptr_t)PF_INPUT_WAKE);
+
+    device = pf_ui_draw_pet_device(page, true);
+    lv_obj_align(device, LV_ALIGN_TOP_MID, 0, 96);
+
+    zzz = lv_label_create(page);
+    lv_label_set_text(zzz, "Z z");
+    lv_obj_set_style_text_color(zzz, lv_color_hex(PF_UI_COLOR_PINK), 0);
+    lv_obj_set_style_text_font(zzz, &lv_font_montserrat_24, 0);
+    lv_obj_align_to(zzz, device, LV_ALIGN_OUT_RIGHT_TOP, -8, 8);
+
+    badge = lv_obj_create(page);
+    lv_obj_set_size(badge, 200, 56);
+    lv_obj_set_style_bg_color(badge, lv_color_hex(0x162048U), 0);
+    lv_obj_set_style_border_color(badge, lv_color_hex(PF_UI_COLOR_INK), 0);
+    lv_obj_set_style_border_width(badge, 4, 0);
+    lv_obj_set_style_radius(badge, 4, 0);
+    lv_obj_set_style_pad_all(badge, 0, 0);
+    lv_obj_clear_flag(badge, LV_OBJ_FLAG_SCROLLABLE | LV_OBJ_FLAG_CLICKABLE);
+    lv_obj_align(badge, LV_ALIGN_CENTER, 0, 100);
+
+    label = lv_label_create(badge);
+    /* "已休眠" — keep UTF-8 for CJK font path */
+    lv_label_set_text(label, "\xE5\xB7\xB2\xE4\xBC\x91\xE7\x9C\xA0");
+    lv_obj_set_style_text_color(label, lv_color_hex(PF_UI_COLOR_SLEEP_TXT), 0);
+    lv_obj_set_style_text_font(label, &pf_font_names_16, 0);
+    lv_obj_center(label);
+
+    label = lv_label_create(page);
+    lv_label_set_text(label, "TOUCH TO WAKE");
+    lv_obj_set_style_text_color(label, lv_color_hex(0x6A7AAAU), 0);
+    lv_obj_align(label, LV_ALIGN_BOTTOM_MID, 0, -36);
+}
+
 static void pf_ui_create_idle_page(void)
 {
     lv_obj_t *button;
@@ -871,15 +1048,8 @@ static void pf_ui_create_result_page(void)
 
 static void pf_ui_create_dnd_page(void)
 {
-    lv_obj_t *button;
-
-    sg_ui.pages[PF_UI_PAGE_DND] = pf_ui_create_page("Do not disturb");
-    pf_ui_create_label(sg_ui.pages[PF_UI_PAGE_DND], "Pocket Friend is paused",
-                       LV_ALIGN_CENTER, 0, -24);
-    button = pf_ui_create_button(sg_ui.pages[PF_UI_PAGE_DND], "Resume",
-                                 PF_INPUT_TOGGLE_DND,
-                                 PF_UI_COLOR_PRIMARY, false);
-    lv_obj_align(button, LV_ALIGN_BOTTOM_MID, 0, -24);
+    /* DND reuses the branded sleep screen. */
+    sg_ui.pages[PF_UI_PAGE_DND] = sg_ui.pages[PF_UI_PAGE_SLEEP];
 }
 
 static void pf_ui_create_error_page(void)
@@ -912,6 +1082,8 @@ OPERATE_RET pf_ui_init(void)
     lv_vendor_init(DISPLAY_NAME);
     lv_vendor_start(THREAD_PRIO_1, 1024U * 8U);
     lv_vendor_disp_lock();
+    pf_ui_create_start_page();
+    pf_ui_create_sleep_page();
     pf_ui_create_idle_page();
     pf_ui_create_preview_page();
     pf_ui_create_match_page();
@@ -925,11 +1097,11 @@ OPERATE_RET pf_ui_init(void)
     pf_ui_create_wifi_scan_page();
     pf_ui_create_wifi_password_page();
     pf_ui_create_wifi_connect_page();
-    lv_screen_load(sg_ui.pages[PF_UI_PAGE_IDLE]);
+    lv_screen_load(sg_ui.pages[PF_UI_PAGE_START]);
     lv_vendor_disp_unlock();
 
     sg_ui_initialized = true;
-    PR_NOTICE("[ui] ready 320x480");
+    PR_NOTICE("[ui] ready 320x480 start/sleep");
     return OPRT_OK;
 }
 
@@ -938,9 +1110,22 @@ void pf_ui_show_page(PF_UI_PAGE_E page)
     if (!sg_ui_initialized || page >= PF_UI_PAGE_COUNT) {
         return;
     }
+    if (page == PF_UI_PAGE_DND) {
+        page = PF_UI_PAGE_SLEEP;
+    }
     lv_vendor_disp_lock();
     lv_screen_load(sg_ui.pages[page]);
     lv_vendor_disp_unlock();
+}
+
+void pf_ui_mark_started(bool started)
+{
+    sg_ui_started = started;
+}
+
+bool pf_ui_is_started(void)
+{
+    return sg_ui_started;
 }
 
 void pf_ui_set_peer(char peer_id, bool online)
