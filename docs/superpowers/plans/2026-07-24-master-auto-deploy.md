@@ -16,6 +16,8 @@
 - 创建 `scripts/deploy-production.mjs`：构建、发布、重启、健康检查和回滚编排。
 - 创建 `scripts/test/deploy-production.test.mjs`：部署纯函数和安全边界测试。
 - 创建 `.github/workflows/deploy-production.yml`：生产部署触发器、权限、并发和 Runner 标签。
+- 创建 `ops/pocket-friend.service`：生产静态服务的 systemd 单元。
+- 创建 `ops/pocket-friend-deploy.sudoers`：Runner 仅可重启生产静态服务的 sudoers 规则。
 - 修改 `package.json`：增加部署测试入口。
 - 创建本设计与计划文档：记录服务器约束和可复现操作。
 
@@ -151,6 +153,8 @@ npm run typecheck
 ### 任务 4：服务器和 Runner 配置
 
 **服务器文件：**
+- 创建：`ops/pocket-friend.service`
+- 创建：`ops/pocket-friend-deploy.sudoers`
 - 创建：`/etc/pocket-friend/mobile.env`
 - 创建：`/etc/sudoers.d/pocket-friend-deploy`
 - 创建：`/srv/pocket-friend/releases/<seed>`

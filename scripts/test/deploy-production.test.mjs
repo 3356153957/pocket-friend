@@ -204,3 +204,28 @@ test("生产工作流只允许 master 和人工触发并使用受限 Runner", as
     /PF_DEPLOY_ENV_FILE:\s*\/etc\/pocket-friend\/mobile\.env/u,
   );
 });
+
+test("服务器配置固定静态 release 根目录并只授权重启指定服务", async () => {
+  const [serviceUnit, sudoers] = await Promise.all([
+    readFile(path.resolve("ops/pocket-friend.service"), "utf8"),
+    readFile(path.resolve("ops/pocket-friend-deploy.sudoers"), "utf8"),
+  ]);
+
+  assert.match(
+    serviceUnit,
+    /^Environment=POCKET_FRIEND_STATIC_ROOT=\/srv\/pocket-friend\/current$/mu,
+  );
+  assert.match(serviceUnit, /^Environment=PORT=80$/mu);
+  assert.match(
+    serviceUnit,
+    /^ExecStart=\/usr\/bin\/node \/root\/pocket-friend-static-server\.mjs$/mu,
+  );
+
+  const rules = sudoers
+    .split(/\r?\n/u)
+    .map((line) => line.trim())
+    .filter((line) => line && !line.startsWith("#"));
+  assert.deepEqual(rules, [
+    "pf-deploy ALL=(root) NOPASSWD: /usr/bin/systemctl restart pocket-friend.service",
+  ]);
+});

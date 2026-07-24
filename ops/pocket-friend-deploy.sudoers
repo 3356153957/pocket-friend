@@ -1,0 +1,2 @@
+# Allow the production runner to restart only the Pocket Friend static service.
+pf-deploy ALL=(root) NOPASSWD: /usr/bin/systemctl restart pocket-friend.service
