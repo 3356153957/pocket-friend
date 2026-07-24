@@ -8,12 +8,13 @@
     "packages/*"
   ],
   "scripts": {
-    "test": "node --experimental-strip-types --test packages/nearby-core/test/*.test.ts apps/gateway/test/*.test.ts apps/mobile/test/*.test.ts",
-    "test:deploy": "node --test scripts/test/deploy-production.test.mjs",
+    "test": "node --experimental-strip-types --test packages/nearby-core/test/*.test.ts apps/gateway/test/*.test.ts apps/admin/test/*.test.ts apps/mobile/test/*.test.ts",
+    "test:deploy": "node --test scripts/test/deploy-production.test.mjs scripts/test/deploy-admin.test.mjs",
     "test:core": "node --experimental-strip-types --test packages/nearby-core/test/*.test.ts",
     "typecheck": "tsc -b",
     "dev:mobile": "npm run start --workspace @pf/mobile",
     "dev:gateway": "npm run dev --workspace @pf/gateway",
+    "dev:admin": "npm run dev --workspace @pf/admin",
     "build:web": "npm run build:web --workspace @pf/mobile",
     "build:sites": "npm run build:web --workspace @pf/mobile && node scripts/prepare-sites-static.mjs"
   },

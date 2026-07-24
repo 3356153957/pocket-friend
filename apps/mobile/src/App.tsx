@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useEffect, useState } from "react";
 
 import {
   createInitialPrefs,
@@ -11,6 +11,11 @@ import AppShell, { PhoneFrame } from "./components/AppShell.tsx";
 import PendantSetup from "./components/PendantSetup.tsx";
 import Quiz from "./components/Quiz.tsx";
 import Welcome from "./components/Welcome.tsx";
+import {
+  createPresenceUrl,
+  getPresenceClientId,
+  startPresenceHeartbeat,
+} from "./presence/presenceHeartbeat.ts";
 
 export default function App() {
   const [phase, setPhase] = useState<"onboarding" | "app">("onboarding");
@@ -18,6 +23,18 @@ export default function App() {
   const [tab, setTab] = useState<AppTab>("map");
   const [prefs, setPrefs] = useState<Prefs>(createInitialPrefs);
   const nearby = useNearbyDemo(prefs);
+
+  useEffect(() => {
+    try {
+      const clientId = getPresenceClientId(window.localStorage, () => crypto.randomUUID());
+      return startPresenceHeartbeat({
+        endpoint: createPresenceUrl(window.location, import.meta.env.VITE_ADMIN_URL),
+        clientId,
+      });
+    } catch {
+      return undefined;
+    }
+  }, []);
 
   return (
     <div className="min-h-screen bg-paper px-3 py-5 text-foreground sm:py-8">

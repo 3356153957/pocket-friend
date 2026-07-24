@@ -1,0 +1,33 @@
+[Unit]
+Description=Pocket Friend device status admin
+After=network-online.target
+Wants=network-online.target
+
+[Service]
+Type=simple
+User=pf-web
+Group=pf-web
+WorkingDirectory=/srv/pocket-friend-admin/current
+Environment=ADMIN_HOST=0.0.0.0
+Environment=ADMIN_PORT=4311
+EnvironmentFile=/etc/pocket-friend/admin.env
+ExecStart=/usr/bin/node --experimental-strip-types /srv/pocket-friend-admin/current/src/server.ts
+Restart=always
+RestartSec=3
+NoNewPrivileges=true
+ProtectSystem=strict
+ProtectHome=true
+PrivateTmp=true
+PrivateDevices=true
+ProtectKernelTunables=true
+ProtectKernelModules=true
+ProtectControlGroups=true
+RestrictSUIDSGID=true
+RestrictNamespaces=true
+LockPersonality=true
+SystemCallArchitectures=native
+ReadOnlyPaths=/srv/pocket-friend-admin
+UMask=0027
+
+[Install]
+WantedBy=multi-user.target

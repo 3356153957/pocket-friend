@@ -3,6 +3,7 @@
   "references": [
     { "path": "packages/nearby-core" },
     { "path": "apps/gateway" },
+    { "path": "apps/admin" },
     { "path": "apps/mobile" }
   ]
 }

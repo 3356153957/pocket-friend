@@ -22,6 +22,10 @@ jobs:
       PF_DEPLOY_ENV_FILE: /etc/pocket-friend/mobile.env
       PF_DEPLOY_SERVICE: pocket-friend.service
       PF_DEPLOY_HEALTH_URL: http://127.0.0.1/
+      PF_ADMIN_DEPLOY_ROOT: /srv/pocket-friend-admin
+      PF_ADMIN_ENV_FILE: /etc/pocket-friend/admin.env
+      PF_ADMIN_SERVICE: pocket-friend-admin.service
+      PF_ADMIN_HEALTH_URL: http://127.0.0.1:4311/health
     steps:
       - name: Check out the triggering commit
         # actions/checkout v7.0.1
@@ -34,3 +38,9 @@ jobs:
           flock --exclusive --wait 1800
           /srv/pocket-friend/deploy.lock
           node scripts/deploy-production.mjs
+
+      - name: Publish and verify device admin
+        run: >-
+          flock --exclusive --wait 1800
+          /srv/pocket-friend/deploy.lock
+          node scripts/deploy-admin.mjs
