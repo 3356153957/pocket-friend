@@ -3,6 +3,7 @@ import {
   JacooGatewayError,
   type JacooEnvironment,
 } from "./jacoo.ts";
+import { storePhotoUpload } from "./photos.ts";
 
 export type GatewayEnvironment = Record<string, string | undefined>;
 
@@ -65,9 +66,25 @@ export function createGatewayRouter(options: GatewayRouterOptions): GatewayRoute
 
     if (request.method === "OPTIONS") {
       const response = jsonResponse({}, 204, options.env);
-      response.headers.set("Access-Control-Allow-Methods", "GET, OPTIONS");
-      response.headers.set("Access-Control-Allow-Headers", "Content-Type");
+      response.headers.set("Access-Control-Allow-Methods", "GET, POST, OPTIONS");
+      response.headers.set("Access-Control-Allow-Headers", "Authorization, Content-Type");
       return response;
+    }
+
+    if (url.pathname === "/api/photos") {
+      if (request.method !== "POST") {
+        return jsonResponse({
+          error: {
+            code: "METHOD_NOT_ALLOWED",
+            message: "Only POST requests are supported.",
+          },
+        }, 405, options.env);
+      }
+
+      return storePhotoUpload(request, {
+        env: options.env,
+        ...(options.now ? { now: options.now } : {}),
+      });
     }
 
     if (request.method !== "GET") {

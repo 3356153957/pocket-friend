@@ -1,4 +1,4 @@
-import { createServer, type Server } from "node:http";
+import { createServer, type IncomingMessage, type Server } from "node:http";
 import { pathToFileURL } from "node:url";
 
 import {
@@ -9,6 +9,19 @@ import {
 
 export interface GatewayServerOptions extends Omit<GatewayRouterOptions, "env"> {
   env?: GatewayEnvironment;
+}
+
+async function readRequestBody(request: IncomingMessage): Promise<Buffer | undefined> {
+  return await new Promise((resolve, reject) => {
+    const chunks: Buffer[] = [];
+    request.on("data", (chunk: Buffer | string) => {
+      chunks.push(Buffer.isBuffer(chunk) ? chunk : Buffer.from(chunk));
+    });
+    request.once("end", () => {
+      resolve(chunks.length > 0 ? Buffer.concat(chunks) : undefined);
+    });
+    request.once("error", reject);
+  });
 }
 
 export function createGatewayServer(options: GatewayServerOptions = {}): Server {
@@ -22,10 +35,15 @@ export function createGatewayServer(options: GatewayServerOptions = {}): Server 
   return createServer(async (request, response) => {
     try {
       const host = request.headers.host ?? "127.0.0.1";
-      const routed = await route(new Request(`http://${host}${request.url ?? "/"}`, {
+      const body = await readRequestBody(request);
+      const requestInit: RequestInit = {
         method: request.method ?? "GET",
         headers: request.headers as HeadersInit,
-      }));
+      };
+      if (body) {
+        requestInit.body = body;
+      }
+      const routed = await route(new Request(`http://${host}${request.url ?? "/"}`, requestInit));
 
       response.statusCode = routed.status;
       routed.headers.forEach((value, name) => response.setHeader(name, value));

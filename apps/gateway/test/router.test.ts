@@ -1,4 +1,7 @@
 import assert from "node:assert/strict";
+import { mkdtemp, readFile, rm, stat } from "node:fs/promises";
+import { join } from "node:path";
+import { tmpdir } from "node:os";
 import { describe, test } from "node:test";
 
 import { createGatewayRouter } from "../src/router.ts";
@@ -13,6 +16,70 @@ const upstreamBody = {
 };
 
 describe("Pocket Friend Gateway router", () => {
+  test("stores an authenticated JPEG photo upload", async () => {
+    const uploadDir = await mkdtemp(join(tmpdir(), "pf-photo-upload-"));
+    try {
+      const route = createGatewayRouter({
+        env: {
+          PF_PHOTO_UPLOAD_DIR: uploadDir,
+          PF_DEVICE_HEARTBEAT_TOKEN: "device-secret",
+        },
+        now: () => new Date("2026-07-24T21:30:12.000+08:00"),
+      });
+      const jpeg = new Uint8Array([0xff, 0xd8, 0xff, 0xe0, 0x01, 0x02]);
+      const response = await route(new Request("http://localhost/api/photos?deviceId=board-a", {
+        method: "POST",
+        headers: {
+          Authorization: "Bearer device-secret",
+          "Content-Type": "image/jpeg",
+        },
+        body: jpeg,
+      }));
+
+      assert.equal(response.status, 204);
+      const storedPath = join(uploadDir, "board-a-20260724-213012.jpg");
+      assert.equal((await stat(storedPath)).size, jpeg.byteLength);
+      assert.deepEqual(new Uint8Array(await readFile(storedPath)), jpeg);
+    } finally {
+      await rm(uploadDir, { recursive: true, force: true });
+    }
+  });
+
+  test("rejects unauthenticated photo uploads", async () => {
+    const route = createGatewayRouter({
+      env: {
+        PF_DEVICE_HEARTBEAT_TOKEN: "device-secret",
+      },
+    });
+    const response = await route(new Request("http://localhost/api/photos?deviceId=board-a", {
+      method: "POST",
+      headers: {
+        "Content-Type": "image/jpeg",
+      },
+      body: new Uint8Array([0xff, 0xd8, 0xff]),
+    }));
+
+    assert.equal(response.status, 401);
+  });
+
+  test("rejects photo uploads that are not JPEG", async () => {
+    const route = createGatewayRouter({
+      env: {
+        PF_DEVICE_HEARTBEAT_TOKEN: "device-secret",
+      },
+    });
+    const response = await route(new Request("http://localhost/api/photos?deviceId=board-a", {
+      method: "POST",
+      headers: {
+        Authorization: "Bearer device-secret",
+        "Content-Type": "application/octet-stream",
+      },
+      body: new Uint8Array([0x01, 0x02]),
+    }));
+
+    assert.equal(response.status, 415);
+  });
+
   test("serves a health check without external configuration", async () => {
     const route = createGatewayRouter({ env: {} });
     const response = await route(new Request("http://localhost/health"));
