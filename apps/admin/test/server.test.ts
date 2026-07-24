@@ -1,5 +1,8 @@
 import assert from "node:assert/strict";
+import { mkdtemp, rm } from "node:fs/promises";
+import { join } from "node:path";
 import { test } from "node:test";
+import { tmpdir } from "node:os";
 
 import { createAdminServer } from "../src/server.ts";
 
@@ -37,11 +40,13 @@ test("admin server listens independently and serves authenticated status", async
 });
 
 test("admin server accepts camera-sized JPEGs and rejects bodies larger than 512 KiB", async () => {
+  const photoDir = await mkdtemp(join(tmpdir(), "pocket-friend-admin-photos-"));
   const server = createAdminServer({
     env: {
       PF_ADMIN_USERNAME: "operator",
       PF_ADMIN_PASSWORD: "correct-horse",
       PF_DEVICE_HEARTBEAT_TOKEN: "board-secret",
+      PF_PHOTO_UPLOAD_DIR: photoDir,
     },
   });
   await new Promise<void>((resolve, reject) => {
@@ -77,5 +82,6 @@ test("admin server accepts camera-sized JPEGs and rejects bodies larger than 512
     await new Promise<void>((resolve, reject) => {
       server.close((error) => error ? reject(error) : resolve());
     });
+    await rm(photoDir, { force: true, recursive: true });
   }
 });
