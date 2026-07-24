@@ -136,13 +136,32 @@ function normalizePhotoName(value: string | null): string | undefined {
   return normalized || undefined;
 }
 
+function photoNameFromFilename(value: string | null): string | undefined {
+  if (!value) return undefined;
+  const file = value.split(/[\\/]/u).at(-1) ?? "";
+  const base = file.replace(/\.[^.]*$/u, "");
+  if (!base || base === "photo") return undefined;
+  if (
+    /^\d{8}[_-]\d{6}$/u.test(base) ||
+    /^\d{10,}$/u.test(base) ||
+    /^\d{4}-\d{2}-\d{2}T/u.test(base)
+  ) {
+    return undefined;
+  }
+  return normalizePhotoName(
+    base
+      .replace(/[_-]\d{8}[_-]\d{6}(?:[_-]\d+)?$/u, "")
+      .replace(/[_-]\d{10,}$/u, ""),
+  );
+}
+
 function photoNameFromRequest(request: Request, url: URL): string | undefined {
   return normalizePhotoName(
     url.searchParams.get("name") ??
     url.searchParams.get("nickname") ??
     url.searchParams.get("personName") ??
     request.headers.get("x-photo-name"),
-  );
+  ) ?? photoNameFromFilename(url.searchParams.get("filename"));
 }
 
 function parseHeartbeat(value: unknown): Heartbeat | null {

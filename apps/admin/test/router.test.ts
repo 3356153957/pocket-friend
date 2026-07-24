@@ -113,6 +113,29 @@ describe("admin router", () => {
     assert.deepEqual(new Uint8Array(await archived.arrayBuffer()), Uint8Array.from([0xff, 0xd8, 0x02, 0xff, 0xd9]));
   });
 
+  test("extracts uploaded photo names from firmware filename query parameters", async () => {
+    const route = createAdminRouter({ env, registry: new DeviceStatusRegistry(), now: () => 10_000 });
+    const upload = await route(new Request(
+      "http://localhost/api/photos?deviceId=board-a&filename=%E9%98%BF%E7%8B%B8_20260725_035451.jpg",
+      {
+        method: "POST",
+        headers: {
+          Authorization: "Bearer board-secret",
+          "Content-Type": "image/jpeg",
+        },
+        body: Uint8Array.from([0xff, 0xd8, 0x01, 0xff, 0xd9]),
+      },
+    ));
+    assert.equal(upload.status, 204);
+
+    const history = await route(new Request("http://localhost/api/photos/board-a/history", {
+      headers: { Authorization: `Basic ${credentials}` },
+    }));
+    assert.equal(history.status, 200);
+    const body = await history.json() as { photos: Array<{ name?: string }> };
+    assert.equal(body.photos[0]?.name, "阿狸");
+  });
+
   test("allows a dedicated photo download token to read photos only", async () => {
     let now = 10_000;
     const route = createAdminRouter({
