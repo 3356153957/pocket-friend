@@ -1,0 +1,456 @@
+@import url("https://fonts.googleapis.com/css2?family=Press+Start+2P&family=VT323&display=swap");
+@import "tailwindcss" source(none);
+@source "../src";
+
+@theme inline {
+  --color-background: var(--background);
+  --color-foreground: var(--ink);
+  --color-card: var(--card);
+  --color-primary: var(--ink);
+  --color-primary-foreground: var(--card);
+  --color-secondary: var(--mint);
+  --color-muted: var(--mint);
+  --color-muted-foreground: color-mix(in oklab, var(--ink) 68%, transparent);
+  --color-border: var(--ink);
+  --color-ink: var(--ink);
+  --color-cyan: var(--cyan);
+  --color-lime: var(--lime);
+  --color-pink: var(--pink);
+  --color-mint: var(--mint);
+  --color-amber: var(--lime);
+  --color-coral: var(--pink);
+  --color-teal: var(--cyan);
+  --color-teal-deep: var(--ink);
+}
+
+:root {
+  --background: oklch(0.94 0.04 175);
+  --card: oklch(0.98 0.02 175);
+  --ink: oklch(0.18 0.06 240);
+  --cyan: oklch(0.75 0.18 220);
+  --lime: oklch(0.85 0.19 130);
+  --pink: oklch(0.72 0.22 350);
+  --mint: oklch(0.88 0.09 165);
+  color: var(--ink);
+  background: var(--background);
+  font-family: "VT323", ui-monospace, monospace;
+  font-synthesis: none;
+}
+
+* {
+  box-sizing: border-box;
+  letter-spacing: 0;
+}
+
+html {
+  min-width: 320px;
+  background: var(--background);
+}
+
+body {
+  margin: 0;
+  min-width: 320px;
+  min-height: 100vh;
+  overflow-x: hidden;
+  background: var(--background);
+  color: var(--ink);
+  font-size: 18px;
+  -webkit-font-smoothing: none;
+}
+
+button,
+input {
+  font: inherit;
+}
+
+button {
+  cursor: pointer;
+  touch-action: manipulation;
+}
+
+button:focus-visible,
+input:focus-visible {
+  outline: 3px solid var(--pink);
+  outline-offset: 3px;
+}
+
+.font-pixel {
+  font-family: "Press Start 2P", ui-monospace, monospace;
+}
+
+.font-mono-pixel {
+  font-family: "VT323", ui-monospace, monospace;
+}
+
+.pixel-image {
+  image-rendering: pixelated;
+}
+
+.bg-paper {
+  background-color: var(--background);
+  background-image:
+    linear-gradient(oklch(0.22 0.06 240 / 0.06) 1px, transparent 1px),
+    linear-gradient(90deg, oklch(0.22 0.06 240 / 0.06) 1px, transparent 1px);
+  background-size: 16px 16px;
+}
+
+.bg-mint-screen {
+  background-color: var(--mint);
+  background-image:
+    linear-gradient(oklch(0.22 0.06 240 / 0.08) 1px, transparent 1px),
+    linear-gradient(90deg, oklch(0.22 0.06 240 / 0.08) 1px, transparent 1px);
+  background-size: 8px 8px;
+}
+
+.bg-scanlines {
+  background-image: repeating-linear-gradient(0deg, oklch(0.22 0.06 240 / 0.06), oklch(0.22 0.06 240 / 0.06) 2px, transparent 2px, transparent 4px);
+}
+
+.bg-dotgrid {
+  background-image:
+    linear-gradient(oklch(0.22 0.06 240 / 0.12) 1px, transparent 1px),
+    linear-gradient(90deg, oklch(0.22 0.06 240 / 0.12) 1px, transparent 1px);
+  background-size: 12px 12px;
+}
+
+.pixel-border {
+  border: 3px solid var(--ink);
+  box-shadow: 4px 4px 0 var(--ink);
+}
+
+.pixel-border-sm {
+  border: 2px solid var(--ink);
+  box-shadow: 3px 3px 0 var(--ink);
+}
+
+.phone-frame {
+  width: min(100%, 420px);
+  margin-inline: auto;
+}
+
+.phone-hardware {
+  position: relative;
+  border: 3px solid var(--ink);
+  border-radius: 36px;
+  background: var(--ink);
+  padding: 8px;
+  box-shadow: 8px 8px 0 var(--ink);
+}
+
+.phone-screen {
+  position: relative;
+  overflow: hidden;
+  border: 3px solid var(--ink);
+  border-radius: 28px;
+  background: var(--background);
+}
+
+.phone-status {
+  display: flex;
+  min-height: 30px;
+  align-items: center;
+  justify-content: space-between;
+  border-bottom: 3px solid var(--ink);
+  background: var(--lime);
+  padding: 6px 14px;
+  font-family: "Press Start 2P", ui-monospace, monospace;
+  font-size: 8px;
+}
+
+.phone-viewport {
+  position: relative;
+  height: min(720px, calc(100vh - 112px));
+  min-height: 600px;
+  overflow-y: auto;
+  overscroll-behavior: contain;
+}
+
+.pixel-button {
+  display: inline-flex;
+  min-height: 44px;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  border: 2px solid var(--ink);
+  box-shadow: 3px 3px 0 var(--ink);
+  padding: 10px 14px;
+  color: var(--ink);
+  font-family: "Press Start 2P", ui-monospace, monospace;
+  font-size: 8px;
+  line-height: 1.5;
+  transition: background-color 180ms ease, box-shadow 180ms ease, transform 180ms ease, opacity 180ms ease;
+}
+
+.pixel-button:hover:not(:disabled),
+.pixel-button:active:not(:disabled) {
+  filter: brightness(1.05);
+}
+
+.pixel-button:active:not(:disabled) {
+  transform: translate(2px, 2px);
+  box-shadow: 1px 1px 0 var(--ink);
+}
+
+.pixel-button:disabled {
+  cursor: not-allowed;
+  opacity: 0.42;
+}
+
+.bg-ghost {
+  background: var(--card);
+}
+
+.pixel-choice,
+.pixel-option,
+.pixel-tag,
+.pixel-setting-row,
+.pixel-icon-button,
+.pixel-back,
+.pixel-tab {
+  min-height: 44px;
+  border: 2px solid var(--ink);
+  color: var(--ink);
+  transition: background-color 180ms ease, box-shadow 180ms ease, transform 180ms ease;
+}
+
+.pixel-choice {
+  min-height: 86px;
+  padding: 10px;
+  text-align: left;
+  box-shadow: 3px 3px 0 var(--ink);
+}
+
+.pixel-option {
+  padding: 9px 8px;
+  font-family: "VT323", ui-monospace, monospace;
+  font-size: 15px;
+  box-shadow: 3px 3px 0 var(--ink);
+}
+
+.pixel-tag {
+  min-height: 36px;
+  padding: 5px 8px;
+  font-family: "VT323", ui-monospace, monospace;
+  font-size: 14px;
+  box-shadow: 2px 2px 0 var(--ink);
+}
+
+.pixel-setting-row {
+  display: flex;
+  width: 100%;
+  align-items: center;
+  gap: 10px;
+  padding: 8px 10px;
+  text-align: left;
+  box-shadow: 3px 3px 0 var(--ink);
+}
+
+.pixel-setting-row > :last-child {
+  margin-left: auto;
+}
+
+.pixel-icon-button {
+  display: grid;
+  width: 44px;
+  place-items: center;
+  box-shadow: 2px 2px 0 var(--ink);
+}
+
+.pixel-back {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  border-color: transparent;
+  background: transparent;
+  font-family: "Press Start 2P", ui-monospace, monospace;
+  font-size: 7px;
+}
+
+.pixel-tabs {
+  position: absolute;
+  right: 8px;
+  bottom: 8px;
+  left: 8px;
+  z-index: 20;
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 8px;
+  border: 3px solid var(--ink);
+  background: var(--lime);
+  padding: 8px;
+  box-shadow: 4px 4px 0 var(--ink);
+}
+
+.pixel-tab {
+  display: flex;
+  min-width: 0;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 5px;
+  padding: 6px 4px;
+  font-family: "Press Start 2P", ui-monospace, monospace;
+  font-size: 7px;
+}
+
+.amap-shell {
+  position: relative;
+  height: 330px;
+  overflow: hidden;
+  background: #17201f;
+}
+
+.amap-canvas {
+  width: 100%;
+  height: 330px;
+}
+
+.amap-message {
+  position: absolute;
+  top: 50%;
+  left: 50%;
+  display: flex;
+  width: min(86%, 310px);
+  min-height: 130px;
+  transform: translate(-50%, -50%);
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 10px;
+  border: 2px solid var(--card);
+  background: rgb(23 32 31 / 94%);
+  padding: 18px;
+  color: var(--card);
+  text-align: center;
+  font-size: 15px;
+}
+
+.amap-message span {
+  color: #ccd7d3;
+  font-size: 14px;
+  line-height: 1.4;
+}
+
+.amap-spinner {
+  width: 28px;
+  height: 28px;
+  border: 3px solid rgb(255 255 255 / 24%);
+  border-top-color: var(--pink);
+  border-radius: 50%;
+  animation: spin 0.8s linear infinite;
+}
+
+.amap-warning {
+  position: absolute;
+  top: 10px;
+  left: 50%;
+  z-index: 3;
+  max-width: 70%;
+  transform: translateX(-50%);
+  border: 2px solid var(--ink);
+  background: var(--lime);
+  padding: 5px 7px;
+  color: var(--ink);
+  font-size: 13px;
+  text-align: center;
+}
+
+.amap-zoom-controls,
+.amap-location-controls {
+  position: absolute;
+  z-index: 3;
+  display: flex;
+  gap: 8px;
+}
+
+.amap-zoom-controls {
+  top: 10px;
+  left: 10px;
+  flex-direction: column;
+}
+
+.amap-location-controls {
+  right: 10px;
+  bottom: 10px;
+}
+
+.map-control,
+.map-command {
+  display: inline-flex;
+  min-width: 44px;
+  min-height: 44px;
+  align-items: center;
+  justify-content: center;
+  gap: 6px;
+  border: 2px solid var(--card);
+  background: rgb(23 32 31 / 94%);
+  color: var(--card);
+  box-shadow: 2px 2px 0 rgb(0 0 0 / 60%);
+}
+
+.map-control-selected {
+  border-color: var(--lime);
+  color: var(--lime);
+}
+
+.map-command {
+  padding-inline: 12px;
+}
+
+.amap-status {
+  position: absolute;
+  bottom: 10px;
+  left: 10px;
+  z-index: 3;
+  max-width: 45%;
+  border: 2px solid var(--card);
+  background: rgb(23 32 31 / 90%);
+  padding: 5px 7px;
+  color: var(--card);
+  font-size: 12px;
+}
+
+.map-secondary-button {
+  display: inline-flex;
+  min-height: 44px;
+  flex: 1;
+  align-items: center;
+  justify-content: center;
+  gap: 6px;
+  border: 2px solid var(--ink);
+  background: var(--mint);
+  padding: 6px 8px;
+  color: var(--ink);
+}
+
+@keyframes spin { to { transform: rotate(360deg); } }
+@keyframes ping-slow { 0% { transform: scale(0.9); opacity: 0.7; } 80%, 100% { transform: scale(2.3); opacity: 0; } }
+@keyframes float-y { 0%, 100% { transform: translateY(0); } 50% { transform: translateY(-6px); } }
+@keyframes pendant-buzz { 0%, 100% { transform: rotate(0); } 20% { transform: rotate(-8deg); } 40% { transform: rotate(6deg); } 60% { transform: rotate(-4deg); } 80% { transform: rotate(2deg); } }
+
+.animate-ping-slow { animation: ping-slow 2.4s cubic-bezier(0, 0, 0.2, 1) infinite; }
+.animate-float { animation: float-y 3.6s ease-in-out infinite; }
+.animate-buzz { animation: pendant-buzz 0.4s ease-in-out infinite; }
+
+@media (max-width: 480px) {
+  .phone-viewport {
+    height: calc(100dvh - 88px);
+    min-height: 560px;
+  }
+
+  .amap-shell,
+  .amap-canvas {
+    height: 310px;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  *,
+  *::before,
+  *::after {
+    scroll-behavior: auto !important;
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.01ms !important;
+  }
+}

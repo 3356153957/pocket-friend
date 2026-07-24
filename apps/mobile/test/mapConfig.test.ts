@@ -1,7 +1,10 @@
 import assert from "node:assert/strict";
 import { describe, test } from "node:test";
 
-import { readAmapConfig } from "../src/map/mapConfig.ts";
+import {
+  readAmapConfig,
+  readAmapConfigFromViteEnv,
+} from "../src/map/mapConfig.ts";
 
 describe("readAmapConfig", () => {
   test("returns a ready config when both public values are present", () => {
@@ -24,6 +27,18 @@ describe("readAmapConfig", () => {
         "EXPO_PUBLIC_AMAP_KEY",
         "EXPO_PUBLIC_AMAP_SECURITY_JS_CODE",
       ],
+    });
+  });
+
+  test("reads the existing public names from Vite environment values", () => {
+    assert.deepEqual(readAmapConfigFromViteEnv({
+      EXPO_PUBLIC_AMAP_KEY: "vite-key",
+      EXPO_PUBLIC_AMAP_SECURITY_JS_CODE: "vite-security-code",
+      DEV: true,
+    }), {
+      status: "ready",
+      key: "vite-key",
+      securityJsCode: "vite-security-code",
     });
   });
 });
