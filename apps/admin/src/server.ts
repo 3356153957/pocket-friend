@@ -1,5 +1,6 @@
 import { createServer, type IncomingMessage, type Server } from "node:http";
 import { pathToFileURL } from "node:url";
+import { realpathSync } from "node:fs";
 
 import {
   createAdminRouter,
@@ -81,5 +82,7 @@ export async function startAdminServer(options: AdminServerOptions = {}): Promis
   return server;
 }
 
-const entryPath = process.argv[1] ? pathToFileURL(process.argv[1]).href : "";
+const entryPath = process.argv[1]
+  ? pathToFileURL(realpathSync(process.argv[1])).href
+  : "";
 if (import.meta.url === entryPath) await startAdminServer();
