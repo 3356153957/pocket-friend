@@ -100,6 +100,23 @@ OPERATE_RET pf_state_dispatch(PF_STATE_CONTEXT_T *ctx,
         next_effects = PF_EFFECT_UI_REFRESH | PF_EFFECT_MOTOR_FEEDBACK;
         break;
 
+    case PF_EVENT_OPEN_CAMERA:
+        if (next.state != PF_STATE_ONLINE_IDLE) {
+            handled = false;
+            break;
+        }
+        next.state = PF_STATE_CAMERA_PREVIEW;
+        next_effects = PF_EFFECT_UI_REFRESH;
+        break;
+
+    case PF_EVENT_CLOSE_CAMERA:
+        if (next.state != PF_STATE_CAMERA_PREVIEW) {
+            handled = false;
+            break;
+        }
+        pf_state_enter_idle(&next, &next_effects);
+        break;
+
     case PF_EVENT_LOCAL_CONFIRM:
         if (next.state != PF_STATE_PEER_FOUND &&
             next.state != PF_STATE_WAITING_CONFIRM) {
@@ -196,6 +213,16 @@ OPERATE_RET pf_state_dispatch(PF_STATE_CONTEXT_T *ctx,
         pf_state_check_captured(&next, &next_effects);
         break;
 
+    case PF_EVENT_PEER_CAPTURE_FAILED:
+        if (next.state != PF_STATE_CAPTURING &&
+            next.state != PF_STATE_WAITING_RESULT) {
+            handled = false;
+            break;
+        }
+        next.state = PF_STATE_ERROR;
+        next_effects = PF_EFFECT_UI_REFRESH | PF_EFFECT_SAFE_RESET;
+        break;
+
     case PF_EVENT_SUCCESS:
         if (next.state != PF_STATE_WAITING_RESULT) {
             handled = false;
@@ -241,6 +268,16 @@ OPERATE_RET pf_state_dispatch(PF_STATE_CONTEXT_T *ctx,
 
     case PF_EVENT_EXIT_DND:
         if (next.state != PF_STATE_DND) {
+            handled = false;
+            break;
+        }
+        pf_state_enter_idle(&next, &next_effects);
+        break;
+
+    case PF_EVENT_RESET:
+        if (next.state == PF_STATE_BOOT ||
+            next.state == PF_STATE_CONNECTING ||
+            next.state == PF_STATE_RECONNECTING) {
             handled = false;
             break;
         }

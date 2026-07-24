@@ -71,6 +71,10 @@ $requiredSymbols = @(
     'PF_STATE_COUNTDOWN'
     'PF_STATE_CAPTURING'
     'PF_STATE_SUCCESS'
+    'PF_EVENT_OPEN_CAMERA'
+    'PF_EVENT_CLOSE_CAMERA'
+    'PF_EVENT_PEER_CAPTURE_FAILED'
+    'PF_EVENT_RESET'
     'PF_EFFECT_SEND_PREPARE'
     'PF_EFFECT_SAFE_RESET'
     'pf_state_dispatch'
@@ -245,6 +249,69 @@ $transportRequired = @(
 foreach ($symbol in $transportRequired) {
     if (-not $transport.Contains($symbol)) {
         throw "Missing transport contract: $symbol"
+    }
+}
+
+$appHeaderPath = Join-Path $root 'overlays\lvgl_camera\include\pf_app.h'
+$appSourcePath = Join-Path $root 'overlays\lvgl_camera\src\pf_app.c'
+$entryPath = Join-Path $root 'overlays\lvgl_camera\src\example_lvgl_camera.c'
+
+foreach ($path in @($appHeaderPath, $appSourcePath, $entryPath)) {
+    if (-not (Test-Path -LiteralPath $path)) {
+        throw "Missing integrated app source file: $path"
+    }
+}
+
+$app = @(
+    Get-Content -LiteralPath $appHeaderPath -Raw
+    Get-Content -LiteralPath $appSourcePath -Raw
+) -join "`n"
+$entry = Get-Content -LiteralPath $entryPath -Raw
+
+$appRequired = @(
+    'PF_APP_EVENT_INPUT'
+    'PF_APP_EVENT_TRANSPORT'
+    'PF_APP_EVENT_TIMER'
+    'PF_APP_EVENT_CAPTURE_DONE'
+    'PF_APP_QUEUE_LENGTH 16'
+    'tal_queue_create_init'
+    'tal_queue_post'
+    'tal_queue_fetch'
+    'pf_state_dispatch'
+    'pf_motor_init'
+    'pf_input_init'
+    'pf_camera_init'
+    'pf_ui_init'
+    'pf_transport_init'
+    'pf_transport_start'
+    'PF_MSG_CAPTURE_PREPARE'
+    'PF_MSG_PREPARE_ACK'
+    'PF_MSG_CAPTURE'
+    'PF_CAPTURE_DELAY_MS'
+    'pf_camera_capture_jpeg'
+    'PF_MSG_CAPTURED'
+    'PF_MSG_SUCCESS'
+    'sg_state.state != PF_STATE_DND'
+)
+
+foreach ($symbol in $appRequired) {
+    if (-not $app.Contains($symbol)) {
+        throw "Missing integrated app contract: $symbol"
+    }
+}
+
+foreach ($symbol in @('OPERATE_RET rt', 'board_register_hardware()',
+                      'pf_app_start()')) {
+    if (-not $entry.Contains($symbol)) {
+        throw "Entry point is missing: $symbol"
+    }
+}
+
+foreach ($forbidden in @('tkl_gpio_', 'tdl_camera_', 'tdl_disp_',
+                         'tal_net_', 'lv_canvas_', 'sg_motor_',
+                         'sg_camera_', 'sg_display_')) {
+    if ($entry.Contains($forbidden)) {
+        throw "Entry point still owns module logic: $forbidden"
     }
 }
 
