@@ -160,4 +160,54 @@ foreach ($symbol in $cameraRequired) {
     }
 }
 
+$uiHeaderPath = Join-Path $root 'overlays\lvgl_camera\include\pf_ui.h'
+$uiSourcePath = Join-Path $root 'overlays\lvgl_camera\src\pf_ui.c'
+
+foreach ($path in @($uiHeaderPath, $uiSourcePath)) {
+    if (-not (Test-Path -LiteralPath $path)) {
+        throw "Missing UI source file: $path"
+    }
+}
+
+$ui = @(
+    Get-Content -LiteralPath $uiHeaderPath -Raw
+    Get-Content -LiteralPath $uiSourcePath -Raw
+) -join "`n"
+
+$uiRequired = @(
+    'lv_vendor_init(DISPLAY_NAME)'
+    'lv_vendor_start'
+    'PF_UI_PAGE_IDLE'
+    'PF_UI_PAGE_PREVIEW'
+    'PF_UI_PAGE_MATCH'
+    'PF_UI_PAGE_WAITING'
+    'PF_UI_PAGE_COUNTDOWN'
+    'PF_UI_PAGE_RESULT'
+    'PF_UI_PAGE_DND'
+    'PF_UI_PAGE_ERROR'
+    'PF_UI_TOUCH_TARGET'
+    'lv_canvas_set_buffer'
+    'tal_image_convert_yuv422_to_rgb565'
+    'tal_image_jpeg_decode_rgb565'
+    'pf_input_post_from_ui'
+    'pf_ui_camera_frame_cb'
+    'pf_camera_set_frame_cb(pf_ui_camera_frame_cb)'
+)
+
+foreach ($symbol in $uiRequired) {
+    if (-not $ui.Contains($symbol)) {
+        throw "Missing UI contract: $symbol"
+    }
+}
+
+if ($ui -notmatch '#define\s+PF_UI_TOUCH_TARGET\s+64') {
+    throw 'UI touch target must be at least the planned 64 pixels'
+}
+
+foreach ($forbidden in @('Hello World', 'tdl_disp_dev_flush', 'disp_disable_update')) {
+    if ($ui.Contains($forbidden)) {
+        throw "UI module must not own the display outside LVGL: $forbidden"
+    }
+}
+
 Write-Host 'PASS: dual-demo source contract.'
