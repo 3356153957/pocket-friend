@@ -53,6 +53,9 @@ export function createAdminServer(options: AdminServerOptions = {}): Server {
   const route = createAdminRouter({
     env,
     registry: options.registry ?? new DeviceStatusRegistry(),
+    deviceTokens: options.deviceTokens ?? new PhotoDownloadTokenStore({
+      file: env.PF_DEVICE_HEARTBEAT_TOKEN_FILE ?? "/srv/pocket-friend-admin/device-heartbeat-token.json",
+    }),
     photos: options.photos ?? new LatestPhotoStore({
       directory: env.PF_PHOTO_UPLOAD_DIR ?? "/var/lib/pocket-friend-admin/photos",
     }),

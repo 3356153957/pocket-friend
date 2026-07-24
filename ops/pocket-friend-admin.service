@@ -11,6 +11,7 @@ WorkingDirectory=/srv/pocket-friend-admin/current
 Environment=ADMIN_HOST=0.0.0.0
 Environment=ADMIN_PORT=4311
 Environment=PF_PHOTO_UPLOAD_DIR=/var/lib/pocket-friend-admin/photos
+Environment=PF_DEVICE_HEARTBEAT_TOKEN_FILE=/srv/pocket-friend-admin/device-heartbeat-token.json
 Environment=PF_PHOTO_DOWNLOAD_TOKEN_FILE=/srv/pocket-friend-admin/photo-download-token.json
 EnvironmentFile=/etc/pocket-friend/admin.env
 ExecStart=/usr/bin/node --experimental-strip-types /srv/pocket-friend-admin/current/src/server.ts
