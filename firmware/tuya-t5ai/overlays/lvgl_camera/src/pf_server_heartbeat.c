@@ -9,6 +9,7 @@
 #define PF_SERVER_HEARTBEAT_STACK_SIZE 4096U
 #define PF_SERVER_FILENAME_ENCODED_MAX 384U
 
+#if PF_SERVER_HEARTBEAT_ENABLED
 static bool pf_server_url_is_unreserved(char ch)
 {
     return (ch >= 'A' && ch <= 'Z') ||
@@ -45,7 +46,6 @@ static void pf_server_url_encode(const char *src, char *dst, size_t dst_size)
     dst[out] = '\0';
 }
 
-#if PF_SERVER_HEARTBEAT_ENABLED
 static THREAD_HANDLE sg_server_heartbeat_thread;
 static MUTEX_HANDLE sg_server_request_mutex;
 #endif
