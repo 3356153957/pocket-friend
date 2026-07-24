@@ -15,7 +15,7 @@ function Stat({ number, label }: { number: string; label: string }) {
 
 function PendantHero() {
   return (
-    <div className="relative mx-auto aspect-square w-full max-w-[460px]" aria-label="Pocket Friend 感应挂坠">
+    <div className="relative mx-auto aspect-square overflow-hidden w-full max-w-[460px]" aria-label="Pocket Friend 感应挂坠">
       <div className="absolute inset-0 grid place-items-center">
         <div className="absolute h-[70%] w-[70%] rounded-full border border-teal-deep/20" />
         <div className="absolute h-[85%] w-[85%] rounded-full border border-teal-deep/10" />

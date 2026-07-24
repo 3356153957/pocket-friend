@@ -43,4 +43,20 @@ describe("Spark Connect frontend contract", () => {
     assert.match(styles, /prefers-reduced-motion: reduce/);
     assert.match(styles, /min-height: 44px/);
   });
+
+  test("clips the animated pendant hero within the mobile viewport", async () => {
+    const welcome = await read("src/components/Welcome.tsx");
+
+    assert.match(welcome, /aspect-square[^\"]*overflow-hidden/);
+  });
+
+  test("ships a Pocket Friend favicon without a missing-resource request", async () => {
+    const [html, favicon] = await Promise.all([
+      read("index.html"),
+      read("public/favicon.svg"),
+    ]);
+
+    assert.match(html, /href="\/favicon\.svg"/);
+    assert.match(favicon, /Pocket Friend/);
+  });
 });

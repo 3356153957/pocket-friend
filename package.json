@@ -15,7 +15,7 @@
     "dev:mobile": "npm run start --workspace @pf/mobile",
     "dev:gateway": "npm run dev --workspace @pf/gateway",
     "build:web": "npm run build:web --workspace @pf/mobile",
-    "build:sites": "npm run build:web --workspace @pf/mobile -- --clear && node scripts/prepare-sites-static.mjs"
+    "build:sites": "npm run build:web --workspace @pf/mobile && node scripts/prepare-sites-static.mjs"
   },
   "engines": {
     "node": ">=22.18"

@@ -19,10 +19,5 @@
     "src/**/*.tsx",
     "vite.config.ts",
     "../../packages/nearby-core/src/**/*.ts"
-  ],
-  "exclude": [
-    "src/map/DynamicVectorMap.tsx",
-    "src/map/DynamicVectorMap.web.tsx",
-    "src/prototype/**"
   ]
 }
