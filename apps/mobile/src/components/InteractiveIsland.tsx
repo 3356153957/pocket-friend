@@ -128,13 +128,13 @@ function drawGeneratedSprite(ctx: CanvasRenderingContext2D, sprite: SpriteState,
   }
 
   const bob = Math.sin(now * 0.008 + sprite.rx * 10) * (size / 20);
-  const width = size * 1.55 * sprite.clickScale;
-  const height = size * 1.85 * sprite.clickScale;
+  const width = size * 1.5 * sprite.clickScale;
+  const height = size * 2.05 * sprite.clickScale;
   ctx.save();
   ctx.translate(0, bob);
   ctx.imageSmoothingEnabled = false;
   ctx.fillStyle = "rgba(6,22,39,0.28)";
-  ctx.fillRect(-width / 2 - 2, -height - 2, width + 4, height + 4);
+  ctx.fillRect(-width * 0.32, -4, width * 0.64, 5);
   ctx.drawImage(image, -width / 2, -height, width, height);
   ctx.restore();
 }

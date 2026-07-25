@@ -133,7 +133,7 @@ export default function Arrival({ profile, onDone }: {
             <p className="mt-1 font-mono-pixel text-sm text-ink/70">磁场: {profile.archetype} · {profile.sceneTags.slice(0, 3).join(" / ")}</p>
           </div>
         </div>
-        {warning && <p className="font-mono-pixel text-xs leading-4 text-ink/60">照片接口暂不可用，已使用演示头像兜底：{warning}</p>}
+        {warning && <p className="font-mono-pixel text-xs leading-4 text-ink/60">提示：{warning}</p>}
         {(stage === "fetching" || stage === "generating") && canUseDemo && (
           <button
             type="button"
