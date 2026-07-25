@@ -791,6 +791,66 @@ if (-not $previewPage.Success -or
     $previewPage.Value -notmatch 'lv_obj_set_style_text_color\(lv_obj_get_child\(button,\s*0\),[\s\S]*PF_UI_COLOR_INK') {
     throw 'Live camera preview must keep its full-screen image with a branded back control'
 }
+$wifiScanPage = [regex]::Match(
+    $uiSource,
+    'static void pf_ui_create_wifi_scan_page\(void\)[\s\S]*?(?=static void pf_ui_create_wifi_password_page)'
+)
+if (-not $wifiScanPage.Success -or
+    $wifiScanPage.Value -notmatch 'pf_ui_create_blank_page\(PF_UI_COLOR_SKY\)' -or
+    $wifiScanPage.Value -notmatch 'lv_label_set_text\(label,\s*"WI-FI"\)' -or
+    $wifiScanPage.Value -notmatch 'lv_label_set_text\(label,\s*"NETWORKS"\)' -or
+    $wifiScanPage.Value -notmatch 'PF_INPUT_WIFI_BACK,\s*PF_UI_COLOR_LIME' -or
+    $wifiScanPage.Value -notmatch 'PF_INPUT_WIFI_SCAN,\s*PF_UI_COLOR_CYAN' -or
+    $wifiScanPage.Value -notmatch 'lv_obj_set_style_bg_color\(sg_ui\.wifi_list,\s*lv_color_white\(\),\s*0\)' -or
+    $wifiScanPage.Value -notmatch 'lv_obj_set_style_border_width\(sg_ui\.wifi_list,\s*4,\s*0\)') {
+    throw 'Wi-Fi scan page must use the branded network-list layout'
+}
+$wifiPasswordPage = [regex]::Match(
+    $uiSource,
+    'static void pf_ui_create_wifi_password_page\(void\)[\s\S]*?(?=static void pf_ui_create_wifi_connect_page)'
+)
+if (-not $wifiPasswordPage.Success -or
+    $wifiPasswordPage.Value -notmatch 'pf_ui_create_blank_page\(PF_UI_COLOR_SKY\)' -or
+    $wifiPasswordPage.Value -notmatch 'lv_label_set_text\(label,\s*"PASSWORD"\)' -or
+    $wifiPasswordPage.Value -notmatch 'lv_obj_set_style_bg_color\(sg_ui\.wifi_password,\s*lv_color_white\(\),\s*0\)' -or
+    $wifiPasswordPage.Value -notmatch 'lv_obj_set_style_border_width\(sg_ui\.wifi_password,\s*4,\s*0\)' -or
+    $wifiPasswordPage.Value -notmatch '"CONNECT",\s*PF_INPUT_WIFI_BACK,\s*PF_UI_COLOR_PINK' -or
+    $wifiPasswordPage.Value -notmatch 'lv_obj_set_style_bg_color\(sg_ui\.wifi_keyboard,\s*lv_color_white\(\),\s*LV_PART_MAIN\)') {
+    throw 'Wi-Fi password page must use branded input, action, and keyboard styles'
+}
+$wifiConnectPage = [regex]::Match(
+    $uiSource,
+    'static void pf_ui_create_wifi_connect_page\(void\)[\s\S]*?(?=static void pf_ui_create_preview_page)'
+)
+if (-not $wifiConnectPage.Success -or
+    $wifiConnectPage.Value -notmatch 'pf_ui_create_blank_page\(PF_UI_COLOR_SKY\)' -or
+    $wifiConnectPage.Value -notmatch 'lv_label_set_text\(label,\s*"STATUS"\)' -or
+    $wifiConnectPage.Value -notmatch 'lv_obj_set_style_bg_color\(sg_ui\.wifi_connect_label,\s*lv_color_white\(\),\s*0\)' -or
+    $wifiConnectPage.Value -notmatch 'lv_obj_set_style_border_width\(sg_ui\.wifi_connect_label,\s*4,\s*0\)' -or
+    $wifiConnectPage.Value -notmatch '"RETRY",\s*PF_INPUT_WIFI_RETRY,\s*PF_UI_COLOR_PINK' -or
+    $wifiConnectPage.Value -notmatch 'PF_INPUT_WIFI_BACK,\s*PF_UI_COLOR_LIME') {
+    throw 'Wi-Fi connection page must use the branded status layout'
+}
+$wifiConnectingUpdate = [regex]::Match(
+    $uiSource,
+    'void pf_ui_wifi_show_connecting\(const char \*ssid\)[\s\S]*?(?=void pf_ui_wifi_show_connected)'
+)
+$wifiConnectedUpdate = [regex]::Match(
+    $uiSource,
+    'void pf_ui_wifi_show_connected\(const char \*ip\)[\s\S]*?(?=void pf_ui_wifi_show_failed)'
+)
+$wifiFailedUpdate = [regex]::Match(
+    $uiSource,
+    'void pf_ui_wifi_show_failed\(const char \*message\)[\s\S]*?\n}'
+)
+if (-not $wifiConnectingUpdate.Success -or
+    -not $wifiConnectedUpdate.Success -or
+    -not $wifiFailedUpdate.Success -or
+    $wifiConnectingUpdate.Value -notmatch 'lv_obj_add_flag\(sg_ui\.wifi_retry_shadow,\s*LV_OBJ_FLAG_HIDDEN\)' -or
+    $wifiConnectedUpdate.Value -notmatch 'lv_obj_add_flag\(sg_ui\.wifi_retry_shadow,\s*LV_OBJ_FLAG_HIDDEN\)' -or
+    $wifiFailedUpdate.Value -notmatch 'lv_obj_clear_flag\(sg_ui\.wifi_retry_shadow,\s*LV_OBJ_FLAG_HIDDEN\)') {
+    throw 'Wi-Fi retry shadow must follow retry-button visibility without leaving a black box'
+}
 $brandPage = [regex]::Match(
     $uiSource,
     'static lv_obj_t \*pf_ui_create_brand_page[\s\S]*?(?=static void pf_ui_create_start_page)'

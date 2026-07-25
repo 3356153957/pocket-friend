@@ -64,6 +64,7 @@ typedef struct {
     lv_obj_t *wifi_keyboard;
     lv_obj_t *wifi_connect_label;
     lv_obj_t *wifi_retry_button;
+    lv_obj_t *wifi_retry_shadow;
     lv_obj_t *photo_name_textarea;
     lv_obj_t *photo_name_keyboard;
     lv_obj_t *photo_name_ime;
@@ -602,59 +603,169 @@ static void pf_ui_create_pinyin_input_page(void)
 
 static void pf_ui_create_wifi_scan_page(void)
 {
+    lv_obj_t *page;
+    lv_obj_t *label;
     lv_obj_t *button;
 
-    sg_ui.pages[PF_UI_PAGE_WIFI_SCAN] = pf_ui_create_page("Wi-Fi");
-    button = pf_ui_create_button(sg_ui.pages[PF_UI_PAGE_WIFI_SCAN],
+    page = pf_ui_create_blank_page(PF_UI_COLOR_SKY);
+    sg_ui.pages[PF_UI_PAGE_WIFI_SCAN] = page;
+
+    label = lv_label_create(page);
+    lv_label_set_text(label, "WI-FI");
+    lv_obj_set_style_text_color(label, lv_color_hex(PF_UI_COLOR_CYAN), 0);
+    lv_obj_set_style_text_font(label, &lv_font_montserrat_24, 0);
+    lv_obj_align(label, LV_ALIGN_TOP_MID, 0, 18);
+
+    label = lv_label_create(page);
+    lv_label_set_text(label, "NETWORKS");
+    lv_obj_set_style_text_color(label, lv_color_hex(PF_UI_COLOR_LIME), 0);
+    lv_obj_set_style_text_font(label, &lv_font_montserrat_24, 0);
+    lv_obj_align(label, LV_ALIGN_TOP_MID, 0, 48);
+
+    button = pf_ui_create_button(page,
                                  LV_SYMBOL_LEFT, PF_INPUT_WIFI_BACK,
-                                 PF_UI_COLOR_SURFACE, true);
+                                 PF_UI_COLOR_LIME, true);
+    lv_obj_set_style_radius(button, 4, 0);
+    lv_obj_set_style_border_color(button, lv_color_hex(PF_UI_COLOR_INK), 0);
+    lv_obj_set_style_border_width(button, 3, 0);
+    lv_obj_set_style_text_color(lv_obj_get_child(button, 0),
+                                lv_color_hex(PF_UI_COLOR_INK), 0);
     lv_obj_align(button, LV_ALIGN_TOP_LEFT, 8, 8);
-    button = pf_ui_create_button(sg_ui.pages[PF_UI_PAGE_WIFI_SCAN],
+    button = pf_ui_create_button(page,
                                  LV_SYMBOL_REFRESH, PF_INPUT_WIFI_SCAN,
-                                 PF_UI_COLOR_PRIMARY, true);
+                                 PF_UI_COLOR_CYAN, true);
+    lv_obj_set_style_radius(button, 4, 0);
+    lv_obj_set_style_border_color(button, lv_color_hex(PF_UI_COLOR_INK), 0);
+    lv_obj_set_style_border_width(button, 3, 0);
+    lv_obj_set_style_text_color(lv_obj_get_child(button, 0),
+                                lv_color_hex(PF_UI_COLOR_INK), 0);
     lv_obj_align(button, LV_ALIGN_TOP_RIGHT, -8, 8);
     sg_ui.wifi_scan_status =
-        pf_ui_create_label(sg_ui.pages[PF_UI_PAGE_WIFI_SCAN],
-                           "Scanning...", LV_ALIGN_TOP_MID, 0, 78);
-    sg_ui.wifi_list = lv_list_create(sg_ui.pages[PF_UI_PAGE_WIFI_SCAN]);
+        pf_ui_create_label(page,
+                           "Scanning...", LV_ALIGN_TOP_MID, 0, 82);
+    lv_obj_set_style_text_color(sg_ui.wifi_scan_status,
+                                lv_color_white(), 0);
+    sg_ui.wifi_list = lv_list_create(page);
     lv_obj_set_size(sg_ui.wifi_list, 288, 330);
     lv_obj_align(sg_ui.wifi_list, LV_ALIGN_BOTTOM_MID, 0, -12);
+    lv_obj_set_style_bg_color(sg_ui.wifi_list, lv_color_white(), 0);
+    lv_obj_set_style_bg_opa(sg_ui.wifi_list, LV_OPA_COVER, 0);
+    lv_obj_set_style_border_color(sg_ui.wifi_list,
+                                  lv_color_hex(PF_UI_COLOR_INK), 0);
+    lv_obj_set_style_border_width(sg_ui.wifi_list, 4, 0);
+    lv_obj_set_style_radius(sg_ui.wifi_list, 4, 0);
+    lv_obj_set_style_pad_all(sg_ui.wifi_list, 4, 0);
+    lv_obj_set_style_text_color(sg_ui.wifi_list,
+                                lv_color_hex(PF_UI_COLOR_INK), 0);
+    lv_obj_set_style_bg_color(sg_ui.wifi_list,
+                              lv_color_hex(PF_UI_COLOR_PINK),
+                              LV_PART_SCROLLBAR);
 }
 
 static void pf_ui_create_wifi_password_page(void)
 {
+    lv_obj_t *page;
+    lv_obj_t *label;
     lv_obj_t *button;
+    lv_obj_t *shadow;
 
-    sg_ui.pages[PF_UI_PAGE_WIFI_PASSWORD] = pf_ui_create_page("Password");
-    button = pf_ui_create_button(sg_ui.pages[PF_UI_PAGE_WIFI_PASSWORD],
+    page = pf_ui_create_blank_page(PF_UI_COLOR_SKY);
+    sg_ui.pages[PF_UI_PAGE_WIFI_PASSWORD] = page;
+
+    label = lv_label_create(page);
+    lv_label_set_text(label, "WI-FI");
+    lv_obj_set_style_text_color(label, lv_color_hex(PF_UI_COLOR_CYAN), 0);
+    lv_obj_set_style_text_font(label, &lv_font_montserrat_24, 0);
+    lv_obj_align(label, LV_ALIGN_TOP_MID, 0, 18);
+
+    label = lv_label_create(page);
+    lv_label_set_text(label, "PASSWORD");
+    lv_obj_set_style_text_color(label, lv_color_hex(PF_UI_COLOR_LIME), 0);
+    lv_obj_set_style_text_font(label, &lv_font_montserrat_24, 0);
+    lv_obj_align(label, LV_ALIGN_TOP_MID, 0, 48);
+
+    button = pf_ui_create_button(page,
                                  LV_SYMBOL_LEFT, PF_INPUT_WIFI_BACK,
-                                 PF_UI_COLOR_SURFACE, true);
+                                 PF_UI_COLOR_LIME, true);
+    lv_obj_set_style_radius(button, 4, 0);
+    lv_obj_set_style_border_color(button, lv_color_hex(PF_UI_COLOR_INK), 0);
+    lv_obj_set_style_border_width(button, 3, 0);
+    lv_obj_set_style_text_color(lv_obj_get_child(button, 0),
+                                lv_color_hex(PF_UI_COLOR_INK), 0);
     lv_obj_align(button, LV_ALIGN_TOP_LEFT, 8, 8);
     sg_ui.wifi_ssid_label =
-        pf_ui_create_label(sg_ui.pages[PF_UI_PAGE_WIFI_PASSWORD], "",
-                           LV_ALIGN_TOP_MID, 0, 72);
-    sg_ui.wifi_password =
-        lv_textarea_create(sg_ui.pages[PF_UI_PAGE_WIFI_PASSWORD]);
+        pf_ui_create_label(page, "", LV_ALIGN_TOP_MID, 0, 82);
+    lv_obj_set_style_text_color(sg_ui.wifi_ssid_label,
+                                lv_color_white(), 0);
+    sg_ui.wifi_password = lv_textarea_create(page);
     lv_obj_set_size(sg_ui.wifi_password, 230, 52);
     lv_obj_align(sg_ui.wifi_password, LV_ALIGN_TOP_LEFT, 16, 112);
     lv_textarea_set_one_line(sg_ui.wifi_password, true);
     lv_textarea_set_password_mode(sg_ui.wifi_password, true);
     lv_textarea_set_max_length(sg_ui.wifi_password, 63U);
-    button = pf_ui_create_button(sg_ui.pages[PF_UI_PAGE_WIFI_PASSWORD],
+    lv_obj_set_style_bg_color(sg_ui.wifi_password, lv_color_white(), 0);
+    lv_obj_set_style_bg_opa(sg_ui.wifi_password, LV_OPA_COVER, 0);
+    lv_obj_set_style_border_color(sg_ui.wifi_password,
+                                  lv_color_hex(PF_UI_COLOR_INK), 0);
+    lv_obj_set_style_border_width(sg_ui.wifi_password, 4, 0);
+    lv_obj_set_style_radius(sg_ui.wifi_password, 4, 0);
+    lv_obj_set_style_text_color(sg_ui.wifi_password,
+                                lv_color_hex(PF_UI_COLOR_INK), 0);
+    button = pf_ui_create_button(page,
                                  LV_SYMBOL_EYE_OPEN, PF_INPUT_WIFI_BACK,
-                                 PF_UI_COLOR_SURFACE, true);
+                                 PF_UI_COLOR_CYAN, true);
+    lv_obj_set_style_radius(button, 4, 0);
+    lv_obj_set_style_border_color(button, lv_color_hex(PF_UI_COLOR_INK), 0);
+    lv_obj_set_style_border_width(button, 3, 0);
+    lv_obj_set_style_text_color(lv_obj_get_child(button, 0),
+                                lv_color_hex(PF_UI_COLOR_INK), 0);
     lv_obj_align(button, LV_ALIGN_TOP_RIGHT, -8, 106);
     lv_obj_remove_event_cb(button, pf_ui_button_cb);
     lv_obj_add_event_cb(button, pf_ui_wifi_visibility_cb, LV_EVENT_CLICKED, NULL);
-    sg_ui.wifi_keyboard =
-        lv_keyboard_create(sg_ui.pages[PF_UI_PAGE_WIFI_PASSWORD]);
+    sg_ui.wifi_keyboard = lv_keyboard_create(page);
     lv_obj_set_size(sg_ui.wifi_keyboard, 304, 230);
     lv_obj_align(sg_ui.wifi_keyboard, LV_ALIGN_BOTTOM_MID, 0, -8);
+    lv_obj_set_style_bg_color(sg_ui.wifi_keyboard,
+                              lv_color_white(), LV_PART_MAIN);
+    lv_obj_set_style_bg_opa(sg_ui.wifi_keyboard,
+                            LV_OPA_COVER, LV_PART_MAIN);
+    lv_obj_set_style_border_color(sg_ui.wifi_keyboard,
+                                  lv_color_hex(PF_UI_COLOR_INK),
+                                  LV_PART_MAIN);
+    lv_obj_set_style_border_width(sg_ui.wifi_keyboard, 3, LV_PART_MAIN);
+    lv_obj_set_style_radius(sg_ui.wifi_keyboard, 4, LV_PART_MAIN);
+    lv_obj_set_style_bg_color(sg_ui.wifi_keyboard,
+                              lv_color_hex(0xF4F8FFU), LV_PART_ITEMS);
+    lv_obj_set_style_text_color(sg_ui.wifi_keyboard,
+                                lv_color_hex(PF_UI_COLOR_INK),
+                                LV_PART_ITEMS);
+    lv_obj_set_style_border_color(sg_ui.wifi_keyboard,
+                                  lv_color_hex(PF_UI_COLOR_INK),
+                                  LV_PART_ITEMS);
+    lv_obj_set_style_border_width(sg_ui.wifi_keyboard, 1, LV_PART_ITEMS);
+    lv_obj_set_style_radius(sg_ui.wifi_keyboard, 3, LV_PART_ITEMS);
+    lv_obj_set_style_bg_color(sg_ui.wifi_keyboard,
+                              lv_color_hex(PF_UI_COLOR_PINK),
+                              LV_PART_ITEMS | LV_STATE_PRESSED);
     lv_keyboard_set_textarea(sg_ui.wifi_keyboard, sg_ui.wifi_password);
-    button = pf_ui_create_button(sg_ui.pages[PF_UI_PAGE_WIFI_PASSWORD],
-                                 "Connect", PF_INPUT_WIFI_BACK,
-                                 PF_UI_COLOR_PRIMARY, true);
-    lv_obj_set_size(button, 112, 48);
+
+    shadow = lv_obj_create(page);
+    lv_obj_set_size(shadow, 136, 48);
+    lv_obj_set_style_bg_color(shadow, lv_color_hex(PF_UI_COLOR_INK), 0);
+    lv_obj_set_style_border_width(shadow, 0, 0);
+    lv_obj_set_style_radius(shadow, 4, 0);
+    lv_obj_set_style_pad_all(shadow, 0, 0);
+    lv_obj_clear_flag(shadow, LV_OBJ_FLAG_SCROLLABLE | LV_OBJ_FLAG_CLICKABLE);
+    lv_obj_align(shadow, LV_ALIGN_TOP_MID, 4, 178);
+
+    button = pf_ui_create_button(page, "CONNECT", PF_INPUT_WIFI_BACK,
+                                 PF_UI_COLOR_PINK, true);
+    lv_obj_set_size(button, 136, 48);
+    lv_obj_set_style_radius(button, 4, 0);
+    lv_obj_set_style_border_color(button, lv_color_hex(PF_UI_COLOR_INK), 0);
+    lv_obj_set_style_border_width(button, 4, 0);
+    lv_obj_set_style_text_color(lv_obj_get_child(button, 0),
+                                lv_color_hex(PF_UI_COLOR_INK), 0);
     lv_obj_align(button, LV_ALIGN_TOP_MID, 0, 174);
     lv_obj_remove_event_cb(button, pf_ui_button_cb);
     lv_obj_add_event_cb(button, pf_ui_wifi_connect_cb, LV_EVENT_CLICKED, NULL);
@@ -662,20 +773,79 @@ static void pf_ui_create_wifi_password_page(void)
 
 static void pf_ui_create_wifi_connect_page(void)
 {
+    lv_obj_t *page;
+    lv_obj_t *label;
     lv_obj_t *button;
 
-    sg_ui.pages[PF_UI_PAGE_WIFI_CONNECT] = pf_ui_create_page("Wi-Fi");
-    sg_ui.wifi_connect_label =
-        pf_ui_create_label(sg_ui.pages[PF_UI_PAGE_WIFI_CONNECT],
-                           "Connecting...", LV_ALIGN_CENTER, 0, -24);
-    sg_ui.wifi_retry_button =
-        pf_ui_create_button(sg_ui.pages[PF_UI_PAGE_WIFI_CONNECT], "Retry",
-                            PF_INPUT_WIFI_RETRY, PF_UI_COLOR_PRIMARY, false);
+    page = pf_ui_create_blank_page(PF_UI_COLOR_SKY);
+    sg_ui.pages[PF_UI_PAGE_WIFI_CONNECT] = page;
+
+    label = lv_label_create(page);
+    lv_label_set_text(label, "WI-FI");
+    lv_obj_set_style_text_color(label, lv_color_hex(PF_UI_COLOR_CYAN), 0);
+    lv_obj_set_style_text_font(label, &lv_font_montserrat_24, 0);
+    lv_obj_align(label, LV_ALIGN_TOP_MID, 0, 18);
+
+    label = lv_label_create(page);
+    lv_label_set_text(label, "STATUS");
+    lv_obj_set_style_text_color(label, lv_color_hex(PF_UI_COLOR_LIME), 0);
+    lv_obj_set_style_text_font(label, &lv_font_montserrat_24, 0);
+    lv_obj_align(label, LV_ALIGN_TOP_MID, 0, 48);
+
+    sg_ui.wifi_connect_label = lv_label_create(page);
+    lv_label_set_text(sg_ui.wifi_connect_label, "Connecting...");
+    lv_label_set_long_mode(sg_ui.wifi_connect_label, LV_LABEL_LONG_WRAP);
+    lv_obj_set_size(sg_ui.wifi_connect_label, 272, 144);
+    lv_obj_set_style_bg_color(sg_ui.wifi_connect_label, lv_color_white(), 0);
+    lv_obj_set_style_bg_opa(sg_ui.wifi_connect_label, LV_OPA_COVER, 0);
+    lv_obj_set_style_border_color(sg_ui.wifi_connect_label,
+                                  lv_color_hex(PF_UI_COLOR_INK), 0);
+    lv_obj_set_style_border_width(sg_ui.wifi_connect_label, 4, 0);
+    lv_obj_set_style_radius(sg_ui.wifi_connect_label, 4, 0);
+    lv_obj_set_style_pad_all(sg_ui.wifi_connect_label, 24, 0);
+    lv_obj_set_style_pad_top(sg_ui.wifi_connect_label, 44, 0);
+    lv_obj_set_style_text_align(sg_ui.wifi_connect_label,
+                                LV_TEXT_ALIGN_CENTER, 0);
+    lv_obj_set_style_text_color(sg_ui.wifi_connect_label,
+                                lv_color_hex(PF_UI_COLOR_INK), 0);
+    lv_obj_set_style_text_font(sg_ui.wifi_connect_label,
+                               &lv_font_montserrat_16, 0);
+    lv_obj_align(sg_ui.wifi_connect_label, LV_ALIGN_CENTER, 0, -12);
+
+    sg_ui.wifi_retry_shadow = lv_obj_create(page);
+    lv_obj_set_size(sg_ui.wifi_retry_shadow,
+                    PF_UI_PRIMARY_WIDTH, PF_UI_PRIMARY_HEIGHT);
+    lv_obj_set_style_bg_color(sg_ui.wifi_retry_shadow,
+                              lv_color_hex(PF_UI_COLOR_INK), 0);
+    lv_obj_set_style_border_width(sg_ui.wifi_retry_shadow, 0, 0);
+    lv_obj_set_style_radius(sg_ui.wifi_retry_shadow, 4, 0);
+    lv_obj_set_style_pad_all(sg_ui.wifi_retry_shadow, 0, 0);
+    lv_obj_clear_flag(sg_ui.wifi_retry_shadow,
+                      LV_OBJ_FLAG_SCROLLABLE | LV_OBJ_FLAG_CLICKABLE);
+    lv_obj_align(sg_ui.wifi_retry_shadow, LV_ALIGN_BOTTOM_MID, 6, -18);
+    lv_obj_add_flag(sg_ui.wifi_retry_shadow, LV_OBJ_FLAG_HIDDEN);
+
+    sg_ui.wifi_retry_button = pf_ui_create_button(
+        page, "RETRY", PF_INPUT_WIFI_RETRY, PF_UI_COLOR_PINK, false);
+    lv_obj_set_style_radius(sg_ui.wifi_retry_button, 4, 0);
+    lv_obj_set_style_border_color(sg_ui.wifi_retry_button,
+                                  lv_color_hex(PF_UI_COLOR_INK), 0);
+    lv_obj_set_style_border_width(sg_ui.wifi_retry_button, 4, 0);
+    lv_obj_set_style_text_color(lv_obj_get_child(sg_ui.wifi_retry_button, 0),
+                                lv_color_hex(PF_UI_COLOR_INK), 0);
+    lv_obj_set_style_text_font(lv_obj_get_child(sg_ui.wifi_retry_button, 0),
+                               &lv_font_montserrat_24, 0);
     lv_obj_align(sg_ui.wifi_retry_button, LV_ALIGN_BOTTOM_MID, 0, -24);
     lv_obj_add_flag(sg_ui.wifi_retry_button, LV_OBJ_FLAG_HIDDEN);
-    button = pf_ui_create_button(sg_ui.pages[PF_UI_PAGE_WIFI_CONNECT],
+
+    button = pf_ui_create_button(page,
                                  LV_SYMBOL_LEFT, PF_INPUT_WIFI_BACK,
-                                 PF_UI_COLOR_SURFACE, true);
+                                 PF_UI_COLOR_LIME, true);
+    lv_obj_set_style_radius(button, 4, 0);
+    lv_obj_set_style_border_color(button, lv_color_hex(PF_UI_COLOR_INK), 0);
+    lv_obj_set_style_border_width(button, 3, 0);
+    lv_obj_set_style_text_color(lv_obj_get_child(button, 0),
+                                lv_color_hex(PF_UI_COLOR_INK), 0);
     lv_obj_align(button, LV_ALIGN_TOP_LEFT, 8, 8);
 }
 
@@ -1395,6 +1565,15 @@ void pf_ui_wifi_set_results(const PF_WIFI_AP_T *aps, uint8_t count)
             snprintf(label, sizeof(label), "%s  %d dBm%s", aps[i].ssid,
                      aps[i].rssi, aps[i].security == 0U ? "" : "  *");
             button = lv_list_add_button(sg_ui.wifi_list, LV_SYMBOL_WIFI, label);
+            lv_obj_set_style_bg_color(button, lv_color_hex(0xF4F8FFU), 0);
+            lv_obj_set_style_bg_color(button, lv_color_hex(PF_UI_COLOR_PINK),
+                                      LV_STATE_PRESSED);
+            lv_obj_set_style_text_color(button,
+                                        lv_color_hex(PF_UI_COLOR_INK), 0);
+            lv_obj_set_style_border_color(button,
+                                          lv_color_hex(PF_UI_COLOR_INK), 0);
+            lv_obj_set_style_border_width(button, 1, 0);
+            lv_obj_set_style_radius(button, 3, 0);
             lv_obj_add_event_cb(button, pf_ui_wifi_ap_cb, LV_EVENT_CLICKED,
                                 (void *)(uintptr_t)i);
         }
@@ -1425,6 +1604,7 @@ void pf_ui_wifi_show_connecting(const char *ssid)
     lv_label_set_text_fmt(sg_ui.wifi_connect_label, "Connecting to\n%s",
                           ssid != NULL ? ssid : "Wi-Fi");
     lv_obj_add_flag(sg_ui.wifi_retry_button, LV_OBJ_FLAG_HIDDEN);
+    lv_obj_add_flag(sg_ui.wifi_retry_shadow, LV_OBJ_FLAG_HIDDEN);
     lv_screen_load(sg_ui.pages[PF_UI_PAGE_WIFI_CONNECT]);
     lv_vendor_disp_unlock();
 }
@@ -1438,6 +1618,7 @@ void pf_ui_wifi_show_connected(const char *ip)
     lv_label_set_text_fmt(sg_ui.wifi_connect_label, "Connected\n%s",
                           ip != NULL ? ip : "");
     lv_obj_add_flag(sg_ui.wifi_retry_button, LV_OBJ_FLAG_HIDDEN);
+    lv_obj_add_flag(sg_ui.wifi_retry_shadow, LV_OBJ_FLAG_HIDDEN);
     lv_screen_load(sg_ui.pages[PF_UI_PAGE_WIFI_CONNECT]);
     lv_vendor_disp_unlock();
 }
@@ -1451,6 +1632,7 @@ void pf_ui_wifi_show_failed(const char *message)
     lv_label_set_text(sg_ui.wifi_connect_label,
                       message != NULL ? message : "Unable to connect");
     lv_obj_clear_flag(sg_ui.wifi_retry_button, LV_OBJ_FLAG_HIDDEN);
+    lv_obj_clear_flag(sg_ui.wifi_retry_shadow, LV_OBJ_FLAG_HIDDEN);
     lv_screen_load(sg_ui.pages[PF_UI_PAGE_WIFI_CONNECT]);
     lv_vendor_disp_unlock();
 }
