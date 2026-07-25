@@ -111,7 +111,7 @@ export default function Quiz({
     return (
       <section className="space-y-5 px-4 py-5">
         <div className="flex items-center justify-between">
-          <button type="button" onClick={() => setProfile(null)} className="pixel-back"><ArrowLeft size={15} /> BACK</button>
+          <button type="button" onClick={() => setProfile(null)} className="pixel-back"><ArrowLeft size={15} /> 返回</button>
           <StepPips active={1} total={2} />
           <button type="button" onClick={() => setEditing((current) => !current)} className="pixel-icon-button" aria-pressed={editing} aria-label="调整画像">
             <SlidersHorizontal size={16} />
@@ -119,7 +119,7 @@ export default function Quiz({
         </div>
 
         <div>
-          <div className="font-pixel text-[8px] text-pink">01 / ENCOUNTER PROFILE</div>
+          <div className="font-pixel text-[8px] text-pink">01 / 遇见画像</div>
           <h1 className="mt-3 font-pixel text-[14px] leading-7 text-ink">你的岛民<span className="text-pink">磁场</span></h1>
         </div>
 
@@ -183,7 +183,7 @@ export default function Quiz({
                   className="min-w-0 flex-1 border-[3px] border-ink bg-card px-3 py-2 font-mono-pixel text-sm text-ink outline-none"
                   placeholder="输入标签"
                 />
-                <button type="button" onClick={addTag} className="pixel-button bg-lime px-3">ADD</button>
+                <button type="button" onClick={addTag} className="pixel-button bg-lime px-3">添加</button>
               </div>
             </EditGroup>
 
@@ -199,19 +199,19 @@ export default function Quiz({
   return (
     <section className="space-y-5 px-4 py-5">
       <div className="flex items-center justify-between">
-        <button type="button" onClick={onBack} className="pixel-back"><ArrowLeft size={15} /> BACK</button>
+        <button type="button" onClick={onBack} className="pixel-back"><ArrowLeft size={15} /> 返回</button>
         <StepPips active={1} total={2} />
         <div className="w-14" />
       </div>
 
       <div>
-        <div className="font-pixel text-[8px] text-pink">01 / ABOUT YOU</div>
+        <div className="font-pixel text-[8px] text-pink">01 / 关于你</div>
         <h1 className="mt-3 font-pixel text-[14px] leading-7 text-ink">遇见画像<span className="text-pink">问卷</span></h1>
       </div>
 
       {quizQuestions.map((question, index) => (
         <fieldset key={question.id} className="space-y-2">
-          <PixelLabel>Q{index + 1} / {question.title}</PixelLabel>
+          <PixelLabel>问题 {index + 1} / {question.title}</PixelLabel>
           <div className="grid grid-cols-1 gap-2">
             {question.options.map((option) => {
               const active = answers[question.id] === option.key;
@@ -223,7 +223,7 @@ export default function Quiz({
                   onClick={() => selectAnswer(question.id, option.key)}
                   className={`pixel-choice text-left ${active ? "bg-pink" : "bg-card"}`}
                 >
-                  <span className="font-pixel text-[8px]">{option.key}</span>
+                  <span className="font-pixel text-[8px]">{({ A: "一", B: "二", C: "三", D: "四" } as const)[option.key]}</span>
                   <span className="mt-2 block font-mono-pixel text-sm leading-5 text-ink/75">{option.label}</span>
                 </button>
               );

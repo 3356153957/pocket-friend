@@ -14,12 +14,12 @@ const point = {
 
 describe("location badge", () => {
   test("does not claim GPS before a native location succeeds", () => {
-    assert.equal(getLocationBadge({ loading: true, location: null, mode: "native" }), "LOCATING");
-    assert.equal(getLocationBadge({ loading: false, location: null, mode: "native" }), "NO FIX");
+    assert.equal(getLocationBadge({ loading: true, location: null, mode: "native" }), "定位中");
+    assert.equal(getLocationBadge({ loading: false, location: null, mode: "native" }), "未定位");
   });
 
   test("labels successful native and simulated locations accurately", () => {
-    assert.equal(getLocationBadge({ loading: false, location: point, mode: "native" }), "GPS");
-    assert.equal(getLocationBadge({ loading: false, location: point, mode: "simulated" }), "DEMO");
+    assert.equal(getLocationBadge({ loading: false, location: point, mode: "native" }), "真实定位");
+    assert.equal(getLocationBadge({ loading: false, location: point, mode: "simulated" }), "演示定位");
   });
 });

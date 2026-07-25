@@ -9,7 +9,7 @@ async function read(relativePath: string): Promise<string> {
 }
 
 describe("Spark Connect frontend contract", () => {
-  test("uses Pocket Friend branding without the old Orbit name", async () => {
+  test("uses Chinese Pocket Friend branding without the old Orbit name", async () => {
     const sources = await Promise.all([
       read("index.html"),
       read("src/App.tsx"),
@@ -18,7 +18,7 @@ describe("Spark Connect frontend contract", () => {
     ]);
     const combined = sources.join("\n");
 
-    assert.match(combined, /Pocket Friend/);
+    assert.match(combined, /口袋朋友/);
     assert.doesNotMatch(combined, /Orbit/);
   });
 
@@ -42,9 +42,9 @@ describe("Spark Connect frontend contract", () => {
       assert.match(combined, new RegExp(component));
     }
 
-    assert.match(combined, /label: "MAP"/);
-    assert.match(combined, /label: "PALS"/);
-    assert.match(combined, /label: "SET"/);
+    assert.match(combined, /label: "地图"/);
+    assert.match(combined, /label: "好友"/);
+    assert.match(combined, /label: "设置"/);
   });
 
   test("keeps the real AMap and nearby controller inside the pixel map tab", async () => {
@@ -104,5 +104,66 @@ describe("Spark Connect frontend contract", () => {
 
     assert.doesNotMatch(homeWorld, /window\.location\.reload/);
     assert.match(homeWorld, /refreshWorld/);
+  });
+
+  test("watches for new hardware photos and queues every arrival", async () => {
+    const [app, arrival] = await Promise.all([
+      read("src/App.tsx"),
+      read("src/components/Arrival.tsx"),
+    ]);
+
+    assert.match(app, /fetchHardwarePhotoCandidates/);
+    assert.match(app, /lastHandledPhotoId/);
+    assert.match(arrival, /PhotoProcessingQueue/);
+    assert.match(arrival, /检测到.*新照片/);
+  });
+
+  test("uses consistent Chinese copy across the complete demo flow", async () => {
+    const sources = await Promise.all([
+      read("src/components/Welcome.tsx"),
+      read("src/components/Quiz.tsx"),
+      read("src/components/PendantSetup.tsx"),
+      read("src/components/Arrival.tsx"),
+      read("src/components/AppShell.tsx"),
+      read("src/components/HomeWorld.tsx"),
+      read("src/components/Settings.tsx"),
+      read("src/components/MatchingMap.tsx"),
+      read("src/components/InteractiveIsland.tsx"),
+    ]);
+    const combined = sources.join("\n");
+
+    for (const oldCopy of [
+      "DEMO ACCOUNT LOGIN",
+      "START GAME",
+      "ABOUT YOU",
+      "PAIR PENDANT",
+      "TEST BUZZ",
+      "FETCHING PHOTO",
+      "ENTERING ISLAND",
+      "PALS ISLAND",
+      "SCENE RESIDENTS",
+      "PRODUCT BACKEND",
+      "SAVE PROFILE",
+      "LOCAL FALLBACK",
+      "WEB DEMO",
+    ]) {
+      assert.equal(combined.includes(oldCopy), false, `仍存在英文界面文案：${oldCopy}`);
+    }
+    assert.doesNotMatch(combined, />\s*BACK\s*</);
+
+    for (const chineseCopy of [
+      "演示账号登录",
+      "开始体验",
+      "遇见画像",
+      "配对挂坠",
+      "正在获取照片",
+      "好友小岛",
+      "场景居民",
+      "保存资料",
+      "网页演示",
+      "返回",
+    ]) {
+      assert.equal(combined.includes(chineseCopy), true, `缺少中文界面文案：${chineseCopy}`);
+    }
   });
 });

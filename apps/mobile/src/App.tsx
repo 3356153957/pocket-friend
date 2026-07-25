@@ -12,6 +12,11 @@ import {
   type ProductProfile,
   type ProductProfileDraft,
 } from "./app/productApi.ts";
+import {
+  fetchHardwarePhotoCandidates,
+  type HardwarePhotoCandidate,
+} from "./app/photoPipeline.ts";
+import { findPhotosAfter, shouldStartPhotoArrival } from "./app/photoUpdateQueue.ts";
 import { useNearbyDemo } from "./app/useNearbyDemo.ts";
 import type { ScreenResident } from "./app/screenResident.ts";
 import Arrival from "./components/Arrival.tsx";
@@ -25,6 +30,13 @@ import {
   startPresenceHeartbeat,
 } from "./presence/presenceHeartbeat.ts";
 
+const PHOTO_UPDATE_POLL_INTERVAL_MS = 3000;
+
+interface ArrivalBatch {
+  candidates: HardwarePhotoCandidate[];
+  knownPhotoIds: string[];
+}
+
 export default function App() {
   const [phase, setPhase] = useState<"onboarding" | "app">("onboarding");
   const [step, setStep] = useState<OnboardingStep>("welcome");
@@ -33,6 +45,8 @@ export default function App() {
   const [screenResident, setScreenResident] = useState<ScreenResident | null>(null);
   const [productProfile, setProductProfile] = useState<ProductProfile | null>(null);
   const [backendWarning, setBackendWarning] = useState<string | null>(null);
+  const [lastHandledPhotoId, setLastHandledPhotoId] = useState<string | null>(null);
+  const [arrivalBatch, setArrivalBatch] = useState<ArrivalBatch | null>(null);
   const nearby = useNearbyDemo(prefs);
 
   useEffect(() => {
@@ -47,13 +61,50 @@ export default function App() {
     }
   }, []);
 
+  useEffect(() => {
+    if (phase !== "app" || !prefs.encounterProfile) return undefined;
+
+    let disposed = false;
+    let polling = false;
+    async function pollForPhotoUpdates() {
+      if (polling) return;
+      polling = true;
+      try {
+        const newestFirst = await fetchHardwarePhotoCandidates();
+        const latestId = newestFirst[0]?.id ?? "";
+        if (!disposed && shouldStartPhotoArrival(latestId, lastHandledPhotoId)) {
+          const candidates = findPhotosAfter(newestFirst, lastHandledPhotoId);
+          if (candidates.length > 0) {
+            setArrivalBatch({
+              candidates,
+              knownPhotoIds: newestFirst.map((candidate) => candidate.id),
+            });
+            setStep("arrival");
+            setPhase("onboarding");
+          }
+        }
+      } catch {
+        // Keep the island usable while the hardware photo service is temporarily offline.
+      } finally {
+        polling = false;
+      }
+    }
+
+    void pollForPhotoUpdates();
+    const timer = window.setInterval(() => void pollForPhotoUpdates(), PHOTO_UPDATE_POLL_INTERVAL_MS);
+    return () => {
+      disposed = true;
+      window.clearInterval(timer);
+    };
+  }, [lastHandledPhotoId, phase, prefs.encounterProfile]);
+
   async function startWithProfile(profile: ProductProfileDraft) {
     setBackendWarning(null);
     try {
       const savedProfile = await upsertProductProfile(profile);
       setProductProfile(savedProfile);
     } catch (error) {
-      setBackendWarning(error instanceof Error ? error.message : "Product backend is unavailable.");
+      setBackendWarning(error instanceof Error ? error.message : "产品服务暂时不可用。");
       setProductProfile({
         id: `local-${Date.now().toString(36)}`,
         name: profile.name,
@@ -67,14 +118,12 @@ export default function App() {
     setStep("quiz");
   }
 
-  async function finishArrival(resident: ScreenResident) {
+  async function saveArrivalResident(resident: ScreenResident, _attemptedPhotoId: string | null) {
     if (resident.source === "demo") {
       setBackendWarning(resident.spriteSource === "local-fallback"
-        ? "Hardware photo was not available, so no resident was saved. Please capture a real photo and run arrival again."
+        ? "未获取到硬件照片，因此没有保存居民。请拍摄真实照片后重新进入。"
         : null);
-      setScreenResident(resident);
-      setTab("pals");
-      setPhase("app");
+      setScreenResident((current) => current ?? resident);
       return;
     }
 
@@ -89,9 +138,14 @@ export default function App() {
       window.localStorage.setItem("pf:last-screen-resident", JSON.stringify(savedResident));
       setBackendWarning(null);
     } catch (error) {
-      setBackendWarning(error instanceof Error ? error.message : "Failed to save resident.");
+      setBackendWarning(error instanceof Error ? error.message : "居民保存失败。");
       setScreenResident(resident);
     }
+  }
+
+  function completeArrival(finalPhotoId: string | null) {
+    if (finalPhotoId) setLastHandledPhotoId(finalPhotoId);
+    setArrivalBatch(null);
     setTab("pals");
     setPhase("app");
   }
@@ -114,7 +168,10 @@ export default function App() {
         {phase === "onboarding" && step === "arrival" && prefs.encounterProfile && (
           <Arrival
             profile={prefs.encounterProfile}
-            onDone={(resident) => void finishArrival(resident)}
+            initialCandidates={arrivalBatch?.candidates}
+            initialKnownPhotoIds={arrivalBatch?.knownPhotoIds}
+            onResidentReady={saveArrivalResident}
+            onComplete={completeArrival}
           />
         )}
         {phase === "app" && (

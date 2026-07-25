@@ -72,9 +72,9 @@ export const defaultProductScenes: ProductScene[] = [
   },
   {
     id: "all-night-lab",
-    name: "All-Night Lab",
+    name: "通宵实验室",
     shortName: "通宵实验室",
-    description: "适合一起调试、补 demo 和安静并肩。",
+    description: "适合一起调试、完善演示和安静并肩。",
     assetUrl: "/assets/scenes/all-night-lab.png",
     outerX: 0.24,
     outerY: 0.38,
@@ -82,7 +82,7 @@ export const defaultProductScenes: ProductScene[] = [
   },
   {
     id: "pitch-stage",
-    name: "Pitch Stage",
+    name: "路演舞台",
     shortName: "路演舞台",
     description: "适合展示、鼓掌和互相记住作品。",
     assetUrl: "/assets/scenes/pitch-stage.png",
@@ -123,7 +123,7 @@ export class InMemoryProductStore implements ProductStore {
     const existing = this.state.profiles.find((profile) => profile.id === id);
     const profile: ProductProfile = {
       id,
-      name: input.name.trim() || "Pocket Friend",
+      name: input.name.trim() || "口袋朋友",
       handle: input.handle?.trim() || existing?.handle || "",
       role: input.role?.trim() || existing?.role || "",
       bio: input.bio?.trim() || existing?.bio || "",
@@ -144,7 +144,7 @@ export class InMemoryProductStore implements ProductStore {
     const existing = this.state.residents.find((resident) => resident.id === input.id);
     const resident: ProductResident = {
       id: input.id,
-      name: input.name.trim() || "Hardware Photo",
+      name: input.name.trim() || "硬件照片",
       magnetType: input.magnetType ?? existing?.magnetType ?? "好奇选手",
       tags: input.tags?.length ? input.tags : existing?.tags ?? [],
       pixelPortraitUrl: input.pixelPortraitUrl,

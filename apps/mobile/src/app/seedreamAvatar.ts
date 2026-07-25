@@ -29,12 +29,12 @@ export async function generateSeedreamPixelAvatar(referenceDataUrl: string): Pro
   const payload = await response.json().catch(() => null) as SeedreamGenerationResponse | null;
 
   if (!response.ok) {
-    throw new Error(payload?.error?.message ?? `Seedream generation failed: HTTP ${response.status}`);
+    throw new Error(`像素形象生成失败，状态码 ${response.status}。`);
   }
 
   const rawImageUrl = payload?.data?.[0]?.url ?? payload?.data?.[0]?.b64_json;
   if (!rawImageUrl) {
-    throw new Error("Seedream returned no generated image.");
+    throw new Error("形象生成服务没有返回图片。");
   }
 
   const resolvedRawImageUrl = rawImageUrl.startsWith("http") ? rawImageUrl : `data:image/png;base64,${rawImageUrl}`;
@@ -61,7 +61,7 @@ async function fetchSeedreamWithTimeout(body: Record<string, unknown>): Promise<
     });
   } catch (error) {
     if (error instanceof DOMException && error.name === "AbortError") {
-      throw new Error("Seedream generation timed out.");
+      throw new Error("像素形象生成超时。");
     }
     throw error;
   } finally {
@@ -76,7 +76,7 @@ async function isolateSpriteFromWhiteCanvas(imageUrl: string): Promise<string> {
   sourceCanvas.height = image.naturalHeight || image.height;
   const sourceCtx = sourceCanvas.getContext("2d", { willReadFrequently: true });
   if (!sourceCtx) {
-    throw new Error("Failed to create Seedream sprite canvas.");
+    throw new Error("无法创建像素形象画布。");
   }
 
   sourceCtx.imageSmoothingEnabled = false;
@@ -102,7 +102,7 @@ async function isolateSpriteFromWhiteCanvas(imageUrl: string): Promise<string> {
   spriteCanvas.height = cropHeight;
   const spriteCtx = spriteCanvas.getContext("2d");
   if (!spriteCtx) {
-    throw new Error("Failed to create cropped Seedream sprite canvas.");
+    throw new Error("无法创建裁剪后的像素形象画布。");
   }
 
   spriteCtx.imageSmoothingEnabled = false;

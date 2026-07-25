@@ -15,7 +15,7 @@ export interface ScreenResident {
   activeSceneId?: string;
 }
 
-const FALLBACK_RESIDENT_NAME = "Hardware Photo";
+const FALLBACK_RESIDENT_NAME = "硬件照片";
 
 export function buildScreenResident(profile: EncounterProfile, photo: DownloadedPhoto): ScreenResident {
   return {

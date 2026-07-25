@@ -12,10 +12,10 @@ import type { ScreenResident } from "../app/screenResident.ts";
 import { AppLogo, PixelButton, PixelCard, PixelLabel } from "./PixelUi.tsx";
 
 const buzzOptions = [
-  { key: "gentle", label: "gentle tap" },
-  { key: "spark", label: "spark buzz" },
-  { key: "wave", label: "small wave" },
-  { key: "secret", label: "secret mode" },
+  { key: "gentle", label: "轻轻敲门" },
+  { key: "spark", label: "心跳加速" },
+  { key: "wave", label: "一阵小浪" },
+  { key: "secret", label: "暗号模式" },
 ];
 
 export default function Settings({
@@ -84,7 +84,7 @@ export default function Settings({
       setProductProfile?.(saved);
       setBackendWarning?.(null);
     } catch (error) {
-      setBackendWarning?.(error instanceof Error ? error.message : "Profile save failed.");
+      setBackendWarning?.(error instanceof Error ? error.message : "资料保存失败。");
     } finally {
       setSaving(false);
     }
@@ -95,14 +95,14 @@ export default function Settings({
       <div className="flex items-center gap-2">
         <AppLogo size={34} />
         <div>
-          <h1 className="font-pixel text-[10px] text-ink">SETTINGS</h1>
-          <p className="font-mono-pixel text-sm text-ink/70">profile · residents · backend</p>
+          <h1 className="font-pixel text-[10px] text-ink">设置</h1>
+          <p className="font-mono-pixel text-sm text-ink/70">资料 · 居民 · 产品服务</p>
         </div>
       </div>
 
       {backendWarning && (
         <PixelCard color="pink">
-          <p className="font-mono-pixel text-sm leading-5 text-ink">Backend notice: {backendWarning}</p>
+          <p className="font-mono-pixel text-sm leading-5 text-ink">服务提示：{backendWarning}</p>
         </PixelCard>
       )}
 
@@ -110,58 +110,58 @@ export default function Settings({
         <div className="flex items-center gap-3">
           <Database size={24} aria-hidden="true" />
           <div>
-            <div className="font-pixel text-[9px] text-ink">PRODUCT BACKEND</div>
-            <div className="font-mono-pixel text-sm text-ink/70">profile / resident / scene state</div>
+            <div className="font-pixel text-[9px] text-ink">产品服务</div>
+            <div className="font-mono-pixel text-sm text-ink/70">资料 / 居民 / 场景状态</div>
           </div>
         </div>
         <div className="grid grid-cols-2 gap-2 font-pixel text-[7px]">
-          <span className="pixel-border-sm bg-lime px-2 py-1">PROFILE {productProfile ? "SAVED" : "LOCAL"}</span>
-          <span className="pixel-border-sm bg-cyan px-2 py-1">RESIDENTS {visibleResidents.length}</span>
+          <span className="pixel-border-sm bg-lime px-2 py-1">资料 {productProfile ? "已保存" : "仅本地"}</span>
+          <span className="pixel-border-sm bg-cyan px-2 py-1">居民 {visibleResidents.length}</span>
         </div>
       </PixelCard>
 
       <PixelCard color="card" className="space-y-3">
         <div className="flex items-center gap-2">
           <UserRound size={18} />
-          <PixelLabel>ACCOUNT PROFILE</PixelLabel>
+          <PixelLabel>账号资料</PixelLabel>
         </div>
         <label className="block">
-          <span className="font-pixel text-[7px] text-ink/60">NAME</span>
+          <span className="font-pixel text-[7px] text-ink/60">昵称</span>
           <input value={name} onChange={(event) => setName(event.target.value)} className="mt-1 w-full border-[3px] border-ink bg-mint px-3 py-2 font-mono-pixel text-sm outline-none" />
         </label>
         <label className="block">
-          <span className="font-pixel text-[7px] text-ink/60">ROLE</span>
+          <span className="font-pixel text-[7px] text-ink/60">身份</span>
           <input value={role} onChange={(event) => setRole(event.target.value)} className="mt-1 w-full border-[3px] border-ink bg-mint px-3 py-2 font-mono-pixel text-sm outline-none" />
         </label>
         <label className="block">
-          <span className="font-pixel text-[7px] text-ink/60">BIO</span>
+          <span className="font-pixel text-[7px] text-ink/60">简介</span>
           <textarea value={bio} onChange={(event) => setBio(event.target.value)} className="mt-1 min-h-16 w-full resize-none border-[3px] border-ink bg-mint px-3 py-2 font-mono-pixel text-sm outline-none" />
         </label>
         <PixelButton onClick={saveProfile} disabled={!productProfile || saving || !name.trim()} variant="lime" fullWidth>
-          <Save size={16} /> {saving ? "SAVING..." : "SAVE PROFILE"}
+          <Save size={16} /> {saving ? "正在保存..." : "保存资料"}
         </PixelButton>
       </PixelCard>
 
       <PixelCard color="card" className="space-y-3">
-        <PixelLabel>RESIDENT DATA</PixelLabel>
+        <PixelLabel>居民数据</PixelLabel>
         {visibleResidents.length === 0 ? (
           <p className="border-2 border-ink bg-mint p-2 font-mono-pixel text-sm leading-5">
-            No real resident saved yet. Run arrival after a hardware photo is captured.
+            尚未保存真实居民。请先使用硬件拍照，再重新进入小岛。
           </p>
         ) : (
           visibleResidents.slice(0, 8).map((item) => (
             <div key={item.id} className="border-2 border-ink bg-mint p-2">
               <div className="flex gap-2">
                 <div className="grid h-14 w-14 place-items-center overflow-hidden border-[3px] border-ink bg-card">
-                  {item.portraitUrl ? <img src={item.portraitUrl} alt="real reference" className="h-full w-full object-cover" /> : "REF"}
+                  {item.portraitUrl ? <img src={item.portraitUrl} alt="真实照片" className="h-full w-full object-cover" /> : "原图"}
                 </div>
                 <div className="grid h-14 w-14 place-items-center overflow-hidden border-[3px] border-ink bg-card">
-                  <img src={item.pixelPortraitUrl} alt="pixel sprite" className="h-full w-full object-contain pixel-image" />
+                  <img src={item.pixelPortraitUrl} alt="像素形象" className="h-full w-full object-contain pixel-image" />
                 </div>
                 <div className="min-w-0 flex-1">
                   <div className="truncate font-pixel text-[9px]">{item.name}</div>
                   <div className="mt-1 truncate font-mono-pixel text-sm text-ink/70">{item.magnetType}</div>
-                  <div className="mt-1 font-pixel text-[6px] text-ink/55">{item.spriteSource === "seedream" ? "SEEDREAM SPRITE" : "LOCAL FALLBACK"}</div>
+                  <div className="mt-1 font-pixel text-[6px] text-ink/55">{item.spriteSource === "seedream" ? "智能生成形象" : "本地备用形象"}</div>
                 </div>
               </div>
               <div className="mt-2 flex flex-wrap gap-1">
@@ -176,15 +176,15 @@ export default function Settings({
         <div className="flex items-center gap-3">
           <Bluetooth size={28} aria-hidden="true" />
           <div className="min-w-0 flex-1">
-            <div className="font-pixel text-[9px] text-ink">PENDANT · DEMO</div>
-            <div className="font-mono-pixel text-sm text-ink/70">hardware bridge feeds latest photo</div>
+            <div className="font-pixel text-[9px] text-ink">挂坠 · 演示</div>
+            <div className="font-mono-pixel text-sm text-ink/70">硬件桥接会传入最新照片</div>
           </div>
-          <span className="pixel-border-sm bg-lime px-2 py-1 font-pixel text-[7px]">READY</span>
+          <span className="pixel-border-sm bg-lime px-2 py-1 font-pixel text-[7px]">已就绪</span>
         </div>
       </PixelCard>
 
       <fieldset>
-        <PixelLabel>BUZZ MODE</PixelLabel>
+        <PixelLabel>震动方式</PixelLabel>
         <div className="mt-2 grid grid-cols-2 gap-2">
           {buzzOptions.map((buzz) => {
             const active = prefs.buzz === buzz.key;
@@ -204,7 +204,7 @@ export default function Settings({
       </fieldset>
 
       <label className="block">
-        <PixelLabel>RADIUS · {prefs.radius}m</PixelLabel>
+        <PixelLabel>感应半径 · {prefs.radius} 米</PixelLabel>
         <input
           type="range"
           min={50}
@@ -218,8 +218,8 @@ export default function Settings({
 
       <div className="space-y-2">
         {([
-          [LockKeyhole, "privacy rules"],
-          [Bell, "notification preferences"],
+          [LockKeyhole, "隐私规则"],
+          [Bell, "通知偏好"],
         ] as const).map(([Icon, label]) => (
           <button type="button" key={label} className="pixel-setting-row">
             <Icon size={18} aria-hidden="true" />

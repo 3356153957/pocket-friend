@@ -59,9 +59,9 @@ export const fallbackProductScenes: ProductScene[] = [
   },
   {
     id: "all-night-lab",
-    name: "All-Night Lab",
+    name: "通宵实验室",
     shortName: "通宵实验室",
-    description: "适合一起调试、补 demo 和安静并肩。",
+    description: "适合一起调试、完善演示和安静并肩。",
     assetUrl: "/assets/scenes/all-night-lab.png",
     outerX: 0.24,
     outerY: 0.38,
@@ -69,7 +69,7 @@ export const fallbackProductScenes: ProductScene[] = [
   },
   {
     id: "pitch-stage",
-    name: "Pitch Stage",
+    name: "路演舞台",
     shortName: "路演舞台",
     description: "适合展示、鼓掌和互相记住作品。",
     assetUrl: "/assets/scenes/pitch-stage.png",
@@ -158,7 +158,7 @@ async function productFetch(path: string, init?: RequestInit): Promise<Response>
   });
 
   if (!response.ok) {
-    throw new Error(`Product API failed: HTTP ${response.status}`);
+    throw new Error(`产品服务请求失败，状态码 ${response.status}。`);
   }
 
   return response;

@@ -36,10 +36,10 @@ export interface NearbyGameState {
 
 function sourceLabel(source: GeoPoint["source"]): string {
   if (source === "native" || source === "jacoo") {
-    return "GPS";
+    return "真实定位";
   }
 
-  return "SIM";
+  return "演示定位";
 }
 
 function normalizeSnapshot(snapshot: PresenceSnapshot): PresenceSnapshot {

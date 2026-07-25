@@ -38,20 +38,20 @@ export default function PendantSetup({
   return (
     <section className="space-y-5 px-4 py-5">
       <div className="flex items-center justify-between">
-        <button type="button" onClick={onBack} className="pixel-back"><ArrowLeft size={15} /> BACK</button>
+        <button type="button" onClick={onBack} className="pixel-back"><ArrowLeft size={15} /> 返回</button>
         <StepPips active={2} total={2} />
         <div className="w-14" />
       </div>
 
       <div>
-        <div className="font-pixel text-[8px] text-pink">02 / PAIR PENDANT</div>
+        <div className="font-pixel text-[8px] text-pink">02 / 配对挂坠</div>
         <h1 className="mt-3 font-pixel text-[14px] leading-7">给挂坠一点<span className="text-pink">脾气</span></h1>
       </div>
 
       <div className="pixel-border bg-mint-screen p-4">
         <div className="flex flex-col items-center gap-4">
           <div className={`pixel-border grid h-32 w-32 place-items-center bg-pink ${buzzing ? "animate-buzz" : ""}`}><AppLogo size={98} /></div>
-          <PixelButton onClick={tryBuzz} variant="pink"><Vibrate size={16} /> TEST BUZZ</PixelButton>
+          <PixelButton onClick={tryBuzz} variant="pink"><Vibrate size={16} /> 测试震动</PixelButton>
         </div>
       </div>
 
@@ -66,16 +66,16 @@ export default function PendantSetup({
       </fieldset>
 
       <label className="block">
-        <PixelLabel>感应半径 / {prefs.radius}m</PixelLabel>
+        <PixelLabel>感应半径 / {prefs.radius} 米</PixelLabel>
         <input type="range" min={50} max={800} step={50} value={prefs.radius} onChange={(event) => setPrefs({ ...prefs, radius: Number(event.target.value) })} className="mt-2 h-11 w-full accent-[color:var(--pink)]" />
       </label>
 
       <label className="pixel-border-sm flex min-h-14 items-center gap-3 bg-card p-3">
         <input type="checkbox" checked={prefs.quiet} onChange={(event) => setPrefs({ ...prefs, quiet: event.target.checked })} className="h-5 w-5 accent-[color:var(--ink)]" />
-        <span><span className="block font-pixel text-[8px]">QUIET MODE</span><span className="font-mono-pixel text-sm text-ink/70">工作时段只记录，不震动</span></span>
+        <span><span className="block font-pixel text-[8px]">安静模式</span><span className="font-mono-pixel text-sm text-ink/70">工作时段只记录，不震动</span></span>
       </label>
 
-      <PixelButton onClick={onNext} disabled={!prefs.buzz} variant="pink" fullWidth>ENTER POCKET FRIEND <ArrowRight size={16} /></PixelButton>
+      <PixelButton onClick={onNext} disabled={!prefs.buzz} variant="pink" fullWidth>进入口袋朋友 <ArrowRight size={16} /></PixelButton>
     </section>
   );
 }

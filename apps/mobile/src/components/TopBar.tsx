@@ -29,10 +29,10 @@ export default function TopBar({ step, onHome }: TopBarProps) {
         type="button"
         onClick={onHome}
         className="interactive flex items-center gap-2 rounded-lg"
-        aria-label="返回 Pocket Friend 欢迎页"
+        aria-label="返回口袋朋友欢迎页"
       >
         <PendantLogo />
-        <span className="font-serif-display text-xl text-teal-deep sm:text-2xl">Pocket Friend</span>
+        <span className="font-serif-display text-xl text-teal-deep sm:text-2xl">口袋朋友</span>
       </button>
 
       {step !== "welcome" && (
@@ -56,7 +56,7 @@ export default function TopBar({ step, onHome }: TopBarProps) {
         </ol>
       )}
 
-      <span className="hidden text-right text-xs text-muted-foreground sm:block">v0.1 · demo</span>
+      <span className="hidden text-right text-xs text-muted-foreground sm:block">版本 0.1 · 演示</span>
     </header>
   );
 }
