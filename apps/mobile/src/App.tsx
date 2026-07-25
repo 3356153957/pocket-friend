@@ -24,7 +24,7 @@ export default function App() {
   const [step, setStep] = useState<OnboardingStep>("welcome");
   const [tab, setTab] = useState<AppTab>("map");
   const [prefs, setPrefs] = useState<Prefs>(createInitialPrefs);
-  const [, setScreenResident] = useState<ScreenResident | null>(null);
+  const [screenResident, setScreenResident] = useState<ScreenResident | null>(null);
   const nearby = useNearbyDemo(prefs);
 
   useEffect(() => {
@@ -59,13 +59,13 @@ export default function App() {
             profile={prefs.encounterProfile}
             onDone={(resident) => {
               setScreenResident(resident);
-              setTab("map");
+              setTab("pals");
               setPhase("app");
             }}
           />
         )}
         {phase === "app" && (
-          <AppShell tab={tab} setTab={setTab} prefs={prefs} setPrefs={setPrefs} nearby={nearby} />
+          <AppShell tab={tab} setTab={setTab} prefs={prefs} setPrefs={setPrefs} nearby={nearby} resident={screenResident} />
         )}
       </PhoneFrame>
     </div>
