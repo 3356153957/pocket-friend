@@ -220,6 +220,13 @@ input:focus-visible {
   box-shadow: 3px 3px 0 var(--ink);
 }
 
+.quiz-question-label {
+  font-family: "Press Start 2P", ui-monospace, monospace;
+  font-size: 11px;
+  line-height: 1.8;
+  color: var(--ink);
+}
+
 .pixel-option {
   padding: 9px 8px;
   font-family: "VT323", ui-monospace, monospace;

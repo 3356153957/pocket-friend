@@ -22,6 +22,23 @@ describe("Spark Connect frontend contract", () => {
     assert.doesNotMatch(combined, /Orbit/);
   });
 
+  test("uses Pocket Friend as the browser page name", async () => {
+    const html = await read("index.html");
+
+    assert.match(html, /<title>Pocket Friend<\/title>/);
+  });
+
+  test("renders larger questionnaire question labels", async () => {
+    const [quiz, styles] = await Promise.all([
+      read("src/components/Quiz.tsx"),
+      read("src/styles.css"),
+    ]);
+
+    assert.match(quiz, /className="quiz-question-label"/);
+    assert.match(styles, /\.quiz-question-label/);
+    assert.match(styles, /font-size: 11px/);
+  });
+
   test("uses the latest pixel phone shell with the three app tabs", async () => {
     const sources = await Promise.all([
       read("src/App.tsx"),

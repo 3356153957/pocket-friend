@@ -211,7 +211,7 @@ export default function Quiz({
 
       {quizQuestions.map((question, index) => (
         <fieldset key={question.id} className="space-y-2">
-          <PixelLabel>问题 {index + 1} / {question.title}</PixelLabel>
+          <div className="quiz-question-label">问题 {index + 1} / {question.title}</div>
           <div className="grid grid-cols-1 gap-2">
             {question.options.map((option) => {
               const active = answers[question.id] === option.key;
