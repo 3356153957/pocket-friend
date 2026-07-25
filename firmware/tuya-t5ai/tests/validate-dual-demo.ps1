@@ -671,7 +671,7 @@ if (-not $connectingRoute.Success -or
 
 $petDeviceMatch = [regex]::Match(
     $ui,
-    'static lv_obj_t \*pf_ui_draw_pet_device\([\s\S]*?(?=static void pf_ui_create_start_page)'
+    'static lv_obj_t \*pf_ui_draw_pet_device\([\s\S]*?(?=static (?:lv_obj_t \*pf_ui_create_brand_page|void pf_ui_create_start_page))'
 )
 if (-not $petDeviceMatch.Success) {
     throw 'Missing pet device drawing function'
@@ -700,9 +700,11 @@ if ($app -notmatch 'case PF_WIFI_EVENT_CONNECT_FAILED:[\s\S]*if \(sg_wifi_manual
 if ($app -notmatch 'case PF_STATE_COUNTDOWN:[\s\S]*pf_camera_prepare_capture_stream\(\)') {
     throw 'Synchronized capture must warm the camera stream during the countdown'
 }
-if ($ui -notmatch '"Start"[\s\S]*PF_INPUT_OPEN_CAMERA' -or
+if ($ui -notmatch 'pf_ui_create_brand_page\(PF_UI_PAGE_START,\s*"START",\s*PF_INPUT_START' -or
+    $ui -notmatch 'pf_ui_create_brand_page\(PF_UI_PAGE_IDLE,\s*"CAMERA",\s*PF_INPUT_OPEN_CAMERA' -or
+    $ui -match 'pf_ui_create_page\("Pocket Friend"\)' -or
     $ui -match 'LV_SYMBOL_IMAGE,\s*PF_INPUT_CAPTURE_PHOTO') {
-    throw 'Idle page must use Start as the only manual photo entry point'
+    throw 'START and CAMERA pages must share the teammate brand layout'
 }
 if ($app -notmatch 'case PF_STATE_CAMERA_PREVIEW:[\s\S]*pf_ui_show_photo_name_input\(\);[\s\S]*break;') {
     throw 'Manual capture flow must open the photographer name page before taking the photo'

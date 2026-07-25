@@ -269,7 +269,10 @@ static lv_obj_t *pf_ui_draw_pet_device(lv_obj_t *parent, bool asleep)
     return body;
 }
 
-static void pf_ui_create_start_page(void)
+static lv_obj_t *pf_ui_create_brand_page(PF_UI_PAGE_E page_id,
+                                         const char *button_text,
+                                         PF_INPUT_ACTION_E action,
+                                         const char *hint)
 {
     lv_obj_t *page;
     lv_obj_t *label;
@@ -278,7 +281,7 @@ static void pf_ui_create_start_page(void)
     lv_obj_t *shadow;
 
     page = pf_ui_create_blank_page(PF_UI_COLOR_SKY);
-    sg_ui.pages[PF_UI_PAGE_START] = page;
+    sg_ui.pages[page_id] = page;
 
     label = lv_label_create(page);
     lv_label_set_text(label, "POCKET");
@@ -304,7 +307,7 @@ static void pf_ui_create_start_page(void)
     lv_obj_clear_flag(shadow, LV_OBJ_FLAG_SCROLLABLE | LV_OBJ_FLAG_CLICKABLE);
     lv_obj_align(shadow, LV_ALIGN_BOTTOM_MID, 6, -42);
 
-    button = pf_ui_create_button(page, "START", PF_INPUT_START,
+    button = pf_ui_create_button(page, button_text, action,
                                  PF_UI_COLOR_PINK, false);
     lv_obj_set_style_radius(button, 4, 0);
     lv_obj_set_style_border_color(button, lv_color_hex(PF_UI_COLOR_INK), 0);
@@ -314,9 +317,17 @@ static void pf_ui_create_start_page(void)
     lv_obj_align(button, LV_ALIGN_BOTTOM_MID, 0, -48);
 
     label = lv_label_create(page);
-    lv_label_set_text(label, "TAP TO BEGIN");
+    lv_label_set_text(label, hint);
     lv_obj_set_style_text_color(label, lv_color_hex(0xE8F4FFU), 0);
     lv_obj_align(label, LV_ALIGN_BOTTOM_MID, 0, -16);
+
+    return page;
+}
+
+static void pf_ui_create_start_page(void)
+{
+    (void)pf_ui_create_brand_page(PF_UI_PAGE_START, "START", PF_INPUT_START,
+                                  "TAP TO BEGIN");
 }
 
 static void pf_ui_create_sleep_page(void)
@@ -367,27 +378,32 @@ static void pf_ui_create_sleep_page(void)
 
 static void pf_ui_create_idle_page(void)
 {
+    lv_obj_t *page;
     lv_obj_t *button;
 
-    sg_ui.pages[PF_UI_PAGE_IDLE] = pf_ui_create_page("Pocket Friend");
-    pf_ui_create_label(sg_ui.pages[PF_UI_PAGE_IDLE], "Waiting for a friend",
-                       LV_ALIGN_CENTER, 0, -40);
-    button = pf_ui_create_button(sg_ui.pages[PF_UI_PAGE_IDLE], "Start",
-                                 PF_INPUT_OPEN_CAMERA,
-                                 PF_UI_COLOR_PRIMARY, false);
-    lv_obj_align(button, LV_ALIGN_BOTTOM_MID, 0, -24);
-    button = pf_ui_create_button(sg_ui.pages[PF_UI_PAGE_IDLE],
-                                 LV_SYMBOL_WIFI, PF_INPUT_OPEN_WIFI,
-                                 PF_UI_COLOR_SURFACE, true);
+    page = pf_ui_create_brand_page(PF_UI_PAGE_IDLE, "CAMERA",
+                                   PF_INPUT_OPEN_CAMERA,
+                                   "TAP TO TAKE PHOTO");
+    button = pf_ui_create_button(page, LV_SYMBOL_WIFI, PF_INPUT_OPEN_WIFI,
+                                 PF_UI_COLOR_CYAN, true);
+    lv_obj_set_style_radius(button, 4, 0);
+    lv_obj_set_style_border_color(button, lv_color_hex(PF_UI_COLOR_INK), 0);
+    lv_obj_set_style_border_width(button, 3, 0);
+    lv_obj_set_style_text_color(lv_obj_get_child(button, 0),
+                                lv_color_hex(PF_UI_COLOR_INK), 0);
     lv_obj_align(button, LV_ALIGN_TOP_RIGHT, -8, 8);
-    button = pf_ui_create_button(sg_ui.pages[PF_UI_PAGE_IDLE],
-                                 LV_SYMBOL_EDIT, PF_INPUT_OPEN_PINYIN,
-                                 PF_UI_COLOR_SURFACE, true);
+    button = pf_ui_create_button(page, LV_SYMBOL_EDIT, PF_INPUT_OPEN_PINYIN,
+                                 PF_UI_COLOR_LIME, true);
+    lv_obj_set_style_radius(button, 4, 0);
+    lv_obj_set_style_border_color(button, lv_color_hex(PF_UI_COLOR_INK), 0);
+    lv_obj_set_style_border_width(button, 3, 0);
+    lv_obj_set_style_text_color(lv_obj_get_child(button, 0),
+                                lv_color_hex(PF_UI_COLOR_INK), 0);
     lv_obj_align(button, LV_ALIGN_TOP_LEFT, 8, 8);
-    sg_ui.wifi_status_label = lv_label_create(sg_ui.pages[PF_UI_PAGE_IDLE]);
+    sg_ui.wifi_status_label = lv_label_create(page);
     lv_label_set_text(sg_ui.wifi_status_label, LV_SYMBOL_CLOSE);
     lv_obj_set_style_text_color(sg_ui.wifi_status_label,
-                                lv_color_hex(PF_UI_COLOR_MUTED), 0);
+                                lv_color_hex(0xE8F4FFU), 0);
     lv_obj_align(sg_ui.wifi_status_label, LV_ALIGN_TOP_RIGHT, -76, 28);
 }
 

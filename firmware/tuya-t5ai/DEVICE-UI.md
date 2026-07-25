@@ -7,7 +7,7 @@ Target panel: **ILI9488 320x480** + **GT1151** touch.
 | Page | Trigger | Notes |
 |------|---------|-------|
 | `PF_UI_PAGE_START` | Boot / not started | Brand sky screen + pink **START** |
-| `PF_UI_PAGE_IDLE` | After START | Existing camera / Wi-Fi entry |
+| `PF_UI_PAGE_IDLE` | After START | Brand sky screen + **CAMERA** / Wi-Fi entry |
 | `PF_UI_PAGE_SLEEP` | DND / sleep | Shows **已休眠**; tap screen to wake |
 
 ## Preview (no flash needed)
