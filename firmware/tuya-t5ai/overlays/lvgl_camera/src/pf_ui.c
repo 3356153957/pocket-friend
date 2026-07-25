@@ -49,6 +49,7 @@ typedef struct {
     lv_obj_t *result_image;
     lv_obj_t *peer_label;
     lv_obj_t *waiting_peer_label;
+    lv_obj_t *waiting_confirm_button;
     lv_obj_t *match_status_label;
     lv_obj_t *waiting_status_label;
     lv_obj_t *countdown_label;
@@ -729,6 +730,7 @@ static void pf_ui_create_waiting_page(void)
     lv_obj_t *label;
     lv_obj_t *device;
     lv_obj_t *badge;
+    lv_obj_t *shadow;
     lv_obj_t *button;
 
     page = pf_ui_create_blank_page(PF_UI_COLOR_SKY);
@@ -753,14 +755,14 @@ static void pf_ui_create_waiting_page(void)
     lv_obj_align(device, LV_ALIGN_TOP_MID, 72, 96);
 
     badge = lv_obj_create(page);
-    lv_obj_set_size(badge, 248, 104);
+    lv_obj_set_size(badge, 248, 90);
     lv_obj_set_style_bg_color(badge, lv_color_white(), 0);
     lv_obj_set_style_border_color(badge, lv_color_hex(PF_UI_COLOR_INK), 0);
     lv_obj_set_style_border_width(badge, 4, 0);
     lv_obj_set_style_radius(badge, 4, 0);
     lv_obj_set_style_pad_all(badge, 0, 0);
     lv_obj_clear_flag(badge, LV_OBJ_FLAG_SCROLLABLE | LV_OBJ_FLAG_CLICKABLE);
-    lv_obj_align(badge, LV_ALIGN_CENTER, 0, 100);
+    lv_obj_align(badge, LV_ALIGN_CENTER, 0, 70);
 
     sg_ui.waiting_peer_label = lv_label_create(badge);
     lv_label_set_text(sg_ui.waiting_peer_label, "Friend -- online");
@@ -768,7 +770,7 @@ static void pf_ui_create_waiting_page(void)
                                 lv_color_hex(PF_UI_COLOR_INK), 0);
     lv_obj_set_style_text_font(sg_ui.waiting_peer_label,
                                &lv_font_montserrat_16, 0);
-    lv_obj_align(sg_ui.waiting_peer_label, LV_ALIGN_TOP_MID, 0, 14);
+    lv_obj_align(sg_ui.waiting_peer_label, LV_ALIGN_TOP_MID, 0, 12);
 
     sg_ui.waiting_status_label = lv_label_create(badge);
     lv_label_set_text(sg_ui.waiting_status_label,
@@ -777,7 +779,27 @@ static void pf_ui_create_waiting_page(void)
                                 lv_color_hex(PF_UI_COLOR_INK), 0);
     lv_obj_set_style_text_font(sg_ui.waiting_status_label,
                                &lv_font_montserrat_14, 0);
-    lv_obj_align(sg_ui.waiting_status_label, LV_ALIGN_BOTTOM_MID, 0, -18);
+    lv_obj_align(sg_ui.waiting_status_label, LV_ALIGN_BOTTOM_MID, 0, -14);
+
+    shadow = lv_obj_create(page);
+    lv_obj_set_size(shadow, PF_UI_PRIMARY_WIDTH, PF_UI_PRIMARY_HEIGHT);
+    lv_obj_set_style_bg_color(shadow, lv_color_hex(PF_UI_COLOR_INK), 0);
+    lv_obj_set_style_border_width(shadow, 0, 0);
+    lv_obj_set_style_radius(shadow, 4, 0);
+    lv_obj_set_style_pad_all(shadow, 0, 0);
+    lv_obj_clear_flag(shadow, LV_OBJ_FLAG_SCROLLABLE | LV_OBJ_FLAG_CLICKABLE);
+    lv_obj_align(shadow, LV_ALIGN_BOTTOM_MID, 6, -18);
+
+    sg_ui.waiting_confirm_button =
+        pf_ui_create_button(page, "CONFIRM", PF_INPUT_CONFIRM,
+                            PF_UI_COLOR_PINK, false);
+    lv_obj_set_style_radius(sg_ui.waiting_confirm_button, 4, 0);
+    lv_obj_set_style_border_color(sg_ui.waiting_confirm_button,
+                                  lv_color_hex(PF_UI_COLOR_INK), 0);
+    lv_obj_set_style_border_width(sg_ui.waiting_confirm_button, 4, 0);
+    lv_obj_set_style_text_font(lv_obj_get_child(sg_ui.waiting_confirm_button, 0),
+                               &lv_font_montserrat_24, 0);
+    lv_obj_align(sg_ui.waiting_confirm_button, LV_ALIGN_BOTTOM_MID, 0, -24);
 
     button = pf_ui_create_button(page, LV_SYMBOL_CLOSE, PF_INPUT_CANCEL,
                                  PF_UI_COLOR_LIME, true);
@@ -929,6 +951,11 @@ void pf_ui_set_confirmed(bool local, bool peer)
                           "You: %s  Friend: %s",
                           local ? "ready" : "waiting",
                           peer ? "ready" : "waiting");
+    if (local) {
+        lv_obj_add_flag(sg_ui.waiting_confirm_button, LV_OBJ_FLAG_HIDDEN);
+    } else {
+        lv_obj_clear_flag(sg_ui.waiting_confirm_button, LV_OBJ_FLAG_HIDDEN);
+    }
     lv_vendor_disp_unlock();
 }
 
@@ -948,7 +975,26 @@ void pf_ui_show_preview_countdown(uint8_t seconds)
         return;
     }
     lv_vendor_disp_lock();
+    lv_obj_set_size(sg_ui.preview_countdown_label, 112, 112);
+    lv_obj_set_style_radius(sg_ui.preview_countdown_label, 56, 0);
+    lv_obj_set_style_pad_top(sg_ui.preview_countdown_label, 40, 0);
     lv_label_set_text_fmt(sg_ui.preview_countdown_label, "%u", seconds);
+    lv_obj_clear_flag(sg_ui.preview_countdown_label, LV_OBJ_FLAG_HIDDEN);
+    lv_obj_move_foreground(sg_ui.preview_countdown_label);
+    lv_screen_load(sg_ui.pages[PF_UI_PAGE_PREVIEW]);
+    lv_vendor_disp_unlock();
+}
+
+void pf_ui_show_preview_status(const char *status)
+{
+    if (!sg_ui_initialized || status == NULL) {
+        return;
+    }
+    lv_vendor_disp_lock();
+    lv_obj_set_size(sg_ui.preview_countdown_label, 220, 64);
+    lv_obj_set_style_radius(sg_ui.preview_countdown_label, 4, 0);
+    lv_obj_set_style_pad_top(sg_ui.preview_countdown_label, 18, 0);
+    lv_label_set_text(sg_ui.preview_countdown_label, status);
     lv_obj_clear_flag(sg_ui.preview_countdown_label, LV_OBJ_FLAG_HIDDEN);
     lv_obj_move_foreground(sg_ui.preview_countdown_label);
     lv_screen_load(sg_ui.pages[PF_UI_PAGE_PREVIEW]);

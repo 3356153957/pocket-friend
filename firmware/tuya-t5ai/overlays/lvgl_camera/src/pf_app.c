@@ -24,6 +24,7 @@ typedef enum {
     PF_APP_EVENT_TRANSPORT,
     PF_APP_EVENT_TIMER,
     PF_APP_EVENT_PAIRING_COOLDOWN,
+    PF_APP_EVENT_CAPTURE_READY,
     PF_APP_EVENT_CAPTURE_DONE,
     PF_APP_EVENT_WIFI,
 } PF_APP_EVENT_TYPE_E;
@@ -66,6 +67,7 @@ static char sg_wifi_password[PF_WIFI_PASSWORD_MAX + 1U];
 static bool sg_wifi_manual_connecting;
 static volatile bool sg_manual_capture_requested;
 static bool sg_manual_result_visible;
+static bool sg_manual_photo_visible;
 static bool sg_pairing_cooldown_active;
 static bool sg_pairing_peer_pending;
 
@@ -156,6 +158,10 @@ static void pf_capture_task(void *arg)
             sg_photo_jpeg = jpeg;
             sg_photo_len = len;
             if (event.data.capture.manual) {
+                PF_APP_EVENT_T ready_event = {
+                    .type = PF_APP_EVENT_CAPTURE_READY,
+                };
+                pf_post_event(&ready_event);
                 event.data.capture.upload_result =
                     pf_server_photo_upload(jpeg, len, sg_photo_filename);
             }
@@ -190,6 +196,7 @@ static void pf_safe_reset(void)
     pf_release_photo();
     sg_manual_capture_requested = false;
     sg_manual_result_visible = false;
+    sg_manual_photo_visible = false;
     memset(sg_photo_filename, 0, sizeof(sg_photo_filename));
 }
 
@@ -485,6 +492,7 @@ static void pf_handle_input(const PF_INPUT_EVENT_T *input)
             }
             sg_manual_capture_requested = true;
             sg_manual_result_visible = false;
+            sg_manual_photo_visible = false;
             pf_input_set_mode(PF_INPUT_MODE_LOCKED);
             pf_camera_prepare_capture_stream();
             pf_start_countdown();
@@ -750,6 +758,8 @@ static void pf_handle_timer(PF_EVENT_E timer_event)
         tal_sw_timer_stop(sg_flow_timer);
         sg_countdown_remaining = 0U;
         (void)pf_motor_stop();
+        pf_camera_preview_enable(false);
+        pf_ui_show_preview_status("CAPTURING");
         tal_semaphore_post(sg_capture_request);
         return;
     }
@@ -785,6 +795,18 @@ static void pf_app_task(void *arg)
         case PF_APP_EVENT_PAIRING_COOLDOWN:
             pf_finish_pairing_cooldown();
             break;
+        case PF_APP_EVENT_CAPTURE_READY:
+            if (sg_manual_capture_requested && sg_photo_jpeg != NULL &&
+                sg_photo_len > 0U) {
+                pf_stop_preview();
+                if (pf_ui_show_photo(PF_CAMERA_WIDTH, PF_CAMERA_HEIGHT,
+                                     sg_photo_jpeg, sg_photo_len) == OPRT_OK) {
+                    sg_manual_photo_visible = true;
+                } else {
+                    pf_ui_show_error("Photo display failed");
+                }
+            }
+            break;
         case PF_APP_EVENT_CAPTURE_DONE:
             sg_last_capture_result = event.data.capture.capture_result;
             if (event.data.capture.manual) {
@@ -792,11 +814,12 @@ static void pf_app_task(void *arg)
                 sg_manual_result_visible = true;
                 pf_input_set_mode(PF_INPUT_MODE_RESULT);
                 if (event.data.capture.capture_result != OPRT_OK) {
+                    pf_stop_preview();
                     pf_ui_show_error("Capture failed. Try again.");
                 } else {
-                    if (pf_ui_show_photo(PF_CAMERA_WIDTH, PF_CAMERA_HEIGHT,
-                                         sg_photo_jpeg,
-                                         sg_photo_len) != OPRT_OK) {
+                    if (!sg_manual_photo_visible &&
+                        pf_ui_show_photo(PF_CAMERA_WIDTH, PF_CAMERA_HEIGHT,
+                                         sg_photo_jpeg, sg_photo_len) != OPRT_OK) {
                         pf_ui_show_error("Photo display failed");
                     }
                     if (event.data.capture.upload_result != OPRT_OK) {

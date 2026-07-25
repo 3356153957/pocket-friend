@@ -762,9 +762,19 @@ if (-not $waitingUiPage.Success -or
     $waitingUiPage.Value -notmatch 'pf_ui_create_blank_page\(PF_UI_COLOR_SKY\)' -or
     $waitingUiPage.Value -notmatch '"ALMOST"' -or
     $waitingUiPage.Value -notmatch '"READY!"' -or
+    $waitingUiPage.Value -notmatch 'PF_INPUT_CONFIRM,\s*PF_UI_COLOR_PINK' -or
     $waitingUiPage.Value -notmatch 'PF_INPUT_CANCEL,\s*PF_UI_COLOR_LIME' -or
     $waitingUiPage.Value -match 'pf_ui_create_page\("Almost ready"\)') {
     throw 'Waiting-confirm page must use the same branded layout as friend matching'
+}
+$confirmedUiUpdate = [regex]::Match(
+    $ui,
+    'void pf_ui_set_confirmed\(bool local, bool peer\)\s*\{[\s\S]*?(?=void pf_ui_set_countdown)'
+)
+if (-not $confirmedUiUpdate.Success -or
+    $confirmedUiUpdate.Value -notmatch 'sg_ui\.waiting_confirm_button' -or
+    $confirmedUiUpdate.Value -notmatch 'local[\s\S]*LV_OBJ_FLAG_HIDDEN') {
+    throw 'Waiting-confirm page must keep confirm available until this device confirms'
 }
 $peerFoundPage = [regex]::Match(
     $app,
@@ -858,6 +868,33 @@ if ($app -match 'case PF_INPUT_PHOTO_NAME_SUBMIT:[\s\S]*pf_ui_show_page\(PF_UI_P
 }
 if ($app -notmatch 'case PF_INPUT_PHOTO_NAME_SUBMIT:[\s\S]*pf_ui_show_preview_countdown\(sg_countdown_remaining\);') {
     throw 'Manual name capture must show countdown over the live preview'
+}
+$manualCountdownBlock = [regex]::Match(
+    $app,
+    'if \(sg_manual_capture_requested &&[\s\S]*?(?=if \(sg_state\.state == PF_STATE_PEER_FOUND)'
+)
+if (-not $manualCountdownBlock.Success -or
+    $manualCountdownBlock.Value -notmatch 'pf_camera_preview_enable\(false\)' -or
+    $manualCountdownBlock.Value -notmatch 'pf_ui_show_preview_status\("CAPTURING"\)' -or
+    $manualCountdownBlock.Value.IndexOf('pf_ui_show_preview_status("CAPTURING")') -gt
+        $manualCountdownBlock.Value.IndexOf('tal_semaphore_post(sg_capture_request)')) {
+    throw 'Manual countdown must leave the 1-second overlay and stop preview work before capture'
+}
+$captureTask = [regex]::Match(
+    $app,
+    'static void pf_capture_task\(void \*arg\)[\s\S]*?(?=static void pf_release_photo)'
+)
+if (-not $captureTask.Success -or
+    $captureTask.Value -notmatch 'PF_APP_EVENT_CAPTURE_READY' -or
+    $captureTask.Value.IndexOf('PF_APP_EVENT_CAPTURE_READY') -gt
+        $captureTask.Value.IndexOf('pf_server_photo_upload')) {
+    throw 'Manual JPEG readiness must reach the UI before the blocking photo upload'
+}
+if ($app -notmatch 'case PF_APP_EVENT_CAPTURE_READY:[\s\S]*pf_ui_show_photo\(PF_CAMERA_WIDTH,\s*PF_CAMERA_HEIGHT,[\s\S]*sg_photo_jpeg[\s\S]*sg_photo_len') {
+    throw 'Manual photo must be displayed as soon as JPEG capture finishes'
+}
+if ($ui -notmatch 'void pf_ui_show_preview_status\(const char \*status\)[\s\S]*lv_label_set_text\(sg_ui\.preview_countdown_label, status\)') {
+    throw 'Preview overlay must support a non-countdown capture status'
 }
 if ($app -notmatch 'sg_manual_capture_requested &&[\s\S]*sg_state\.state == PF_STATE_CAMERA_PREVIEW[\s\S]*tal_semaphore_post\(sg_capture_request\);') {
     throw 'Manual capture must be triggered only after the countdown reaches zero'
