@@ -7,7 +7,7 @@
 - npm workspaces + TypeScript
 - Expo + React Native + Expo Web
 - Vitest：领域逻辑与适配器测试
-- Express：本地 JACOO Gateway
+- Express：本地外部定位 Gateway
 - Supabase JS：可选 Realtime Presence 适配器
 - React Native SVG：固定像素地图绘制
 
@@ -47,21 +47,21 @@
 3. 实现 Expo Location 适配器，覆盖权限拒绝和异常映射。
 4. 实现 Supabase Presence 适配器；缺失配置时由组合层降级为内存实现。
 
-## 任务 5：JACOO Gateway（TDD）
+## 任务 5：外部定位 Gateway（TDD）
 
 文件：`apps/gateway/src/*`。
 
 1. 先写禁用开关、缺少凭据、上游错误、响应净化和过期标记测试。
-2. 实现 `GET /api/location/jacoo/latest` 只读路由。
+2. 实现外部定位最新位置只读路由。
 3. 凭据仅从 Gateway 环境变量读取，日志不得包含请求头或密钥。
-4. 生产环境即使误配凭据也强制禁用 JACOO。
+4. 生产环境即使误配凭据也强制禁用外部定位桥接。
 
 ## 任务 6：8-bit 手机 Demo
 
 文件：`apps/mobile/App.tsx`、`src/components/*`、`src/theme/*`。
 
 1. 构建像素地图、玩家标记、定位状态栏和附近玩家列表。
-2. 增加真实/模拟/JACOO 定位切换；JACOO 仅在开发配置开启时出现。
+2. 增加真实/模拟/外部定位切换；外部定位仅在开发配置开启时出现。
 3. 增加可发现开关、范围滑块与距离精度分段控件。
 4. 选中玩家时显示共同兴趣、匹配理由和允许公开的距离。
 5. 进入范围时触发 Expo Haptics；Web 显示非阻塞提示。
