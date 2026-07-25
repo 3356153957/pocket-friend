@@ -12,12 +12,12 @@ export interface ScreenResident {
   source: "hardware" | "demo";
 }
 
-const MOCK_RESIDENT_NAME = "Luna";
+const FALLBACK_RESIDENT_NAME = "Luna";
 
 export function buildScreenResident(profile: EncounterProfile, photo: DownloadedPhoto): ScreenResident {
   return {
     id: photo.id,
-    name: MOCK_RESIDENT_NAME,
+    name: photo.name ?? FALLBACK_RESIDENT_NAME,
     magnetType: profile.archetype,
     tags: profile.sceneTags,
     portraitUrl: photo.originalDataUrl,

@@ -1,5 +1,6 @@
 export interface DownloadedPhoto {
   id: string;
+  name?: string;
   capturedAt: string;
   originalUrl?: string;
   originalDataUrl: string;
@@ -11,6 +12,7 @@ export interface DownloadedPhoto {
 interface PhotoHistoryResponse {
   photos?: Array<{
     id?: string;
+    name?: string;
     capturedAt?: string;
     bytes?: number;
     url?: string;
@@ -74,6 +76,7 @@ export async function fetchLatestHardwarePhoto(): Promise<DownloadedPhoto> {
 
     return {
       id: latest.id,
+      name: extractDisplayName(latest.name ?? latest.id),
       capturedAt: latest.capturedAt ?? new Date().toISOString(),
       originalUrl: makePhotoApiUrl(latest.url),
       originalDataUrl,
@@ -89,6 +92,7 @@ export async function createDemoDownloadedPhoto(warning = "Photo API is unavaila
   const fallback = await createDemoPixelPortrait();
   return {
     id: `demo-${Date.now()}`,
+    name: "Luna",
     capturedAt: new Date().toISOString(),
     originalDataUrl: fallback,
     pixelPortraitUrl: fallback,
@@ -127,6 +131,14 @@ async function withTimeout<T>(promise: Promise<T>, timeoutMs: number, timeoutMes
 
 function errorMessage(error: unknown): string {
   return error instanceof Error ? error.message : "Photo API is unavailable.";
+}
+
+function extractDisplayName(rawName: string): string {
+  const decoded = decodeURIComponent(rawName);
+  const withoutExtension = decoded.replace(/\.[a-z0-9]+$/i, "");
+  const withoutTimestamp = withoutExtension.replace(/-\d{4}-\d{2}-\d{2}T.*$/i, "");
+  const beforeCounter = withoutTimestamp.split("_")[0]?.trim();
+  return beforeCounter || withoutTimestamp || "Luna";
 }
 
 async function blobToDataUrl(blob: Blob): Promise<string> {

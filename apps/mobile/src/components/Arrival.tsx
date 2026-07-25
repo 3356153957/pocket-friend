@@ -22,6 +22,7 @@ export default function Arrival({ profile, onDone }: {
   const [portraitUrl, setPortraitUrl] = useState<string | null>(null);
   const [warning, setWarning] = useState<string | null>(null);
   const [canUseDemo, setCanUseDemo] = useState(false);
+  const [residentName, setResidentName] = useState("硬件照片");
 
   useEffect(() => {
     profileRef.current = profile;
@@ -58,6 +59,7 @@ export default function Arrival({ profile, onDone }: {
 
       setStage("pixelating");
       setCanUseDemo(false);
+      setResidentName(photo.name ?? "Luna");
       setPortraitUrl(photo.pixelPortraitUrl);
       setWarning(photo.warning ?? null);
 
@@ -95,8 +97,8 @@ export default function Arrival({ profile, onDone }: {
   return (
     <section className="flex min-h-full flex-col justify-center gap-5 px-4 py-5">
       <div>
-        <div className="font-pixel text-[8px] text-pink">03 路 ARRIVAL</div>
-        <h1 className="mt-3 font-pixel text-[14px] leading-7 text-ink">正在把 <span className="text-pink">Luna</span> 接入小岛</h1>
+        <div className="font-pixel text-[8px] text-pink">03 · ARRIVAL</div>
+        <h1 className="mt-3 font-pixel text-[14px] leading-7 text-ink">正在把 <span className="text-pink">{residentName}</span> 接入小岛</h1>
       </div>
 
       <div className="pixel-border bg-mint-screen p-4">
