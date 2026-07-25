@@ -2,6 +2,15 @@
 
 [中文文档](README.zh-CN.md)
 
+[![CI](https://img.shields.io/badge/CI-no_status-6b7280?style=flat&logo=github&logoColor=white)](https://github.com/3356153957/pocket-friend/actions)
+[![node](https://img.shields.io/badge/node-%3E%3D22.18-339933?style=flat&logo=nodedotjs&logoColor=white)](package.json)
+[![TypeScript](https://img.shields.io/badge/TypeScript-5.8.3-3178C6?style=flat&logo=typescript&logoColor=white)](package.json)
+[![React](https://img.shields.io/badge/React-19.2.3-149ECA?style=flat&logo=react&logoColor=white)](apps/mobile/package.json)
+[![Vite](https://img.shields.io/badge/Vite-8-646CFF?style=flat&logo=vite&logoColor=white)](apps/mobile/package.json)
+[![AMap](https://img.shields.io/badge/AMap-Web-00A1E9?style=flat)](apps/mobile/src/map)
+[![npm](https://img.shields.io/badge/npm-workspaces-CB3837?style=flat&logo=npm&logoColor=white)](package.json)
+[![tag](https://img.shields.io/badge/tag-%23adventurex2026-8A2BE2?style=flat&logo=github&logoColor=white)](https://github.com/3356153957/pocket-friend/releases/tag/%23adventurex2026)
+
 Pocket Friend is a small web experience for nearby companion matching. It presents the product as a phone-style app: users complete a short onboarding flow, choose their vibe and interests, see nearby matches on a map, and keep a lightweight presence heartbeat for the device-status admin panel.
 
 Tag: `#adventurex2026`
@@ -165,4 +174,3 @@ The repository includes GitHub Actions and Node.js deployment helpers for the pr
 - `scripts/deploy-production.mjs`
 - `scripts/deploy-admin.mjs`
 - `ops/`
-

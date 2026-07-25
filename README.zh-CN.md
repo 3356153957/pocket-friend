@@ -2,6 +2,15 @@
 
 [English README](README.md)
 
+[![CI](https://img.shields.io/badge/CI-no_status-6b7280?style=flat&logo=github&logoColor=white)](https://github.com/3356153957/pocket-friend/actions)
+[![node](https://img.shields.io/badge/node-%3E%3D22.18-339933?style=flat&logo=nodedotjs&logoColor=white)](package.json)
+[![TypeScript](https://img.shields.io/badge/TypeScript-5.8.3-3178C6?style=flat&logo=typescript&logoColor=white)](package.json)
+[![React](https://img.shields.io/badge/React-19.2.3-149ECA?style=flat&logo=react&logoColor=white)](apps/mobile/package.json)
+[![Vite](https://img.shields.io/badge/Vite-8-646CFF?style=flat&logo=vite&logoColor=white)](apps/mobile/package.json)
+[![AMap](https://img.shields.io/badge/AMap-Web-00A1E9?style=flat)](apps/mobile/src/map)
+[![npm](https://img.shields.io/badge/npm-workspaces-CB3837?style=flat&logo=npm&logoColor=white)](package.json)
+[![tag](https://img.shields.io/badge/tag-%23adventurex2026-8A2BE2?style=flat&logo=github&logoColor=white)](https://github.com/3356153957/pocket-friend/releases/tag/%23adventurex2026)
+
 Pocket Friend 是一个面向“附近陪伴匹配”的 Web 演示项目。它把产品做成手机应用的形态：用户完成简短引导，选择自己的气质和兴趣，在地图上看到附近匹配对象，同时通过轻量心跳让管理后台了解设备在线状态。
 
 标签：`#adventurex2026`
@@ -165,4 +174,3 @@ npm run build:sites
 - `scripts/deploy-production.mjs`
 - `scripts/deploy-admin.mjs`
 - `ops/`
-
