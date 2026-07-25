@@ -241,4 +241,36 @@ export class LatestPhotoStore {
     }
     return true;
   }
+
+  async renameHistoryPhoto(deviceId: BoardDeviceId, id: string, name: string): Promise<boolean> {
+    const normalizedName = storedName(name);
+    if (!normalizedName || !id.endsWith(".jpg") || id.includes("/") || id.includes("\\")) return false;
+    const photo = await this.getHistoryPhoto(deviceId, id);
+    if (!photo) return false;
+
+    const renamed = { ...photo, name: normalizedName };
+    const cached = this.history.get(deviceId);
+    if (cached) {
+      this.history.set(deviceId, cached.map((item) => item.id === id ? { ...item, name: normalizedName } : item));
+    }
+
+    const latest = await this.get(deviceId);
+    if (latest?.capturedAt === photo.capturedAt) {
+      this.photos.set(deviceId, { ...latest, name: normalizedName });
+      if (this.directory) {
+        await writeFile(this.metadataPath(deviceId), JSON.stringify({
+          capturedAt: latest.capturedAt,
+          name: normalizedName,
+        }));
+      }
+    }
+
+    if (this.directory) {
+      await writeFile(this.historyMetadataPath(deviceId, id), JSON.stringify({
+        capturedAt: renamed.capturedAt,
+        name: normalizedName,
+      }));
+    }
+    return true;
+  }
 }

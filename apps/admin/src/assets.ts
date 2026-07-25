@@ -130,9 +130,11 @@ h2 { margin: 0; font-size: 16px; letter-spacing: 0; }
 .history-card .photo-name { display: block; margin-top: 8px; color: #2b3732; font-size: 13px; font-weight: 900; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 .history-card time { display: block; margin-top: 4px; color: #2b3732; font-size: 12px; font-weight: 800; }
 .history-card span { display: block; margin-top: 3px; color: #7a8580; font-size: 11px; }
-.history-actions { display: flex; justify-content: flex-end; margin-top: 8px; }
-.history-delete { min-height: 30px; padding: 0 10px; color: #8f271f; background: #fff0ee; border: 1px solid #efb8b0; border-radius: 4px; font-size: 12px; font-weight: 900; cursor: pointer; }
-.history-delete:disabled { cursor: wait; opacity: 0.55; }
+.history-actions { display: flex; justify-content: flex-end; gap: 6px; margin-top: 8px; }
+.history-rename, .history-delete { min-height: 30px; padding: 0 10px; border-radius: 4px; font-size: 12px; font-weight: 900; cursor: pointer; }
+.history-rename { color: #173d35; background: #edf8f4; border: 1px solid #aed8cc; }
+.history-delete { color: #8f271f; background: #fff0ee; border: 1px solid #efb8b0; }
+.history-rename:disabled, .history-delete:disabled { cursor: wait; opacity: 0.55; }
 .load-error { margin-top: 12px; padding: 12px 14px; color: #8f271f; background: #fff0ee; border-left: 4px solid #cf4437; font-size: 13px; }
 footer { width: min(1040px, calc(100% - 32px)); margin: 0 auto 28px; color: #7a8580; font-size: 11px; text-align: right; }
 @media (max-width: 760px) { .device-grid, .photo-grid, .history-grid { grid-template-columns: 1fr; } .device-card { min-height: 0; } }
@@ -283,6 +285,32 @@ async function deleteHistoryPhoto(photo, button) {
   await refreshHistory(Date.now());
 }
 
+async function renameHistoryPhoto(photo, button) {
+  var displayName = photo.name || "\u672A\u547D\u540D";
+  var nextName = prompt("\u8F93\u5165\u65B0\u7684\u7167\u7247\u540D\u5B57", displayName);
+  if (nextName === null) return;
+  nextName = nextName.trim();
+  if (!nextName) {
+    alert("\u540D\u5B57\u4E0D\u80FD\u4E3A\u7A7A");
+    return;
+  }
+  button.disabled = true;
+  button.textContent = "\u4FDD\u5B58\u4E2D";
+  var response = await fetch(photo.url, {
+    method: "PATCH",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ name: nextName })
+  });
+  if (!response.ok) {
+    button.disabled = false;
+    button.textContent = "\u91CD\u547D\u540D";
+    alert("\u91CD\u547D\u540D\u5931\u8D25\uFF1AHTTP " + response.status);
+    return;
+  }
+  refreshPhotos();
+  await refreshHistory(Date.now());
+}
+
 function renderHistoryPhoto(photo, timestamp) {
   var card = document.createElement("article");
   card.className = "history-card";
@@ -300,6 +328,14 @@ function renderHistoryPhoto(photo, timestamp) {
   size.textContent = Math.ceil(photo.bytes / 1024) + " KiB";
   var actions = document.createElement("div");
   actions.className = "history-actions";
+  var renameButton = document.createElement("button");
+  renameButton.type = "button";
+  renameButton.className = "history-rename";
+  renameButton.textContent = "\u91CD\u547D\u540D";
+  renameButton.setAttribute("aria-label", "\u91CD\u547D\u540D\u7167\u7247 " + displayName);
+  renameButton.addEventListener("click", function() {
+    void renameHistoryPhoto(photo, renameButton);
+  });
   var deleteButton = document.createElement("button");
   deleteButton.type = "button";
   deleteButton.className = "history-delete";
@@ -308,7 +344,7 @@ function renderHistoryPhoto(photo, timestamp) {
   deleteButton.addEventListener("click", function() {
     void deleteHistoryPhoto(photo, deleteButton);
   });
-  actions.append(deleteButton);
+  actions.append(renameButton, deleteButton);
   card.append(image, name, time, size, actions);
   return card;
 }

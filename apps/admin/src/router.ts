@@ -280,6 +280,25 @@ export function createAdminRouter(options: AdminRouterOptions): AdminRouter {
       if (!deleted) return json({ error: { code: "PHOTO_NOT_FOUND", message: "No photo has been uploaded." } }, 404);
       return response(null, 204, "text/plain; charset=utf-8");
     }
+    if (archivedPhotoMutationMatch && request.method === "PATCH") {
+      if (!isAdminAuthorized(request, options.env)) return unauthorized();
+      let body: unknown;
+      try {
+        body = await request.json();
+      } catch {
+        return json({ error: { code: "INVALID_JSON", message: "A JSON body is required." } }, 400);
+      }
+      const rawName = typeof body === "object" && body ? (body as { name?: unknown }).name : undefined;
+      const name = normalizePhotoName(typeof rawName === "string" ? rawName : null);
+      if (!name) return json({ error: { code: "INVALID_PHOTO_NAME", message: "Photo name is required." } }, 400);
+      const renamed = await photos.renameHistoryPhoto(
+        archivedPhotoMutationMatch[1] as BoardDeviceId,
+        decodeURIComponent(archivedPhotoMutationMatch[2] ?? ""),
+        name,
+      );
+      if (!renamed) return json({ error: { code: "PHOTO_NOT_FOUND", message: "No photo has been uploaded." } }, 404);
+      return json({ name });
+    }
 
     if (request.method !== "GET" && request.method !== "HEAD") {
       const result = json({ error: { code: "METHOD_NOT_ALLOWED", message: "Method not allowed." } }, 405);
