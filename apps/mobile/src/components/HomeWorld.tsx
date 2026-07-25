@@ -1,16 +1,25 @@
 import { ArrowLeft, DoorOpen, Heart, Maximize2, Minimize2, RefreshCw } from "lucide-react";
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 
 import {
   fallbackProductScenes,
-  listProductResidents,
   listProductScenes,
-  toScreenResident,
-  type ProductResident,
   type ProductScene,
 } from "../app/productApi.ts";
-import { fetchHardwarePhotoCandidates } from "../app/photoPipeline.ts";
-import { reconcileResidentsWithPhotos } from "../app/photoResidentSync.ts";
+import {
+  fetchHardwarePhotoCandidates,
+  makePhotoApiUrl,
+  processHardwarePhotoCandidate,
+  type DownloadedPhoto,
+  type HardwarePhotoCandidate,
+} from "../app/photoPipeline.ts";
+import {
+  createPlaceholderResidentFromPhoto,
+  needsPixelGeneration,
+  syncPhotoResidents,
+  type ManagedPhotoResident,
+} from "../app/photoResidentSync.ts";
+import { photosInUploadOrder } from "../app/photoUpdateQueue.ts";
 import type { ScreenResident } from "../app/screenResident.ts";
 import { residentsForScene } from "../app/sceneResidents.ts";
 import InteractiveIsland, { type IslandPal, type IslandSceneConfig } from "./InteractiveIsland.tsx";
@@ -22,6 +31,8 @@ const palColors = [
   { hair: "#84cc16", body: "#a3e635", bg: "bg-lime" },
   { hair: "#c084fc", body: "#a855f7", bg: "bg-card" },
 ] as const;
+
+const LOCAL_PHOTO_RESIDENTS_KEY = "pf:island-photo-residents:v1";
 
 function labelFromName(name: string) {
   return Array.from(name.trim())[0]?.toUpperCase() ?? "P";
@@ -78,10 +89,58 @@ function fallbackPal(): IslandPal {
   };
 }
 
-function mergeResidents(backendResidents: ProductResident[]) {
+function mergeResidents(backendResidents: ScreenResident[]) {
   const merged = new Map<string, ScreenResident>();
-  for (const item of backendResidents) merged.set(item.id, toScreenResident(item));
+  for (const item of backendResidents) merged.set(item.id, item);
   return [...merged.values()];
+}
+
+function readCachedPhotoResidents(): ManagedPhotoResident[] {
+  try {
+    const parsed = JSON.parse(window.localStorage.getItem(LOCAL_PHOTO_RESIDENTS_KEY) ?? "[]") as unknown;
+    if (!Array.isArray(parsed)) return [];
+    return parsed.filter((item): item is ManagedPhotoResident => (
+      typeof item === "object" &&
+      item !== null &&
+      typeof (item as { id?: unknown }).id === "string" &&
+      typeof (item as { name?: unknown }).name === "string" &&
+      typeof (item as { pixelPortraitUrl?: unknown }).pixelPortraitUrl === "string" &&
+      (item as { source?: unknown }).source === "hardware"
+    ));
+  } catch {
+    return [];
+  }
+}
+
+function writeCachedPhotoResidents(residents: ManagedPhotoResident[]) {
+  try {
+    window.localStorage.setItem(LOCAL_PHOTO_RESIDENTS_KEY, JSON.stringify(residents));
+  } catch {
+    // Storage can be full on some mobile browsers; the island can still render in memory.
+  }
+}
+
+function residentFromDownloadedPhoto(
+  photo: DownloadedPhoto,
+  candidate: HardwarePhotoCandidate,
+  index: number,
+  sceneIds: string[],
+): ManagedPhotoResident {
+  const sceneId = sceneIds[index % Math.max(1, sceneIds.length)] ?? "venture-center";
+  return {
+    id: candidate.id,
+    name: photo.name ?? "硬件照片",
+    magnetType: "好奇选手",
+    tags: [photo.spriteSource === "seedream" ? "Seedream形象" : "本地像素形象", "4311照片"],
+    portraitUrl: photo.originalUrl ?? makePhotoApiUrl(candidate.url),
+    pixelPortraitUrl: photo.pixelPortraitUrl,
+    createdAt: photo.capturedAt,
+    updatedAt: new Date().toISOString(),
+    source: "hardware",
+    spriteSource: photo.spriteSource,
+    activeSceneId: sceneId,
+    ...(photo.seedreamModel ? { seedreamModel: photo.seedreamModel } : {}),
+  };
 }
 
 function sceneConfigFromProduct(scene: ProductScene): IslandSceneConfig {
@@ -147,26 +206,74 @@ function SceneBackButton({ onBack }: { onBack: () => void }) {
 
 export default function HomeWorld({ resident }: { resident?: ScreenResident | null | undefined }) {
   const [scenes, setScenes] = useState<ProductScene[]>(fallbackProductScenes);
-  const [backendResidents, setBackendResidents] = useState<ProductResident[]>([]);
+  const [backendResidents, setBackendResidents] = useState<ScreenResident[]>([]);
   const [activeScene, setActiveScene] = useState<ProductScene | null>(null);
   const [selectedId, setSelectedId] = useState(resident?.id ?? "local-preview");
   const [landscape, setLandscape] = useState(false);
   const [backendNotice, setBackendNotice] = useState<string | null>(null);
+  const generationQueueRef = useRef(Promise.resolve());
+  const generatingPhotoIdsRef = useRef(new Set<string>());
 
   async function refreshWorld() {
     try {
-      const [loadedScenes, loadedResidents, managedPhotos] = await Promise.all([
-        listProductScenes(),
-        listProductResidents(),
+      const [loadedScenes, managedPhotos] = await Promise.all([
+        listProductScenes().catch(() => fallbackProductScenes),
         fetchHardwarePhotoCandidates(),
       ]);
-      setScenes(loadedScenes.length ? loadedScenes : fallbackProductScenes);
-      setBackendResidents(reconcileResidentsWithPhotos(loadedResidents, managedPhotos));
+      const nextScenes = loadedScenes.length ? loadedScenes : fallbackProductScenes;
+      const sceneIds = nextScenes.map((scene) => scene.id);
+      const syncedResidents = syncPhotoResidents(
+        readCachedPhotoResidents(),
+        managedPhotos,
+        (photo, index) => createPlaceholderResidentFromPhoto(
+          photo,
+          index,
+          makePhotoApiUrl(photo.url ?? ""),
+          sceneIds,
+        ),
+      );
+
+      setScenes(nextScenes);
+      setBackendResidents(syncedResidents);
+      writeCachedPhotoResidents(syncedResidents);
       setBackendNotice(null);
+      enqueuePhotoGeneration(managedPhotos, syncedResidents, sceneIds);
     } catch {
       setScenes(fallbackProductScenes);
-      setBackendNotice("正在使用本地场景缓存");
+      const cached = readCachedPhotoResidents();
+      if (cached.length) setBackendResidents(cached);
+      setBackendNotice("正在使用本地缓存");
     }
+  }
+
+  function enqueuePhotoGeneration(
+    newestFirst: HardwarePhotoCandidate[],
+    residents: ManagedPhotoResident[],
+    sceneIds: string[],
+  ) {
+    const residentsById = new Map(residents.map((item) => [item.id, item]));
+    const missing = photosInUploadOrder(newestFirst).filter((photo) => {
+      const current = residentsById.get(photo.id);
+      return current && needsPixelGeneration(current) && !generatingPhotoIdsRef.current.has(photo.id);
+    });
+
+    missing.forEach((candidate, index) => {
+      generatingPhotoIdsRef.current.add(candidate.id);
+      generationQueueRef.current = generationQueueRef.current
+        .then(async () => {
+          const processed = await processHardwarePhotoCandidate(candidate);
+          const generatedResident = residentFromDownloadedPhoto(processed, candidate, index, sceneIds);
+          setBackendResidents((current) => {
+            const next = current.map((item) => item.id === candidate.id ? generatedResident : item);
+            writeCachedPhotoResidents(next as ManagedPhotoResident[]);
+            return next;
+          });
+        })
+        .catch(() => undefined)
+        .finally(() => {
+          generatingPhotoIdsRef.current.delete(candidate.id);
+        });
+    });
   }
 
   useEffect(() => {

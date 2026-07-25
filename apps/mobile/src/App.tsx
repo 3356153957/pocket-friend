@@ -8,7 +8,6 @@ import {
 } from "./app/appFlow.ts";
 import {
   saveProductResident,
-  listProductResidents,
   upsertProductProfile,
   type ProductProfile,
   type ProductProfileDraft,
@@ -17,7 +16,7 @@ import {
   fetchHardwarePhotoCandidates,
   type HardwarePhotoCandidate,
 } from "./app/photoPipeline.ts";
-import { findUnprocessedPhotos, photosInUploadOrder } from "./app/photoUpdateQueue.ts";
+import { photosInUploadOrder } from "./app/photoUpdateQueue.ts";
 import { useNearbyDemo } from "./app/useNearbyDemo.ts";
 import type { ScreenResident } from "./app/screenResident.ts";
 import Arrival from "./components/Arrival.tsx";
@@ -77,16 +76,11 @@ export default function App() {
         knownPhotoIdsRef.current = currentIds;
         if (disposed) return;
 
-        let candidates: HardwarePhotoCandidate[];
-        if (knownIds) {
-          candidates = photosInUploadOrder(
-            newestFirst.filter((candidate) => !knownIds.has(candidate.id)),
-          );
-        } else {
-          const savedResidents = await listProductResidents().catch(() => []);
-          const processedIds = new Set(savedResidents.flatMap((resident) => [resident.id, resident.createdAt]));
-          candidates = findUnprocessedPhotos(newestFirst, processedIds);
-        }
+        if (!knownIds) return;
+
+        const candidates = photosInUploadOrder(
+          newestFirst.filter((candidate) => !knownIds.has(candidate.id)),
+        );
         if (candidates.length > 0) {
           setArrivalBatch({
             candidates,

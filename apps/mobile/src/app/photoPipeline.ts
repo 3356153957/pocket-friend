@@ -38,7 +38,7 @@ const PHOTO_DOWNLOAD_TIMEOUT_MS = 6000;
 const PHOTO_NORMALIZE_TIMEOUT_MS = 5000;
 const PIXELATE_TIMEOUT_MS = 6000;
 
-function makePhotoApiUrl(path: string): string {
+export function makePhotoApiUrl(path: string): string {
   if (/^https?:\/\//i.test(path)) {
     if (PHOTO_API_BASE.startsWith("http")) return path;
     const url = new URL(path);
@@ -127,7 +127,7 @@ export async function processHardwarePhotoCandidate(
       originalUrl: makePhotoApiUrl(candidate.url),
       originalDataUrl: normalized.dataUrl,
       pixelPortraitUrl,
-      source: spriteSource === "seedream" ? "hardware" : "demo",
+      source: "hardware",
       spriteSource,
       ...(seedreamModel ? { seedreamModel } : {}),
       ...(warning ? { warning } : {}),
