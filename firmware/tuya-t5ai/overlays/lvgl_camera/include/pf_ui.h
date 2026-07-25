@@ -9,6 +9,7 @@ extern "C" {
 #endif
 
 typedef enum {
+    PF_UI_PAGE_START,
     PF_UI_PAGE_IDLE,
     PF_UI_PAGE_PREVIEW,
     PF_UI_PAGE_MATCH,
@@ -16,6 +17,7 @@ typedef enum {
     PF_UI_PAGE_COUNTDOWN,
     PF_UI_PAGE_RESULT,
     PF_UI_PAGE_DND,
+    PF_UI_PAGE_SLEEP,
     PF_UI_PAGE_ERROR,
     PF_UI_PAGE_PHOTO_NAME_INPUT,
     PF_UI_PAGE_PINYIN_INPUT,
@@ -26,6 +28,8 @@ typedef enum {
 
 OPERATE_RET pf_ui_init(void);
 void pf_ui_show_page(PF_UI_PAGE_E page);
+void pf_ui_mark_started(bool started);
+bool pf_ui_is_started(void);
 void pf_ui_set_peer(char peer_id, bool online);
 void pf_ui_set_confirmed(bool local, bool peer);
 void pf_ui_set_countdown(uint8_t seconds);
