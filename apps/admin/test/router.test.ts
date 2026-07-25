@@ -276,16 +276,19 @@ describe("admin router", () => {
       body: JSON.stringify({ name: " 阿狸 " }),
     }));
     assert.equal(renamed.status, 200);
-    assert.deepEqual(await renamed.json(), { name: "阿狸" });
+    const renamedBody = await renamed.json() as { id: string; name: string; url: string };
+    assert.equal(renamedBody.name, "阿狸");
+    assert.match(renamedBody.id, /^阿狸-/u);
+    assert.notEqual(renamedBody.url, url);
 
     const listed = await route(new Request("http://localhost/api/photos/board-a/history", {
       headers: { Authorization: `Basic ${credentials}` },
     }));
     const listedBody = await listed.json() as { photos: Array<{ name?: string; url: string }> };
     assert.equal(listedBody.photos[0]?.name, "阿狸");
-    assert.equal(listedBody.photos[0]?.url, url);
+    assert.equal(listedBody.photos[0]?.url, renamedBody.url);
 
-    const downloaded = await route(new Request(`http://localhost${url}`, {
+    const downloaded = await route(new Request(`http://localhost${renamedBody.url}`, {
       headers: { Authorization: "Bearer photo-read-secret" },
     }));
     assert.equal(downloaded.status, 200);

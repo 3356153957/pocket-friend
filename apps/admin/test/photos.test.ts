@@ -1,5 +1,5 @@
 import assert from "node:assert/strict";
-import { mkdtemp, rm, writeFile } from "node:fs/promises";
+import { mkdtemp, readdir, rm, writeFile } from "node:fs/promises";
 import { join } from "node:path";
 import { tmpdir } from "node:os";
 import { test } from "node:test";
@@ -155,7 +155,7 @@ test("photo history deletion removes archived files and the matching latest phot
   }
 });
 
-test("photo history rename persists metadata and updates the matching latest photo", async () => {
+test("photo history rename persists metadata, renames archive files, and updates the matching latest photo", async () => {
   const directory = await mkdtemp(join(tmpdir(), "pf-admin-photos-"));
   try {
     const jpeg = Uint8Array.from([0xff, 0xd8, 0x01, 0xff, 0xd9]);
@@ -169,16 +169,27 @@ test("photo history rename persists metadata and updates the matching latest pho
     const history = await store.listHistory("board-a");
     const id = history[0]?.id ?? "";
 
-    assert.equal(await store.renameHistoryPhoto("board-a", id, "阿狸"), true);
+    const renamed = await store.renameHistoryPhoto("board-a", id, "阿狸");
+    assert.equal(renamed?.name, "阿狸");
+    assert.match(renamed?.id ?? "", /^阿狸-/u);
+    assert.notEqual(renamed?.id, id);
 
     const restarted = new LatestPhotoStore({ directory });
     const renamedHistory = await restarted.listHistory("board-a");
-    const renamedPhoto = await restarted.getHistoryPhoto("board-a", id);
+    const renamedPhoto = await restarted.getHistoryPhoto("board-a", renamed?.id ?? "");
     const latest = await restarted.get("board-a");
     assert.equal(renamedHistory[0]?.name, "阿狸");
+    assert.equal(renamedHistory[0]?.id, renamed?.id);
     assert.equal(renamedPhoto?.name, "阿狸");
     assert.equal(latest?.name, "阿狸");
     assert.deepEqual(renamedPhoto?.bytes, jpeg);
+    assert.equal(await restarted.getHistoryPhoto("board-a", id), undefined);
+
+    const files = await readdir(join(directory, "history", "board-a"));
+    assert.equal(files.includes(id), false);
+    assert.equal(files.includes(`${id}.json`), false);
+    assert.equal(files.includes(renamed?.id ?? ""), true);
+    assert.equal(files.includes(`${renamed?.id}.json`), true);
   } finally {
     await rm(directory, { recursive: true, force: true });
   }

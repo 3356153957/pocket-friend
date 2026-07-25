@@ -1,4 +1,4 @@
-import { mkdir, readFile, readdir, rm, writeFile } from "node:fs/promises";
+import { mkdir, readFile, readdir, rename, rm, writeFile } from "node:fs/promises";
 import { join } from "node:path";
 
 export type BoardDeviceId = "board-a";
@@ -242,16 +242,17 @@ export class LatestPhotoStore {
     return true;
   }
 
-  async renameHistoryPhoto(deviceId: BoardDeviceId, id: string, name: string): Promise<boolean> {
+  async renameHistoryPhoto(deviceId: BoardDeviceId, id: string, name: string): Promise<ArchivedPhotoSummary | undefined> {
     const normalizedName = storedName(name);
-    if (!normalizedName || !id.endsWith(".jpg") || id.includes("/") || id.includes("\\")) return false;
+    if (!normalizedName || !id.endsWith(".jpg") || id.includes("/") || id.includes("\\")) return undefined;
     const photo = await this.getHistoryPhoto(deviceId, id);
-    if (!photo) return false;
+    if (!photo) return undefined;
 
-    const renamed = { ...photo, name: normalizedName };
+    const nextId = this.archiveId(photo.capturedAt, normalizedName);
+    const renamed = { ...photo, id: nextId, name: normalizedName };
     const cached = this.history.get(deviceId);
     if (cached) {
-      this.history.set(deviceId, cached.map((item) => item.id === id ? { ...item, name: normalizedName } : item));
+      this.history.set(deviceId, cached.map((item) => item.id === id ? renamed : item));
     }
 
     const latest = await this.get(deviceId);
@@ -266,11 +267,22 @@ export class LatestPhotoStore {
     }
 
     if (this.directory) {
-      await writeFile(this.historyMetadataPath(deviceId, id), JSON.stringify({
-        capturedAt: renamed.capturedAt,
+      if (nextId !== id) {
+        await Promise.all([
+          rename(this.historyPhotoPath(deviceId, id), this.historyPhotoPath(deviceId, nextId)),
+          rename(this.historyMetadataPath(deviceId, id), this.historyMetadataPath(deviceId, nextId)),
+        ]);
+      }
+      await writeFile(this.historyMetadataPath(deviceId, nextId), JSON.stringify({
+        capturedAt: photo.capturedAt,
         name: normalizedName,
       }));
     }
-    return true;
+    return {
+      id: nextId,
+      capturedAt: photo.capturedAt,
+      bytes: photo.bytes.byteLength,
+      name: normalizedName,
+    };
   }
 }

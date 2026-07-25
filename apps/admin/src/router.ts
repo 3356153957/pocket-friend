@@ -297,7 +297,11 @@ export function createAdminRouter(options: AdminRouterOptions): AdminRouter {
         name,
       );
       if (!renamed) return json({ error: { code: "PHOTO_NOT_FOUND", message: "No photo has been uploaded." } }, 404);
-      return json({ name });
+      const deviceId = archivedPhotoMutationMatch[1] as BoardDeviceId;
+      return json({
+        ...renamed,
+        url: `/api/photos/${deviceId}/history/${encodeURIComponent(renamed.id)}`,
+      });
     }
 
     if (request.method !== "GET" && request.method !== "HEAD") {
