@@ -20,6 +20,7 @@ static void pf_state_check_confirmed(PF_STATE_CONTEXT_T *ctx,
                                      PF_EFFECTS_T *effects)
 {
     if (ctx->local_confirmed && ctx->peer_confirmed) {
+        ctx->pairing_completed = true;
         ctx->state = PF_STATE_CAPTURE_PREPARE;
         *effects |= PF_EFFECT_SEND_PREPARE;
     }
@@ -102,6 +103,9 @@ OPERATE_RET pf_state_dispatch(PF_STATE_CONTEXT_T *ctx,
         break;
 
     case PF_EVENT_PEER_FOUND:
+        if (next.pairing_completed) {
+            break;
+        }
         if (next.state != PF_STATE_ONLINE_IDLE &&
             next.state != PF_STATE_CAMERA_PREVIEW) {
             handled = false;

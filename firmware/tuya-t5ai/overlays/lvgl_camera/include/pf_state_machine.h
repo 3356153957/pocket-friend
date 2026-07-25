@@ -69,6 +69,7 @@ typedef struct {
     PF_STATE_E camera_return_state;
     bool local_confirmed;
     bool peer_confirmed;
+    bool pairing_completed;
     bool local_captured;
     bool peer_captured;
     uint32_t session_id;

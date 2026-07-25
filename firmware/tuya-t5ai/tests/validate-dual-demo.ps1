@@ -185,6 +185,28 @@ if ($stateSource -notmatch 'event\s*>=\s*PF_EVENT_COUNT') {
     throw 'State dispatch must validate events against PF_EVENT_COUNT, not a mid-enum event'
 }
 
+$clearSessionBlock = [regex]::Match(
+    $stateSource,
+    'static void pf_state_clear_session[\s\S]*?\n}'
+)
+$confirmedBlock = [regex]::Match(
+    $stateSource,
+    'static void pf_state_check_confirmed[\s\S]*?\n}'
+)
+$peerFoundBlock = [regex]::Match(
+    $stateSource,
+    'case PF_EVENT_PEER_FOUND:[\s\S]*?(?=case PF_EVENT_OPEN_CAMERA:)'
+)
+if (-not $protocolAndState.Contains('bool pairing_completed;') -or
+    -not $confirmedBlock.Success -or
+    $confirmedBlock.Value -notmatch 'ctx->pairing_completed\s*=\s*true;' -or
+    -not $peerFoundBlock.Success -or
+    $peerFoundBlock.Value -notmatch 'next\.pairing_completed[\s\S]*break;' -or
+    -not $clearSessionBlock.Success -or
+    $clearSessionBlock.Value -match 'pairing_completed') {
+    throw 'Completed pairing must stay latched until pf_state_init runs after reboot'
+}
+
 $motorHeaderPath = Join-Path $root 'overlays\lvgl_camera\include\pf_motor.h'
 $motorSourcePath = Join-Path $root 'overlays\lvgl_camera\src\pf_motor.c'
 $inputHeaderPath = Join-Path $root 'overlays\lvgl_camera\include\pf_input.h'
@@ -831,7 +853,7 @@ if ($stateSource -notmatch 'case PF_EVENT_PEER_FOUND:[\s\S]*PF_STATE_PEER_FOUND;
 }
 $peerFoundStateBlock = [regex]::Match(
     $stateSource,
-    'case PF_EVENT_PEER_FOUND:[\s\S]*?break;'
+    'case PF_EVENT_PEER_FOUND:[\s\S]*?(?=case PF_EVENT_OPEN_CAMERA:)'
 )
 if (-not $peerFoundStateBlock.Success -or
     $peerFoundStateBlock.Value -notmatch 'next\.state != PF_STATE_ONLINE_IDLE\s*&&\s*next\.state != PF_STATE_CAMERA_PREVIEW') {
