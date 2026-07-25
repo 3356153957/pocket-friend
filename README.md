@@ -11,25 +11,50 @@
 [![npm](https://img.shields.io/badge/npm-workspaces-CB3837?style=flat&logo=npm&logoColor=white)](package.json)
 [![tag](https://img.shields.io/badge/tag-%23adventurex2026-8A2BE2?style=flat&logo=github&logoColor=white)](https://github.com/3356153957/pocket-friend/releases/tag/%23adventurex2026)
 
-Pocket Friend is a small web experience for nearby companion matching. It presents the product as a phone-style app: users complete a short onboarding flow, choose their vibe and interests, see nearby matches on a map, and keep a lightweight presence heartbeat for the device-status admin panel.
+Pocket Friend is a retro handheld-style web experience for an onsite companion-matching demo. Visitors answer a short magnet quiz, choose interest tags, create a small pixel profile, and enter a PALS page that can sync their profile to the onsite big-screen experience. The mobile MAP tab stays intentionally simple: it shows a pixel-island preview, while character movement and richer interactions belong to the venue display.
 
 Tag: `#adventurex2026`
 
 ## Who It Is For
 
-- Teams exploring lightweight social matching around a physical pendant or companion device.
-- Hackathon reviewers who want to run the demo quickly and understand the project structure.
-- Developers who want a small, testable TypeScript workspace with a web app, service endpoints, admin tooling, and shared matching logic.
+- Onsite visitors who need a quick, playful way to create their Pocket Friend profile.
+- Demo operators who need a clear mobile flow that feeds the big-screen installation.
+- Hackathon reviewers who want to understand the product experience, scope, and code layout quickly.
+- Developers who want a small, testable TypeScript workspace with a web app, services, admin tooling, and shared matching logic.
 
 ## Main Features
 
-- Mobile-style Pocket Friend prototype with onboarding, preference quiz, matching map, home, and settings tabs.
-- Nearby matching model with distance privacy, shared-interest explanations, and simulated demo players.
-- Browser location sampling with accuracy-aware fallbacks.
-- AMap-based map rendering with satellite/standard layer switching and accessible marker selection.
+- Three-question magnet quiz that derives one of four traits: Quiet Observer, Chatty Spark, Curious Explorer, or Easygoing Drifter.
+- Interest-tag step after the quiz, keeping the profile flow lightweight while still requiring meaningful preferences.
+- Profile and photo flow for producing a pixel portrait, with the experience standard centered on a compact `72px / 28c` avatar.
+- PALS profile page for showing the visitor card, magnet trait, interests, and generated pixel portrait.
+- Mobile MAP tab as a static pixel-island preview, matching the big-screen visual world without adding mobile character controls.
+- Existing bottom navigation structure: `MAP`, `PALS`, and `SET`.
+- Fake matching/demo logic preserved for a stable onsite walkthrough.
 - Device-status admin service with basic auth, heartbeat reporting, board photo upload, photo history, and dedicated photo-read tokens.
-- Lightweight gateway service for backend location and service integrations.
-- Production scripts for static web deployment and the independent admin service.
+- Production scripts for the static web experience and the independent admin service.
+
+## Experience Flow
+
+```text
+Open Pocket Friend
+  -> answer the 3-question magnet quiz
+  -> receive a magnet trait
+  -> choose at least 3 interest tags
+  -> enter name and upload/capture a photo
+  -> generate a pixel portrait
+  -> view the PALS profile card
+  -> keep demo matching behavior available
+  -> open MAP for the pixel-island preview
+  -> sync profile data to the onsite big-screen channel
+```
+
+## Product Boundaries
+
+- The retro handheld pixel UI, bottom navigation, PALS card structure, SET page, photo flow, and demo matching behavior are preserved.
+- The mobile MAP tab is a preview surface only; it does not implement character walking, hover states, or click interactions.
+- Big-screen character movement and richer scene interactions are handled outside this mobile web experience.
+- The public repository should document the reusable software experience without exposing private credentials, production data, or onsite-only secrets.
 
 ## Quick Start
 
@@ -74,7 +99,7 @@ docs/                 Project notes and implementation plans
 
 | Service | Path | Purpose | Default command |
 | --- | --- | --- | --- |
-| Mobile web app | `apps/mobile` | User-facing Pocket Friend prototype | `npm run dev:mobile` |
+| Mobile web app | `apps/mobile` | Visitor-facing Pocket Friend software experience | `npm run dev:mobile` |
 | Gateway | `apps/gateway` | Backend integration gateway and health endpoint | `npm run dev:gateway` |
 | Admin | `apps/admin` | Device heartbeat, board photo upload, status dashboard | `npm run dev:admin` |
 | Shared core | `packages/nearby-core` | Pure domain logic used by app and tests | covered by `npm test` |
