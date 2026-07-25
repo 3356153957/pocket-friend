@@ -2,6 +2,7 @@
 import { describe, test } from "node:test";
 
 import { createAdminRouter } from "../src/router.ts";
+import type { LatestPhotoStore } from "../src/photos.ts";
 import { DeviceStatusRegistry } from "../src/status.ts";
 
 const credentials = Buffer.from("operator:correct-horse").toString("base64");
@@ -142,6 +143,33 @@ describe("admin router", () => {
 
     const latest = await route(new Request("http://localhost:4311/island-photo-api/api/photos/board-a/latest", {
       headers: { Origin: origin },
+    }));
+    assert.equal(latest.status, 200);
+    assert.deepEqual(new Uint8Array(await latest.arrayBuffer()), jpeg);
+  });
+
+  test("uses the newest historical photo when the separate current file is missing", async () => {
+    const jpeg = Uint8Array.from([0xff, 0xd8, 0x05, 0xff, 0xd9]);
+    const archived = {
+      id: "latest-history.jpg",
+      capturedAt: new Date(10_000).toISOString(),
+      bytes: jpeg,
+      name: "当前照片",
+    };
+    const photos = {
+      get: async () => undefined,
+      listHistory: async () => [{
+        id: archived.id,
+        capturedAt: archived.capturedAt,
+        bytes: archived.bytes.byteLength,
+        name: archived.name,
+      }],
+      getHistoryPhoto: async () => archived,
+    } as unknown as LatestPhotoStore;
+    const route = createAdminRouter({ env, registry: new DeviceStatusRegistry(), photos });
+
+    const latest = await route(new Request("http://localhost:4311/island-photo-api/api/photos/board-a/latest", {
+      headers: { Origin: "http://localhost:4320" },
     }));
     assert.equal(latest.status, 200);
     assert.deepEqual(new Uint8Array(await latest.arrayBuffer()), jpeg);

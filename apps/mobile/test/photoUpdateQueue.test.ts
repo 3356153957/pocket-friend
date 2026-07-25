@@ -4,6 +4,7 @@ import { describe, test } from "node:test";
 import {
   PhotoProcessingQueue,
   findPhotosAfter,
+  findUnprocessedPhotos,
   photosInUploadOrder,
   shouldStartPhotoArrival,
 } from "../src/app/photoUpdateQueue.ts";
@@ -70,6 +71,19 @@ describe("hardware photo processing queue", () => {
     assert.deepEqual(photosInUploadOrder(newestFirst), [
       { id: "a", name: "照片 A" },
       { id: "b", name: "照片 B" },
+      { id: "c", name: "照片 C" },
+    ]);
+  });
+
+  test("queues existing history that has no saved island resident", () => {
+    const newestFirst = [
+      { id: "c", name: "照片 C" },
+      { id: "b", name: "照片 B" },
+      { id: "a", name: "照片 A" },
+    ];
+
+    assert.deepEqual(findUnprocessedPhotos(newestFirst, new Set(["b"])), [
+      { id: "a", name: "照片 A" },
       { id: "c", name: "照片 C" },
     ]);
   });

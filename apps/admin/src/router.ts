@@ -171,6 +171,13 @@ function photoNameFromRequest(request: Request, url: URL): string | undefined {
   ) ?? photoNameFromFilename(url.searchParams.get("filename"));
 }
 
+async function latestAvailablePhoto(photos: LatestPhotoStore, deviceId: BoardDeviceId) {
+  const current = await photos.get(deviceId);
+  if (current) return current;
+  const newest = (await photos.listHistory(deviceId))[0];
+  return newest ? await photos.getHistoryPhoto(deviceId, newest.id) : undefined;
+}
+
 function parseHeartbeat(value: unknown): Heartbeat | null {
   if (!value || typeof value !== "object") return null;
   const input = value as Record<string, unknown>;
@@ -246,7 +253,7 @@ export function createAdminRouter(options: AdminRouterOptions): AdminRouter {
 
       const latestMatch = /^\/api\/photos\/(board-a)\/latest$/u.exec(islandPath);
       if (latestMatch) {
-        const photo = await photos.get(latestMatch[1] as BoardDeviceId);
+        const photo = await latestAvailablePhoto(photos, latestMatch[1] as BoardDeviceId);
         if (!photo) return withIslandCors(json({ error: { code: "PHOTO_NOT_FOUND", message: "No photo has been uploaded." } }, 404), origin);
         const result = response(request.method === "HEAD" ? null : photo.bytes, 200, "image/jpeg");
         result.headers.set("X-Captured-At", photo.capturedAt);
@@ -398,7 +405,7 @@ export function createAdminRouter(options: AdminRouterOptions): AdminRouter {
     const photoMatch = /^\/api\/photos\/(board-a)\/latest$/u.exec(url.pathname);
     if (photoMatch) {
       if (!await isPhotoReaderAuthorized(request, options.env, photoDownloadTokens)) return unauthorized();
-      const photo = await photos.get(photoMatch[1] as BoardDeviceId);
+      const photo = await latestAvailablePhoto(photos, photoMatch[1] as BoardDeviceId);
       if (!photo) return json({ error: { code: "PHOTO_NOT_FOUND", message: "No photo has been uploaded." } }, 404);
       const result = response(photo.bytes, 200, "image/jpeg");
       result.headers.set("X-Captured-At", photo.capturedAt);

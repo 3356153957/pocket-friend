@@ -60,6 +60,13 @@ export function photosInUploadOrder<T>(newestFirst: T[]): T[] {
   return [...newestFirst].reverse();
 }
 
+export function findUnprocessedPhotos<T extends PhotoWithId>(
+  newestFirst: T[],
+  processedIds: ReadonlySet<string>,
+): T[] {
+  return photosInUploadOrder(newestFirst.filter((photo) => !processedIds.has(photo.id)));
+}
+
 export function shouldStartPhotoArrival(
   latestPhotoId: string,
   lastHandledId: string | null,
