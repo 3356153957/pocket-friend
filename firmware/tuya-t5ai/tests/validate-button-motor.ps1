@@ -33,6 +33,17 @@ foreach ($item in $motorRequired) {
     }
 }
 
+$peerFoundPattern = [regex]::Match(
+    $motor,
+    'case PF_MOTOR_PATTERN_PEER_FOUND:[\s\S]*?break;'
+)
+if (-not $peerFoundPattern.Success -or
+    ([regex]::Matches($peerFoundPattern.Value,
+        'pf_motor_pulse\(120U,\s*(?:180U|0U),\s*generation\);')).Count -ne 3 -or
+    $peerFoundPattern.Value -match '\bwhile\s*\(') {
+    throw 'Peer-found feedback must be three finite, spaced vibration pulses'
+}
+
 $input = Get-Content -LiteralPath $inputPath -Raw
 $inputRequired = @(
     'TDL_BUTTON_PRESS_SINGLE_CLICK'

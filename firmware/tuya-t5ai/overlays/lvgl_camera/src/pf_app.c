@@ -264,8 +264,6 @@ static void pf_refresh_ui(PF_STATE_E previous_state)
         pf_ui_set_peer(PF_PEER_ID, true);
         pf_ui_set_confirmed(false, false);
         pf_ui_show_page(PF_UI_PAGE_MATCH);
-        tal_sw_timer_start(sg_flow_timer, PF_CONFIRM_TIMEOUT_MS,
-                           TAL_TIMER_ONCE);
         break;
     case PF_STATE_WAITING_CONFIRM:
     case PF_STATE_CAPTURE_PREPARE:
@@ -273,7 +271,10 @@ static void pf_refresh_ui(PF_STATE_E previous_state)
         pf_ui_set_confirmed(sg_state.local_confirmed,
                             sg_state.peer_confirmed);
         pf_ui_show_page(PF_UI_PAGE_WAITING);
-        if (sg_state.state == PF_STATE_CAPTURE_PREPARE) {
+        if (sg_state.state == PF_STATE_WAITING_CONFIRM) {
+            tal_sw_timer_start(sg_flow_timer, PF_CONFIRM_TIMEOUT_MS,
+                               TAL_TIMER_ONCE);
+        } else {
             tal_sw_timer_stop(sg_flow_timer);
         }
         break;
@@ -342,6 +343,12 @@ static void pf_execute_effects(PF_EFFECTS_T effects, PF_STATE_E previous_state,
     }
     if ((effects & PF_EFFECT_SEND_CANCEL) != 0U) {
         (void)pf_transport_send(PF_MSG_CANCEL, session_id, 0, true);
+    }
+    if (previous_state != PF_STATE_DND && sg_state.state == PF_STATE_DND) {
+        pf_transport_set_discoverable(false);
+    } else if (previous_state == PF_STATE_DND &&
+               sg_state.state != PF_STATE_DND) {
+        pf_transport_set_discoverable(true);
     }
     if ((effects & PF_EFFECT_SEND_PREPARE) != 0U && PF_DEVICE_ID == 'A') {
         (void)pf_transport_send(PF_MSG_CAPTURE_PREPARE, session_id, 0, true);

@@ -89,6 +89,9 @@ OPERATE_RET pf_state_dispatch(PF_STATE_CONTEXT_T *ctx,
         break;
 
     case PF_EVENT_WIFI_LOST:
+        if (next.state == PF_STATE_DND) {
+            break;
+        }
         if (next.state == PF_STATE_BOOT || next.state == PF_STATE_RECONNECTING) {
             handled = false;
             break;

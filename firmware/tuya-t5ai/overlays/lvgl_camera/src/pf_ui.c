@@ -400,6 +400,13 @@ static void pf_ui_create_idle_page(void)
     lv_obj_set_style_text_color(lv_obj_get_child(button, 0),
                                 lv_color_hex(PF_UI_COLOR_INK), 0);
     lv_obj_align(button, LV_ALIGN_TOP_LEFT, 8, 8);
+    button = pf_ui_create_button(page, "SLEEP", PF_INPUT_TOGGLE_DND,
+                                 PF_UI_COLOR_NIGHT, false);
+    lv_obj_set_size(button, 112, 48);
+    lv_obj_set_style_radius(button, 4, 0);
+    lv_obj_set_style_border_color(button, lv_color_hex(PF_UI_COLOR_INK), 0);
+    lv_obj_set_style_border_width(button, 3, 0);
+    lv_obj_align(button, LV_ALIGN_BOTTOM_MID, 0, -128);
     sg_ui.wifi_status_label = lv_label_create(page);
     lv_label_set_text(sg_ui.wifi_status_label, LV_SYMBOL_CLOSE);
     lv_obj_set_style_text_color(sg_ui.wifi_status_label,
@@ -637,20 +644,81 @@ static void pf_ui_create_preview_page(void)
 
 static void pf_ui_create_match_page(void)
 {
+    lv_obj_t *page;
+    lv_obj_t *label;
+    lv_obj_t *device;
+    lv_obj_t *badge;
+    lv_obj_t *shadow;
     lv_obj_t *button;
 
-    sg_ui.pages[PF_UI_PAGE_MATCH] = pf_ui_create_page("Friend found");
-    sg_ui.peer_label = pf_ui_create_label(sg_ui.pages[PF_UI_PAGE_MATCH],
-                                          "Friend -- offline",
-                                          LV_ALIGN_CENTER, 0, -72);
-    sg_ui.match_status_label =
-        pf_ui_create_label(sg_ui.pages[PF_UI_PAGE_MATCH], "Ready to connect",
-                           LV_ALIGN_CENTER, 0, -8);
-    button = pf_ui_create_button(sg_ui.pages[PF_UI_PAGE_MATCH], "Confirm",
-                                 PF_INPUT_CONFIRM, PF_UI_COLOR_ACCENT, false);
+    page = pf_ui_create_blank_page(PF_UI_COLOR_SKY);
+    sg_ui.pages[PF_UI_PAGE_MATCH] = page;
+
+    label = lv_label_create(page);
+    lv_label_set_text(label, "FRIEND");
+    lv_obj_set_style_text_color(label, lv_color_hex(PF_UI_COLOR_CYAN), 0);
+    lv_obj_set_style_text_font(label, &lv_font_montserrat_24, 0);
+    lv_obj_align(label, LV_ALIGN_TOP_MID, 0, 28);
+
+    label = lv_label_create(page);
+    lv_label_set_text(label, "FOUND!");
+    lv_obj_set_style_text_color(label, lv_color_hex(PF_UI_COLOR_LIME), 0);
+    lv_obj_set_style_text_font(label, &lv_font_montserrat_24, 0);
+    lv_obj_align(label, LV_ALIGN_TOP_MID, 0, 60);
+
+    device = pf_ui_draw_pet_device(page, false);
+    lv_obj_align(device, LV_ALIGN_TOP_MID, -72, 96);
+    device = pf_ui_draw_pet_device(page, false);
+    lv_obj_set_style_bg_color(device, lv_color_hex(PF_UI_COLOR_CYAN), 0);
+    lv_obj_align(device, LV_ALIGN_TOP_MID, 72, 96);
+
+    badge = lv_obj_create(page);
+    lv_obj_set_size(badge, 248, 58);
+    lv_obj_set_style_bg_color(badge, lv_color_white(), 0);
+    lv_obj_set_style_border_color(badge, lv_color_hex(PF_UI_COLOR_INK), 0);
+    lv_obj_set_style_border_width(badge, 4, 0);
+    lv_obj_set_style_radius(badge, 4, 0);
+    lv_obj_set_style_pad_all(badge, 0, 0);
+    lv_obj_clear_flag(badge, LV_OBJ_FLAG_SCROLLABLE | LV_OBJ_FLAG_CLICKABLE);
+    lv_obj_align(badge, LV_ALIGN_CENTER, 0, 72);
+
+    sg_ui.peer_label = lv_label_create(badge);
+    lv_label_set_text(sg_ui.peer_label, "Friend -- offline");
+    lv_obj_set_style_text_color(sg_ui.peer_label,
+                                lv_color_hex(PF_UI_COLOR_INK), 0);
+    lv_obj_set_style_text_font(sg_ui.peer_label, &lv_font_montserrat_16, 0);
+    lv_obj_center(sg_ui.peer_label);
+
+    sg_ui.match_status_label = pf_ui_create_label(
+        page, "Ready to connect", LV_ALIGN_CENTER, 0, 116);
+    lv_obj_set_style_text_color(sg_ui.match_status_label,
+                                lv_color_hex(0xE8F4FFU), 0);
+
+    shadow = lv_obj_create(page);
+    lv_obj_set_size(shadow, PF_UI_PRIMARY_WIDTH, PF_UI_PRIMARY_HEIGHT);
+    lv_obj_set_style_bg_color(shadow, lv_color_hex(PF_UI_COLOR_INK), 0);
+    lv_obj_set_style_border_width(shadow, 0, 0);
+    lv_obj_set_style_radius(shadow, 4, 0);
+    lv_obj_set_style_pad_all(shadow, 0, 0);
+    lv_obj_clear_flag(shadow, LV_OBJ_FLAG_SCROLLABLE | LV_OBJ_FLAG_CLICKABLE);
+    lv_obj_align(shadow, LV_ALIGN_BOTTOM_MID, 6, -18);
+
+    button = pf_ui_create_button(page, "CONFIRM", PF_INPUT_CONFIRM,
+                                 PF_UI_COLOR_PINK, false);
+    lv_obj_set_style_radius(button, 4, 0);
+    lv_obj_set_style_border_color(button, lv_color_hex(PF_UI_COLOR_INK), 0);
+    lv_obj_set_style_border_width(button, 4, 0);
+    lv_obj_set_style_text_font(lv_obj_get_child(button, 0),
+                               &lv_font_montserrat_24, 0);
     lv_obj_align(button, LV_ALIGN_BOTTOM_MID, 0, -24);
-    button = pf_ui_create_button(sg_ui.pages[PF_UI_PAGE_MATCH], LV_SYMBOL_CLOSE,
-                                 PF_INPUT_CANCEL, PF_UI_COLOR_SURFACE, true);
+
+    button = pf_ui_create_button(page, LV_SYMBOL_CLOSE, PF_INPUT_CANCEL,
+                                 PF_UI_COLOR_LIME, true);
+    lv_obj_set_style_radius(button, 4, 0);
+    lv_obj_set_style_border_color(button, lv_color_hex(PF_UI_COLOR_INK), 0);
+    lv_obj_set_style_border_width(button, 3, 0);
+    lv_obj_set_style_text_color(lv_obj_get_child(button, 0),
+                                lv_color_hex(PF_UI_COLOR_INK), 0);
     lv_obj_align(button, LV_ALIGN_TOP_LEFT, 8, 8);
 }
 

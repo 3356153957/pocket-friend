@@ -23,6 +23,7 @@ static void *sg_event_ctx;
 static volatile bool sg_running;
 static bool sg_initialized;
 static bool sg_wifi_connected;
+static volatile bool sg_discoverable = true;
 static bool sg_peer_online;
 static int sg_socket_fd = -1;
 static TUYA_IP_ADDR_T sg_peer_addr;
@@ -166,7 +167,7 @@ static void pf_receive_once(void)
     }
 
     tal_mutex_lock(sg_transport_mutex);
-    if (!sg_running || sg_socket_fd < 0) {
+    if (!sg_running || sg_socket_fd < 0 || !sg_discoverable) {
         tal_mutex_unlock(sg_transport_mutex);
         return;
     }
@@ -258,7 +259,9 @@ static void pf_heartbeat_cb(TIMER_ID timer_id, void *arg)
 {
     (void)timer_id;
     (void)arg;
-    (void)pf_transport_send(PF_MSG_HELLO, 0U, 0, false);
+    if (sg_discoverable) {
+        (void)pf_transport_send(PF_MSG_HELLO, 0U, 0, false);
+    }
 }
 
 OPERATE_RET pf_transport_init(PF_TRANSPORT_CB cb, void *ctx)
@@ -330,7 +333,9 @@ OPERATE_RET pf_transport_network_up(void)
 
     tal_sw_timer_start(sg_heartbeat_timer, PF_HEARTBEAT_MS,
                        TAL_TIMER_CYCLE);
-    (void)pf_transport_send(PF_MSG_HELLO, 0U, 0, false);
+    if (sg_discoverable) {
+        (void)pf_transport_send(PF_MSG_HELLO, 0U, 0, false);
+    }
     pf_notify(PF_TRANSPORT_WIFI_CONNECTED, NULL);
     return OPRT_OK;
 }
@@ -353,6 +358,26 @@ void pf_transport_network_down(void)
         pf_notify(PF_TRANSPORT_PEER_LOST, NULL);
     }
     pf_notify(PF_TRANSPORT_WIFI_LOST, NULL);
+}
+
+void pf_transport_set_discoverable(bool discoverable)
+{
+    bool advertise = false;
+
+    if (!sg_initialized) {
+        return;
+    }
+
+    tal_mutex_lock(sg_transport_mutex);
+    if (sg_discoverable != discoverable) {
+        sg_discoverable = discoverable;
+        advertise = discoverable && sg_wifi_connected && sg_socket_fd >= 0;
+    }
+    tal_mutex_unlock(sg_transport_mutex);
+
+    if (advertise) {
+        (void)pf_transport_send(PF_MSG_HELLO, 0U, 0, false);
+    }
 }
 
 OPERATE_RET pf_transport_send(PF_MESSAGE_TYPE_E type,

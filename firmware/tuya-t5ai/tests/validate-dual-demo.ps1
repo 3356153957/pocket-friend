@@ -175,6 +175,9 @@ foreach ($offlineCameraContract in @(
 if ($stateSource -notmatch 'case PF_EVENT_OPEN_CAMERA:[\s\S]*PF_STATE_CONNECTING[\s\S]*PF_STATE_RECONNECTING[\s\S]*next\.camera_return_state = next\.state;') {
     throw 'Camera preview must open while Wi-Fi is unconfigured or reconnecting'
 }
+if ($stateSource -notmatch 'case PF_EVENT_WIFI_LOST:[\s\S]*next\.state == PF_STATE_DND[\s\S]*break;') {
+    throw 'A Wi-Fi interruption must not wake a sleeping device'
+}
 if (-not $protocolAndState.Contains('PF_EVENT_COUNT')) {
     throw 'State events must expose PF_EVENT_COUNT so later events such as reset are accepted'
 }
@@ -536,6 +539,7 @@ $transport = @(
 $transportRequired = @(
     'pf_transport_network_up'
     'pf_transport_network_down'
+    'pf_transport_set_discoverable'
     'tal_net_socket_create(PROTOCOL_UDP)'
     'tal_net_set_broadcast'
     'tal_net_set_reuse'
@@ -700,11 +704,83 @@ if ($app -notmatch 'case PF_WIFI_EVENT_CONNECT_FAILED:[\s\S]*if \(sg_wifi_manual
 if ($app -notmatch 'case PF_STATE_COUNTDOWN:[\s\S]*pf_camera_prepare_capture_stream\(\)') {
     throw 'Synchronized capture must warm the camera stream during the countdown'
 }
+
+$heartbeatBlock = [regex]::Match(
+    $transport,
+    'static void pf_heartbeat_cb\(TIMER_ID timer_id, void \*arg\)[\s\S]*?\n}'
+)
+$receiveBlock = [regex]::Match(
+    $transport,
+    'static void pf_receive_once\(void\)[\s\S]*?(?=static void pf_process_retries)'
+)
+$discoverableBlock = [regex]::Match(
+    $transport,
+    'void pf_transport_set_discoverable\(bool discoverable\)\s*\{[\s\S]*?\n}'
+)
+if (-not $heartbeatBlock.Success -or
+    $heartbeatBlock.Value -notmatch 'sg_discoverable' -or
+    -not $receiveBlock.Success -or
+    $receiveBlock.Value -notmatch '!sg_discoverable' -or
+    -not $discoverableBlock.Success -or
+    -not $discoverableBlock.Value.Contains('pf_transport_send(PF_MSG_HELLO') -or
+    $transport -notmatch 'pf_transport_network_up\(void\)\s*\{[\s\S]*sg_discoverable[\s\S]*pf_transport_send\(PF_MSG_HELLO') {
+    throw 'Sleep must stop LAN discovery; wake must immediately advertise again'
+}
 if ($ui -notmatch 'pf_ui_create_brand_page\(PF_UI_PAGE_START,\s*"START",\s*PF_INPUT_START' -or
     $ui -notmatch 'pf_ui_create_brand_page\(PF_UI_PAGE_IDLE,\s*"CAMERA",\s*PF_INPUT_OPEN_CAMERA' -or
     $ui -match 'pf_ui_create_page\("Pocket Friend"\)' -or
     $ui -match 'LV_SYMBOL_IMAGE,\s*PF_INPUT_CAPTURE_PHOTO') {
     throw 'START and CAMERA pages must share the teammate brand layout'
+}
+$idlePage = [regex]::Match(
+    $ui,
+    'static void pf_ui_create_idle_page\(void\)[\s\S]*?(?=static void pf_ui_create_photo_name_input_page)'
+)
+if (-not $idlePage.Success -or
+    $idlePage.Value -notmatch '"SLEEP",\s*PF_INPUT_TOGGLE_DND') {
+    throw 'Brand home must expose a SLEEP control that enters DND'
+}
+$matchPage = [regex]::Match(
+    $ui,
+    'static void pf_ui_create_match_page\(void\)[\s\S]*?(?=static void pf_ui_create_waiting_page)'
+)
+if (-not $matchPage.Success -or
+    $matchPage.Value -notmatch 'pf_ui_create_blank_page\(PF_UI_COLOR_SKY\)' -or
+    $matchPage.Value -notmatch '"FRIEND"' -or
+    $matchPage.Value -notmatch '"FOUND!"' -or
+    $matchPage.Value -notmatch 'PF_INPUT_CONFIRM,\s*PF_UI_COLOR_PINK' -or
+    $matchPage.Value -match 'pf_ui_create_page\("Friend found"\)') {
+    throw 'Friend match page must use the teammate brand layout'
+}
+$peerFoundPage = [regex]::Match(
+    $app,
+    'case PF_STATE_PEER_FOUND:[\s\S]*?break;'
+)
+$waitingPage = [regex]::Match(
+    $app,
+    'case PF_STATE_WAITING_CONFIRM:[\s\S]*?break;'
+)
+if (-not $peerFoundPage.Success -or
+    $peerFoundPage.Value -match 'tal_sw_timer_start' -or
+    -not $waitingPage.Success -or
+    $waitingPage.Value -notmatch 'tal_sw_timer_start\(sg_flow_timer,\s*PF_CONFIRM_TIMEOUT_MS') {
+    throw 'Friend match page must stay visible; timeout begins only after confirmation'
+}
+if ($stateSource -notmatch 'case PF_EVENT_PEER_FOUND:[\s\S]*PF_STATE_PEER_FOUND;[\s\S]*PF_EFFECT_UI_REFRESH\s*\|\s*PF_EFFECT_MOTOR_FEEDBACK' -or
+    $app -notmatch 'sg_state\.state == PF_STATE_PEER_FOUND[\s\S]*PF_MOTOR_PATTERN_PEER_FOUND') {
+    throw 'Entering friend match must trigger the peer-found vibration pattern'
+}
+$peerFoundStateBlock = [regex]::Match(
+    $stateSource,
+    'case PF_EVENT_PEER_FOUND:[\s\S]*?break;'
+)
+if (-not $peerFoundStateBlock.Success -or
+    $peerFoundStateBlock.Value -notmatch 'next\.state != PF_STATE_ONLINE_IDLE\s*&&\s*next\.state != PF_STATE_CAMERA_PREVIEW') {
+    throw 'DND must ignore peer discovery without UI or motor effects'
+}
+if ($app -notmatch 'previous_state != PF_STATE_DND[\s\S]*sg_state\.state == PF_STATE_DND[\s\S]*pf_transport_set_discoverable\(false\)' -or
+    $app -notmatch 'previous_state == PF_STATE_DND[\s\S]*sg_state\.state != PF_STATE_DND[\s\S]*pf_transport_set_discoverable\(true\)') {
+    throw 'Entering and leaving sleep must update peer discoverability on both boards'
 }
 if ($app -notmatch 'case PF_STATE_CAMERA_PREVIEW:[\s\S]*pf_ui_show_photo_name_input\(\);[\s\S]*break;') {
     throw 'Manual capture flow must open the photographer name page before taking the photo'

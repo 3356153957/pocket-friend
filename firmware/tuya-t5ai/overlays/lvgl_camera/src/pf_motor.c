@@ -80,8 +80,9 @@ static void pf_motor_run_pattern(const PF_MOTOR_COMMAND_T *command)
 
     switch (command->pattern) {
     case PF_MOTOR_PATTERN_PEER_FOUND:
-        pf_motor_pulse(100U, 80U, generation);
-        pf_motor_pulse(100U, 0U, generation);
+        pf_motor_pulse(120U, 180U, generation);
+        pf_motor_pulse(120U, 180U, generation);
+        pf_motor_pulse(120U, 0U, generation);
         break;
     case PF_MOTOR_PATTERN_LOCAL_CONFIRMED:
         pf_motor_pulse(160U, 0U, generation);
