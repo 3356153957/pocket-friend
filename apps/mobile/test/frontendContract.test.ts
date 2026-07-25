@@ -36,7 +36,7 @@ describe("Spark Connect frontend contract", () => {
 
     assert.match(quiz, /className="quiz-question-label"/);
     assert.match(styles, /\.quiz-question-label/);
-    assert.match(styles, /font-size: 11px/);
+    assert.match(styles, /font-size: 20px/);
   });
 
   test("uses the latest pixel phone shell with the three app tabs", async () => {
