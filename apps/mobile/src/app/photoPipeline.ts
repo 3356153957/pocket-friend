@@ -1,3 +1,5 @@
+import { generateSeedreamPixelAvatar } from "./seedreamAvatar.ts";
+
 export interface DownloadedPhoto {
   id: string;
   name?: string;
@@ -6,6 +8,8 @@ export interface DownloadedPhoto {
   originalDataUrl: string;
   pixelPortraitUrl: string;
   source: "hardware" | "demo";
+  spriteSource: "seedream" | "local-fallback";
+  seedreamModel?: string;
   warning?: string;
 }
 
@@ -21,9 +25,10 @@ interface PhotoHistoryResponse {
 
 const PHOTO_API_BASE = (import.meta.env.VITE_PHOTO_API_BASE_URL as string | undefined) ?? "/photo-api";
 const PHOTO_API_TOKEN = import.meta.env.VITE_PF_PHOTO_TOKEN as string | undefined;
+const DEMO_PHOTO_NAME = (import.meta.env.VITE_DEMO_PHOTO_NAME as string | undefined)?.trim();
 const HISTORY_TIMEOUT_MS = 5000;
 const PHOTO_DOWNLOAD_TIMEOUT_MS = 6000;
-const PHOTO_READ_TIMEOUT_MS = 3000;
+const PHOTO_NORMALIZE_TIMEOUT_MS = 5000;
 const PIXELATE_TIMEOUT_MS = 6000;
 
 function makePhotoApiUrl(path: string): string {
@@ -65,23 +70,39 @@ async function fetchImageBlob(path: string, timeoutMs = PHOTO_DOWNLOAD_TIMEOUT_M
 export async function fetchLatestHardwarePhoto(): Promise<DownloadedPhoto> {
   try {
     const history = await fetchJson<PhotoHistoryResponse>("/api/photos/board-a/history");
-    const latest = Array.isArray(history.photos) ? history.photos[0] : null;
+    const latest = selectHardwarePhoto(Array.isArray(history.photos) ? history.photos : []);
     if (!latest?.id || !latest.url) {
       throw new Error("Photo API returned no board-a photos.");
     }
 
     const blob = await fetchImageBlob(latest.url);
-    const originalDataUrl = await withTimeout(blobToDataUrl(blob), PHOTO_READ_TIMEOUT_MS, "Photo file read timed out.");
-    const pixelPortraitUrl = await withTimeout(pixelatePhotoBlob(blob, 72, 28), PIXELATE_TIMEOUT_MS, "Photo pixelation timed out.");
+    const normalized = await withTimeout(normalizePhotoBlob(blob, 1024, 180), PHOTO_NORMALIZE_TIMEOUT_MS, "Photo orientation correction timed out.");
+    let pixelPortraitUrl: string;
+    let spriteSource: DownloadedPhoto["spriteSource"] = "seedream";
+    let seedreamModel: string | undefined;
+    let warning: string | undefined;
+
+    try {
+      const seedream = await generateSeedreamPixelAvatar(normalized.dataUrl);
+      pixelPortraitUrl = seedream.imageUrl;
+      seedreamModel = seedream.model;
+    } catch (error) {
+      pixelPortraitUrl = await withTimeout(pixelatePhotoBlob(normalized.blob, 72, 28), PIXELATE_TIMEOUT_MS, "Local fallback pixelation timed out.");
+      spriteSource = "local-fallback";
+      warning = `Seedream 生成失败，已使用固定本地像素兜底：${errorMessage(error)}`;
+    }
 
     return {
       id: latest.id,
       name: extractDisplayName(latest.name ?? latest.id),
       capturedAt: latest.capturedAt ?? new Date().toISOString(),
       originalUrl: makePhotoApiUrl(latest.url),
-      originalDataUrl,
+      originalDataUrl: normalized.dataUrl,
       pixelPortraitUrl,
       source: "hardware",
+      spriteSource,
+      ...(seedreamModel ? { seedreamModel } : {}),
+      ...(warning ? { warning } : {}),
     };
   } catch (error) {
     return await createDemoDownloadedPhoto(errorMessage(error));
@@ -97,6 +118,7 @@ export async function createDemoDownloadedPhoto(warning = "Photo API is unavaila
     originalDataUrl: fallback,
     pixelPortraitUrl: fallback,
     source: "demo",
+    spriteSource: "local-fallback",
     warning,
   };
 }
@@ -129,10 +151,6 @@ async function withTimeout<T>(promise: Promise<T>, timeoutMs: number, timeoutMes
   }
 }
 
-function errorMessage(error: unknown): string {
-  return error instanceof Error ? error.message : "Photo API is unavailable.";
-}
-
 function extractDisplayName(rawName: string): string {
   const decoded = decodeURIComponent(rawName);
   const withoutExtension = decoded.replace(/\.[a-z0-9]+$/i, "");
@@ -141,13 +159,52 @@ function extractDisplayName(rawName: string): string {
   return beforeCounter || withoutTimestamp || "Luna";
 }
 
-async function blobToDataUrl(blob: Blob): Promise<string> {
-  return await new Promise((resolve, reject) => {
-    const reader = new FileReader();
-    reader.onload = () => resolve(String(reader.result));
-    reader.onerror = () => reject(reader.error ?? new Error("Failed to read photo blob."));
-    reader.readAsDataURL(blob);
+function selectHardwarePhoto(photos: NonNullable<PhotoHistoryResponse["photos"]>) {
+  if (!DEMO_PHOTO_NAME) return photos[0] ?? null;
+
+  const normalizedTarget = DEMO_PHOTO_NAME.toLocaleLowerCase();
+  return photos.find((photo) => {
+    const displayName = extractDisplayName(photo.name ?? photo.id ?? "").toLocaleLowerCase();
+    return displayName === normalizedTarget;
+  }) ?? photos[0] ?? null;
+}
+
+function errorMessage(error: unknown): string {
+  return error instanceof Error ? error.message : "Photo API is unavailable.";
+}
+
+async function normalizePhotoBlob(blob: Blob, maxSide: number, rotateDegrees: 0 | 90 | 180 | 270): Promise<{ blob: Blob; dataUrl: string }> {
+  const bitmap = await createImageBitmap(blob);
+  const scale = Math.min(1, maxSide / Math.max(bitmap.width, bitmap.height));
+  const width = Math.max(1, Math.round(bitmap.width * scale));
+  const height = Math.max(1, Math.round(bitmap.height * scale));
+  const canvas = document.createElement("canvas");
+  const rotated = rotateDegrees === 90 || rotateDegrees === 270;
+  canvas.width = rotated ? height : width;
+  canvas.height = rotated ? width : height;
+
+  const ctx = canvas.getContext("2d");
+  if (!ctx) {
+    bitmap.close();
+    throw new Error("Failed to create photo orientation canvas.");
+  }
+
+  ctx.translate(canvas.width / 2, canvas.height / 2);
+  ctx.rotate((rotateDegrees * Math.PI) / 180);
+  ctx.drawImage(bitmap, -width / 2, -height / 2, width, height);
+  bitmap.close();
+
+  const normalizedBlob = await new Promise<Blob>((resolve, reject) => {
+    canvas.toBlob((result) => {
+      if (result) resolve(result);
+      else reject(new Error("Failed to export corrected photo."));
+    }, "image/jpeg", 0.9);
   });
+
+  return {
+    blob: normalizedBlob,
+    dataUrl: canvas.toDataURL("image/jpeg", 0.9),
+  };
 }
 
 async function pixelatePhotoBlob(blob: Blob, size: number, colorCount: number): Promise<string> {

@@ -5,6 +5,8 @@ import type { ScreenResident } from "../app/screenResident.ts";
 import InteractiveIsland, { type IslandPal, type IslandSceneId } from "./InteractiveIsland.tsx";
 import { PixelCard, PixelLabel, pixelColorClass } from "./PixelUi.tsx";
 
+type DemoColor = "cyan" | "lime" | "pink";
+
 const demoPals = [
   {
     id: "youyou",
@@ -12,13 +14,12 @@ const demoPals = [
     label: "狐",
     hair: "#f472b6",
     body: "#ec4899",
-    tags: ["咖啡", "写诗", "citywalk"],
+    tags: ["咖啡店", "书店", "陶艺"],
     bio: "在巨鹿路开一家只有 6 个座位的店。",
     metAt: "湖畔 · 上周三",
     rx: 0.28,
     ry: 0.58,
-    color: "pink",
-    role: "咖啡师 · 会写诗",
+    color: "pink" as DemoColor,
   },
   {
     id: "k",
@@ -27,12 +28,11 @@ const demoPals = [
     hair: "#38bdf8",
     body: "#0ea5e9",
     tags: ["插画", "游戏", "像素"],
-    bio: "自由插画师，喜欢把人画成会走路的小图标。",
+    bio: "喜欢把人画成会走路的小图标。",
     metAt: "湖畔 · 昨天",
     rx: 0.55,
     ry: 0.45,
-    color: "cyan",
-    role: "自由插画师",
+    color: "cyan" as DemoColor,
   },
   {
     id: "xiaoman",
@@ -45,8 +45,7 @@ const demoPals = [
     metAt: "湖畔 · 今早",
     rx: 0.44,
     ry: 0.67,
-    color: "lime",
-    role: "植物学博士生",
+    color: "lime" as DemoColor,
   },
   {
     id: "alex",
@@ -59,8 +58,7 @@ const demoPals = [
     metAt: "Pocket Friend Hackathon",
     rx: 0.78,
     ry: 0.35,
-    color: "cyan",
-    role: "前端工程师",
+    color: "cyan" as DemoColor,
   },
 ] as const;
 
@@ -69,11 +67,14 @@ function buildPals(resident?: ScreenResident | null): IslandPal[] {
     id: resident?.id ?? "luna",
     name: resident?.name ?? "Luna",
     label: "L",
-    portraitUrl: resident?.pixelPortraitUrl,
+    spriteUrl: resident?.pixelPortraitUrl,
+    realPhotoUrl: resident?.portraitUrl,
     hair: "#c084fc",
     body: "#a855f7",
-    tags: resident?.tags?.length ? resident.tags : ["入岛", "新朋友", "像素头像"],
-    bio: resident ? `${resident.magnetType}，刚刚从掌机里跳上小岛。` : "刚刚从掌机里跳上小岛。",
+    tags: resident?.tags?.length ? resident.tags : ["入岛", "新朋友", "像素小人"],
+    bio: resident
+      ? `${resident.magnetType}，真人照片已识别，像素小人已入岛。`
+      : "刚刚从掌机里跳上小岛。",
     metAt: "Pocket Friend · 刚刚",
     rx: 0.63,
     ry: 0.55,
@@ -96,9 +97,8 @@ function buildPals(resident?: ScreenResident | null): IslandPal[] {
   ];
 }
 
-function cardColor(id: string) {
-  const found = demoPals.find((pal) => pal.id === id);
-  return found?.color ?? "pink";
+function cardColor(id: string): DemoColor {
+  return demoPals.find((pal) => pal.id === id)?.color ?? "pink";
 }
 
 export default function HomeWorld({ resident }: { resident?: ScreenResident | null | undefined }) {
@@ -107,6 +107,7 @@ export default function HomeWorld({ resident }: { resident?: ScreenResident | nu
   const [scene, setScene] = useState<IslandSceneId>("hackathon");
   const [landscape, setLandscape] = useState(false);
   const selected = pals.find((pal) => pal.id === selectedId) ?? pals[0]!;
+  const isResident = selected.id === resident?.id;
 
   return (
     <section className="space-y-3 px-3 py-4">
@@ -142,12 +143,22 @@ export default function HomeWorld({ resident }: { resident?: ScreenResident | nu
 
       <PixelCard>
         <div className="flex items-center gap-3">
-          <div className={`grid h-12 w-12 place-items-center overflow-hidden border-[3px] border-ink ${pixelColorClass(cardColor(selected.id))} font-pixel text-[10px]`}>
-            {selected.portraitUrl ? <img src={selected.portraitUrl} alt="" className="h-full w-full object-cover pixel-image" /> : selected.label}
+          <div className="grid grid-cols-2 gap-2">
+            <div className="grid h-12 w-12 place-items-center overflow-hidden border-[3px] border-ink bg-card font-pixel text-[8px]">
+              {selected.realPhotoUrl ? <img src={selected.realPhotoUrl} alt={`${selected.name} 真人照片`} className="h-full w-full object-cover" /> : "REF"}
+            </div>
+            <div className={`grid h-12 w-12 place-items-center overflow-hidden border-[3px] border-ink ${pixelColorClass(cardColor(selected.id))} font-pixel text-[10px]`}>
+              {selected.spriteUrl ? <img src={selected.spriteUrl} alt={`${selected.name} 像素小人`} className="h-full w-full object-contain pixel-image" /> : selected.label}
+            </div>
           </div>
           <div className="min-w-0 flex-1">
             <h2 className="font-pixel text-[10px]">{selected.name}</h2>
             <p className="truncate font-mono-pixel text-sm text-ink/70">{selected.tags.slice(0, 3).join(" · ")}</p>
+            {isResident && (
+              <p className="mt-1 font-pixel text-[6px] text-ink/55">
+                {resident?.spriteSource === "seedream" ? "SEEDREAM SPRITE" : "LOCAL FALLBACK"}
+              </p>
+            )}
           </div>
           <Heart size={22} fill="var(--pink)" color="var(--ink)" aria-hidden="true" />
         </div>
@@ -161,7 +172,7 @@ export default function HomeWorld({ resident }: { resident?: ScreenResident | nu
           {pals.map((pal) => (
             <button type="button" key={pal.id} onClick={() => setSelectedId(pal.id)} className={`pixel-setting-row ${selectedId === pal.id ? "bg-pink" : "bg-card"}`}>
               <span className={`grid h-8 w-8 place-items-center overflow-hidden border-2 border-ink ${pixelColorClass(cardColor(pal.id))} font-pixel text-[7px]`}>
-                {pal.portraitUrl ? <img src={pal.portraitUrl} alt="" className="h-full w-full object-cover pixel-image" /> : pal.label}
+                {pal.spriteUrl ? <img src={pal.spriteUrl} alt="" className="h-full w-full object-contain pixel-image" /> : pal.label}
               </span>
               <span className="min-w-0 flex-1">
                 <span className="block font-pixel text-[8px]">{pal.name}</span>

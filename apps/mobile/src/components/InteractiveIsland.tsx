@@ -4,7 +4,8 @@ export interface IslandPal {
   id: string;
   name: string;
   label: string;
-  portraitUrl?: string | undefined;
+  spriteUrl?: string | undefined;
+  realPhotoUrl?: string | undefined;
   hair: string;
   body: string;
   tags: string[];
@@ -33,7 +34,8 @@ interface SpriteState {
   frame: number;
   clickScale: number;
   spawnAt: number;
-  loadedPortrait?: HTMLImageElement | undefined;
+  loadedSprite?: HTMLImageElement | undefined;
+  loadedRealPhoto?: HTMLImageElement | undefined;
 }
 
 const SCENES: Record<IslandSceneId, { src: string; label: string; walk: { x1: number; x2: number; y1: number; y2: number } }> = {
@@ -73,11 +75,8 @@ function coverRect(canvasW: number, canvasH: number, imageW: number, imageH: num
   const canvasAspect = canvasW / canvasH;
   let w = canvasW;
   let h = canvasH;
-  if (canvasAspect > imageAspect) {
-    h = canvasW / imageAspect;
-  } else {
-    w = canvasH * imageAspect;
-  }
+  if (canvasAspect > imageAspect) h = canvasW / imageAspect;
+  else w = canvasH * imageAspect;
   return { x: (canvasW - w) / 2, y: (canvasH - h) / 2, w, h };
 }
 
@@ -86,7 +85,7 @@ function isWalkable(scene: IslandSceneId, rx: number, ry: number) {
   return rx >= walk.x1 && rx <= walk.x2 && ry >= walk.y1 && ry <= walk.y2;
 }
 
-function drawPixelPerson(ctx: CanvasRenderingContext2D, sprite: SpriteState, size: number, now: number) {
+function drawBlockPerson(ctx: CanvasRenderingContext2D, sprite: SpriteState, size: number, now: number) {
   const s = size / 20;
   const bob = Math.sin(now * 0.008 + sprite.rx * 10) * s;
   const scale = sprite.clickScale;
@@ -95,15 +94,6 @@ function drawPixelPerson(ctx: CanvasRenderingContext2D, sprite: SpriteState, siz
   ctx.translate(0, bob);
   ctx.scale(scale, scale);
   ctx.translate(-6 * s, -20 * s);
-
-  if (sprite.loadedPortrait?.complete) {
-    ctx.imageSmoothingEnabled = false;
-    ctx.fillStyle = "#061627";
-    ctx.fillRect(0, 0, 13 * s, 18 * s);
-    ctx.drawImage(sprite.loadedPortrait, 1 * s, 1 * s, 11 * s, 16 * s);
-    ctx.restore();
-    return;
-  }
 
   const px = (x: number, y: number, w: number, h: number, color: string) => {
     ctx.fillStyle = color;
@@ -130,6 +120,25 @@ function drawPixelPerson(ctx: CanvasRenderingContext2D, sprite: SpriteState, siz
   ctx.restore();
 }
 
+function drawGeneratedSprite(ctx: CanvasRenderingContext2D, sprite: SpriteState, size: number, now: number) {
+  const image = sprite.loadedSprite;
+  if (!image?.complete || image.naturalWidth <= 0) {
+    drawBlockPerson(ctx, sprite, size, now);
+    return;
+  }
+
+  const bob = Math.sin(now * 0.008 + sprite.rx * 10) * (size / 20);
+  const width = size * 1.55 * sprite.clickScale;
+  const height = size * 1.85 * sprite.clickScale;
+  ctx.save();
+  ctx.translate(0, bob);
+  ctx.imageSmoothingEnabled = false;
+  ctx.fillStyle = "rgba(6,22,39,0.28)";
+  ctx.fillRect(-width / 2 - 2, -height - 2, width + 4, height + 4);
+  ctx.drawImage(image, -width / 2, -height, width, height);
+  ctx.restore();
+}
+
 export default function InteractiveIsland({ scene, pals, selectedId, onSelect, compact = false }: InteractiveIslandProps) {
   const canvasRef = useRef<HTMLCanvasElement | null>(null);
   const onSelectRef = useRef(onSelect);
@@ -150,12 +159,11 @@ export default function InteractiveIsland({ scene, pals, selectedId, onSelect, c
   useEffect(() => {
     const canvas = canvasRef.current;
     if (!canvas) return;
-
     const context = canvas.getContext("2d");
     if (!context) return;
+
     const canvasEl = canvas;
     const ctx = context;
-
     let disposed = false;
     let animationId = 0;
     let dpr = window.devicePixelRatio || 1;
@@ -165,8 +173,10 @@ export default function InteractiveIsland({ scene, pals, selectedId, onSelect, c
     let bubbleOwner = pals[0]?.id ?? "";
 
     const sprites: SpriteState[] = pals.map((pal, index) => {
-      const portrait = pal.portraitUrl ? new Image() : undefined;
-      if (portrait && pal.portraitUrl) portrait.src = pal.portraitUrl;
+      const loadedSprite = pal.spriteUrl ? new Image() : undefined;
+      const loadedRealPhoto = pal.realPhotoUrl ? new Image() : undefined;
+      if (loadedSprite && pal.spriteUrl) loadedSprite.src = pal.spriteUrl;
+      if (loadedRealPhoto && pal.realPhotoUrl) loadedRealPhoto.src = pal.realPhotoUrl;
       return {
         pal,
         rx: pal.rx,
@@ -176,7 +186,8 @@ export default function InteractiveIsland({ scene, pals, selectedId, onSelect, c
         frame: 0,
         clickScale: 1,
         spawnAt: performance.now() + index * 180,
-        loadedPortrait: portrait,
+        loadedSprite,
+        loadedRealPhoto,
       };
     });
 
@@ -251,6 +262,22 @@ export default function InteractiveIsland({ scene, pals, selectedId, onSelect, c
       ctx.restore();
     }
 
+    function drawRealPhotoBadge(sprite: SpriteState, x: number, y: number, charSize: number) {
+      if (!sprite.loadedRealPhoto?.complete || sprite.loadedRealPhoto.naturalWidth <= 0) return;
+      const badge = (compact ? 24 : 30) * dpr;
+      const badgeX = x - badge / 2;
+      const badgeY = y - charSize - badge - 22 * dpr;
+      ctx.save();
+      ctx.imageSmoothingEnabled = false;
+      ctx.fillStyle = "#ffffff";
+      ctx.strokeStyle = "#061627";
+      ctx.lineWidth = 2 * dpr;
+      ctx.fillRect(badgeX, badgeY, badge, badge);
+      ctx.strokeRect(badgeX, badgeY, badge, badge);
+      ctx.drawImage(sprite.loadedRealPhoto, badgeX + 3 * dpr, badgeY + 3 * dpr, badge - 6 * dpr, badge - 6 * dpr);
+      ctx.restore();
+    }
+
     function drawBubble(owner: SpriteState, now: number) {
       if (!bubble || now - lastBubbleAt > 2400) return;
       const pos = screenPos(owner, now);
@@ -290,9 +317,10 @@ export default function InteractiveIsland({ scene, pals, selectedId, onSelect, c
         const charSize = rect.h * (compact ? 0.08 : 0.075);
         ctx.save();
         ctx.translate(pos.x, pos.y);
-        drawPixelPerson(ctx, sprite, charSize, now);
+        drawGeneratedSprite(ctx, sprite, charSize, now);
         ctx.restore();
         drawLabel(sprite, pos.x, pos.y, charSize);
+        drawRealPhotoBadge(sprite, pos.x, pos.y, charSize);
       }
       const owner = sprites.find((sprite) => sprite.pal.id === bubbleOwner);
       if (owner) drawBubble(owner, now);

@@ -6,10 +6,11 @@ import { createDemoDownloadedPhoto, fetchLatestHardwarePhoto, type DownloadedPho
 import { buildScreenResident, type ScreenResident } from "../app/screenResident.ts";
 import { AppLogo, PixelCard } from "./PixelUi.tsx";
 
-type ArrivalStage = "fetching" | "pixelating" | "entering" | "done";
+type ArrivalStage = "fetching" | "generating" | "pixelating" | "entering" | "done";
 
-const ARRIVAL_TOTAL_TIMEOUT_MS = 8500;
-const FALLBACK_BUTTON_DELAY_MS = 4500;
+const ARRIVAL_TOTAL_TIMEOUT_MS = 75000;
+const GENERATING_STATUS_DELAY_MS = 2600;
+const FALLBACK_BUTTON_DELAY_MS = 18000;
 
 export default function Arrival({ profile, onDone }: {
   profile: EncounterProfile;
@@ -36,13 +37,16 @@ export default function Arrival({ profile, onDone }: {
     async function runArrival() {
       setStage("fetching");
       timers.push(setTimeout(() => {
+        if (!cancelled) setStage("generating");
+      }, GENERATING_STATUS_DELAY_MS));
+      timers.push(setTimeout(() => {
         if (!cancelled) setCanUseDemo(true);
       }, FALLBACK_BUTTON_DELAY_MS));
 
       let totalTimeout: ReturnType<typeof setTimeout> | undefined;
       const timedFallback = new Promise<DownloadedPhoto>((resolve) => {
         totalTimeout = setTimeout(() => {
-          void createDemoDownloadedPhoto("照片处理超过 8 秒，已使用演示头像继续。").then(resolve);
+          void createDemoDownloadedPhoto("照片和 Seedream 处理超过 75 秒，已使用演示头像继续。").then(resolve);
         }, ARRIVAL_TOTAL_TIMEOUT_MS);
       });
       const clickedFallback = new Promise<DownloadedPhoto>((resolve) => {
@@ -88,6 +92,8 @@ export default function Arrival({ profile, onDone }: {
 
   const copy = stage === "fetching"
     ? "FETCHING PHOTO..."
+    : stage === "generating"
+      ? "GENERATING SPRITE..."
     : stage === "pixelating"
       ? "PIXELATING..."
       : stage === "entering"
@@ -128,7 +134,7 @@ export default function Arrival({ profile, onDone }: {
           </div>
         </div>
         {warning && <p className="font-mono-pixel text-xs leading-4 text-ink/60">照片接口暂不可用，已使用演示头像兜底：{warning}</p>}
-        {stage === "fetching" && canUseDemo && (
+        {(stage === "fetching" || stage === "generating") && canUseDemo && (
           <button
             type="button"
             className="pixel-border bg-lime px-3 py-2 font-pixel text-[8px] text-ink shadow-[3px_3px_0_var(--ink)] active:translate-x-[2px] active:translate-y-[2px] active:shadow-[1px_1px_0_var(--ink)]"

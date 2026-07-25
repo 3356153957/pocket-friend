@@ -10,6 +10,8 @@ export interface ScreenResident {
   pixelPortraitUrl: string;
   createdAt: string;
   source: "hardware" | "demo";
+  spriteSource: "seedream" | "local-fallback";
+  seedreamModel?: string;
 }
 
 const FALLBACK_RESIDENT_NAME = "Luna";
@@ -24,5 +26,7 @@ export function buildScreenResident(profile: EncounterProfile, photo: Downloaded
     pixelPortraitUrl: photo.pixelPortraitUrl,
     createdAt: photo.capturedAt,
     source: photo.source,
+    spriteSource: photo.spriteSource,
+    ...(photo.seedreamModel ? { seedreamModel: photo.seedreamModel } : {}),
   };
 }
