@@ -422,49 +422,121 @@ static void pf_ui_create_idle_page(void)
 
 static void pf_ui_create_photo_name_input_page(void)
 {
+    lv_obj_t *page;
+    lv_obj_t *label;
     lv_obj_t *button;
+    lv_obj_t *shadow;
     lv_obj_t *cand_panel;
 
-    sg_ui.pages[PF_UI_PAGE_PHOTO_NAME_INPUT] = pf_ui_create_page("Name");
-    button = pf_ui_create_button(sg_ui.pages[PF_UI_PAGE_PHOTO_NAME_INPUT],
+    page = pf_ui_create_blank_page(PF_UI_COLOR_SKY);
+    sg_ui.pages[PF_UI_PAGE_PHOTO_NAME_INPUT] = page;
+
+    label = lv_label_create(page);
+    lv_label_set_text(label, "PHOTO");
+    lv_obj_set_style_text_color(label, lv_color_hex(PF_UI_COLOR_CYAN), 0);
+    lv_obj_set_style_text_font(label, &lv_font_montserrat_24, 0);
+    lv_obj_align(label, LV_ALIGN_TOP_MID, 0, 18);
+
+    label = lv_label_create(page);
+    lv_label_set_text(label, "NAME");
+    lv_obj_set_style_text_color(label, lv_color_hex(PF_UI_COLOR_LIME), 0);
+    lv_obj_set_style_text_font(label, &lv_font_montserrat_24, 0);
+    lv_obj_align(label, LV_ALIGN_TOP_MID, 0, 48);
+
+    button = pf_ui_create_button(page,
                                  LV_SYMBOL_LEFT, PF_INPUT_PHOTO_NAME_BACK,
-                                 PF_UI_COLOR_SURFACE, true);
+                                 PF_UI_COLOR_LIME, true);
+    lv_obj_set_style_radius(button, 4, 0);
+    lv_obj_set_style_border_color(button, lv_color_hex(PF_UI_COLOR_INK), 0);
+    lv_obj_set_style_border_width(button, 3, 0);
+    lv_obj_set_style_text_color(lv_obj_get_child(button, 0),
+                                lv_color_hex(PF_UI_COLOR_INK), 0);
     lv_obj_align(button, LV_ALIGN_TOP_LEFT, 8, 8);
-    button = pf_ui_create_button(sg_ui.pages[PF_UI_PAGE_PHOTO_NAME_INPUT],
+    button = pf_ui_create_button(page,
                                  LV_SYMBOL_TRASH, PF_INPUT_PHOTO_NAME_BACK,
-                                 PF_UI_COLOR_SURFACE, true);
+                                 PF_UI_COLOR_CYAN, true);
+    lv_obj_set_style_radius(button, 4, 0);
+    lv_obj_set_style_border_color(button, lv_color_hex(PF_UI_COLOR_INK), 0);
+    lv_obj_set_style_border_width(button, 3, 0);
+    lv_obj_set_style_text_color(lv_obj_get_child(button, 0),
+                                lv_color_hex(PF_UI_COLOR_INK), 0);
     lv_obj_align(button, LV_ALIGN_TOP_RIGHT, -8, 8);
     lv_obj_remove_event_cb(button, pf_ui_button_cb);
     lv_obj_add_event_cb(button, pf_ui_photo_name_clear_cb,
                         LV_EVENT_CLICKED, NULL);
 
-    sg_ui.photo_name_textarea =
-        lv_textarea_create(sg_ui.pages[PF_UI_PAGE_PHOTO_NAME_INPUT]);
-    lv_obj_set_size(sg_ui.photo_name_textarea, 288, 64);
-    lv_obj_align(sg_ui.photo_name_textarea, LV_ALIGN_TOP_MID, 0, 82);
+    sg_ui.photo_name_textarea = lv_textarea_create(page);
+    lv_obj_set_size(sg_ui.photo_name_textarea, 288, 52);
+    lv_obj_align(sg_ui.photo_name_textarea, LV_ALIGN_TOP_MID, 0, 86);
     lv_textarea_set_one_line(sg_ui.photo_name_textarea, true);
     lv_textarea_set_max_length(sg_ui.photo_name_textarea, 48U);
+    lv_obj_set_style_bg_color(sg_ui.photo_name_textarea,
+                              lv_color_white(), 0);
+    lv_obj_set_style_bg_opa(sg_ui.photo_name_textarea, LV_OPA_COVER, 0);
+    lv_obj_set_style_border_color(sg_ui.photo_name_textarea,
+                                  lv_color_hex(PF_UI_COLOR_INK), 0);
+    lv_obj_set_style_border_width(sg_ui.photo_name_textarea, 4, 0);
+    lv_obj_set_style_radius(sg_ui.photo_name_textarea, 4, 0);
+    lv_obj_set_style_text_color(sg_ui.photo_name_textarea,
+                                lv_color_hex(PF_UI_COLOR_INK), 0);
     lv_obj_set_style_text_font(sg_ui.photo_name_textarea,
                                &pf_font_names_16, 0);
 
-    button = pf_ui_create_button(sg_ui.pages[PF_UI_PAGE_PHOTO_NAME_INPUT],
-                                 "Start", PF_INPUT_PHOTO_NAME_SUBMIT,
-                                 PF_UI_COLOR_PRIMARY, false);
-    lv_obj_set_size(button, 136, 52);
-    lv_obj_align(button, LV_ALIGN_TOP_MID, 0, 158);
+    shadow = lv_obj_create(page);
+    lv_obj_set_size(shadow, 136, 40);
+    lv_obj_set_style_bg_color(shadow, lv_color_hex(PF_UI_COLOR_INK), 0);
+    lv_obj_set_style_border_width(shadow, 0, 0);
+    lv_obj_set_style_radius(shadow, 4, 0);
+    lv_obj_set_style_pad_all(shadow, 0, 0);
+    lv_obj_clear_flag(shadow, LV_OBJ_FLAG_SCROLLABLE | LV_OBJ_FLAG_CLICKABLE);
+    lv_obj_align(shadow, LV_ALIGN_TOP_MID, 4, 152);
+
+    button = pf_ui_create_button(page, "START", PF_INPUT_PHOTO_NAME_SUBMIT,
+                                 PF_UI_COLOR_PINK, false);
+    lv_obj_set_size(button, 136, 40);
+    lv_obj_set_style_radius(button, 4, 0);
+    lv_obj_set_style_border_color(button, lv_color_hex(PF_UI_COLOR_INK), 0);
+    lv_obj_set_style_border_width(button, 4, 0);
+    lv_obj_set_style_text_color(lv_obj_get_child(button, 0),
+                                lv_color_hex(PF_UI_COLOR_INK), 0);
+    lv_obj_set_style_text_font(lv_obj_get_child(button, 0),
+                               &lv_font_montserrat_16, 0);
+    lv_obj_align(button, LV_ALIGN_TOP_MID, 0, 148);
     lv_obj_remove_event_cb(button, pf_ui_button_cb);
     lv_obj_add_event_cb(button, pf_ui_photo_name_submit_cb,
                         LV_EVENT_CLICKED, NULL);
 
-    sg_ui.photo_name_keyboard =
-        lv_keyboard_create(sg_ui.pages[PF_UI_PAGE_PHOTO_NAME_INPUT]);
+    sg_ui.photo_name_keyboard = lv_keyboard_create(page);
     lv_obj_set_size(sg_ui.photo_name_keyboard, 304, 220);
     lv_obj_align(sg_ui.photo_name_keyboard, LV_ALIGN_BOTTOM_MID, 0, -8);
+    lv_obj_set_style_bg_color(sg_ui.photo_name_keyboard,
+                              lv_color_white(), LV_PART_MAIN);
+    lv_obj_set_style_bg_opa(sg_ui.photo_name_keyboard,
+                            LV_OPA_COVER, LV_PART_MAIN);
+    lv_obj_set_style_border_color(sg_ui.photo_name_keyboard,
+                                  lv_color_hex(PF_UI_COLOR_INK),
+                                  LV_PART_MAIN);
+    lv_obj_set_style_border_width(sg_ui.photo_name_keyboard,
+                                  3, LV_PART_MAIN);
+    lv_obj_set_style_radius(sg_ui.photo_name_keyboard, 4, LV_PART_MAIN);
+    lv_obj_set_style_bg_color(sg_ui.photo_name_keyboard,
+                              lv_color_hex(0xF4F8FFU), LV_PART_ITEMS);
+    lv_obj_set_style_text_color(sg_ui.photo_name_keyboard,
+                                lv_color_hex(PF_UI_COLOR_INK),
+                                LV_PART_ITEMS);
+    lv_obj_set_style_border_color(sg_ui.photo_name_keyboard,
+                                  lv_color_hex(PF_UI_COLOR_INK),
+                                  LV_PART_ITEMS);
+    lv_obj_set_style_border_width(sg_ui.photo_name_keyboard,
+                                  1, LV_PART_ITEMS);
+    lv_obj_set_style_radius(sg_ui.photo_name_keyboard, 3, LV_PART_ITEMS);
+    lv_obj_set_style_bg_color(sg_ui.photo_name_keyboard,
+                              lv_color_hex(PF_UI_COLOR_PINK),
+                              LV_PART_ITEMS | LV_STATE_PRESSED);
     lv_keyboard_set_textarea(sg_ui.photo_name_keyboard,
                              sg_ui.photo_name_textarea);
 
-    sg_ui.photo_name_ime =
-        lv_ime_pinyin_create(sg_ui.pages[PF_UI_PAGE_PHOTO_NAME_INPUT]);
+    sg_ui.photo_name_ime = lv_ime_pinyin_create(page);
     lv_ime_pinyin_set_keyboard(sg_ui.photo_name_ime,
                                sg_ui.photo_name_keyboard);
     lv_ime_pinyin_set_dict(sg_ui.photo_name_ime, pf_pinyin_name_dict);
@@ -643,7 +715,12 @@ static void pf_ui_create_preview_page(void)
 
     button = pf_ui_create_button(sg_ui.pages[PF_UI_PAGE_PREVIEW],
                                  LV_SYMBOL_LEFT, PF_INPUT_CLOSE_CAMERA,
-                                 PF_UI_COLOR_SURFACE, true);
+                                 PF_UI_COLOR_LIME, true);
+    lv_obj_set_style_radius(button, 4, 0);
+    lv_obj_set_style_border_color(button, lv_color_hex(PF_UI_COLOR_INK), 0);
+    lv_obj_set_style_border_width(button, 3, 0);
+    lv_obj_set_style_text_color(lv_obj_get_child(button, 0),
+                                lv_color_hex(PF_UI_COLOR_INK), 0);
     lv_obj_align(button, LV_ALIGN_TOP_LEFT, 8, 8);
 
 }

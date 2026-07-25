@@ -766,6 +766,31 @@ if (-not $idlePage.Success -or
     $idlePage.Value -match 'PF_INPUT_OPEN_PINYIN') {
     throw 'Brand home must expose SLEEP without the pinyin test shortcut'
 }
+$photoNamePage = [regex]::Match(
+    $uiSource,
+    'static void pf_ui_create_photo_name_input_page\(void\)[\s\S]*?(?=static void pf_ui_create_pinyin_input_page)'
+)
+if (-not $photoNamePage.Success -or
+    $photoNamePage.Value -notmatch 'pf_ui_create_blank_page\(PF_UI_COLOR_SKY\)' -or
+    $photoNamePage.Value -notmatch 'lv_label_set_text\(label,\s*"PHOTO"\)' -or
+    $photoNamePage.Value -notmatch 'lv_label_set_text\(label,\s*"NAME"\)' -or
+    $photoNamePage.Value -notmatch 'lv_obj_set_style_bg_color\(sg_ui\.photo_name_textarea,\s*lv_color_white\(\),\s*0\)' -or
+    $photoNamePage.Value -notmatch 'lv_obj_set_style_border_width\(sg_ui\.photo_name_textarea,\s*4,\s*0\)' -or
+    $photoNamePage.Value -notmatch '"START",\s*PF_INPUT_PHOTO_NAME_SUBMIT,\s*PF_UI_COLOR_PINK,\s*false' -or
+    $photoNamePage.Value -notmatch 'lv_obj_set_style_bg_color\(sg_ui\.photo_name_keyboard,\s*lv_color_white\(\),\s*LV_PART_MAIN\)' -or
+    $photoNamePage.Value -notmatch 'lv_obj_align\(button,\s*LV_ALIGN_TOP_MID,\s*0,\s*148\)') {
+    throw 'Photo name input must use the branded layout without overlapping candidates'
+}
+$previewPage = [regex]::Match(
+    $uiSource,
+    'static void pf_ui_create_preview_page\(void\)[\s\S]*?(?=static void pf_ui_create_match_page)'
+)
+if (-not $previewPage.Success -or
+    $previewPage.Value -notmatch 'LV_SYMBOL_LEFT,\s*PF_INPUT_CLOSE_CAMERA,\s*PF_UI_COLOR_LIME' -or
+    $previewPage.Value -notmatch 'lv_obj_set_style_border_width\(button,\s*3,\s*0\)' -or
+    $previewPage.Value -notmatch 'lv_obj_set_style_text_color\(lv_obj_get_child\(button,\s*0\),[\s\S]*PF_UI_COLOR_INK') {
+    throw 'Live camera preview must keep its full-screen image with a branded back control'
+}
 $brandPage = [regex]::Match(
     $uiSource,
     'static lv_obj_t \*pf_ui_create_brand_page[\s\S]*?(?=static void pf_ui_create_start_page)'
