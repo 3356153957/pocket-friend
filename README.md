@@ -1,5 +1,7 @@
 # Pocket Friend
 
+[中文文档](README.zh-CN.md)
+
 Pocket Friend is a web demo for a nearby companion matching experience. It includes a Vite/React mobile-style client, a lightweight location gateway, an independent device-status admin console, and shared matching/domain logic.
 
 Tag: `#adventurex2026`
@@ -133,4 +135,3 @@ The repository includes GitHub Actions and Node deployment helpers for the produ
 - `scripts/deploy-production.mjs`
 - `scripts/deploy-admin.mjs`
 - `ops/`
-
