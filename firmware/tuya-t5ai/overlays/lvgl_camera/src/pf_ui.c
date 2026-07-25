@@ -56,7 +56,7 @@ typedef struct {
     lv_obj_t *countdown_label;
     lv_obj_t *preview_countdown_label;
     lv_obj_t *error_label;
-    lv_obj_t *wifi_button;
+    lv_obj_t *wifi_status_label;
     lv_obj_t *wifi_list;
     lv_obj_t *wifi_scan_status;
     lv_obj_t *wifi_ssid_label;
@@ -387,16 +387,22 @@ static void pf_ui_create_idle_page(void)
     page = pf_ui_create_brand_page(PF_UI_PAGE_IDLE, "CAMERA",
                                    PF_INPUT_OPEN_CAMERA,
                                    "TAP TO TAKE PHOTO");
-    sg_ui.wifi_button =
-        pf_ui_create_button(page, LV_SYMBOL_WIFI, PF_INPUT_OPEN_WIFI,
-                            PF_UI_COLOR_MUTED, true);
-    button = sg_ui.wifi_button;
+    button = pf_ui_create_button(page, LV_SYMBOL_WIFI, PF_INPUT_OPEN_WIFI,
+                                 PF_UI_COLOR_CYAN, true);
     lv_obj_set_style_radius(button, 4, 0);
     lv_obj_set_style_border_color(button, lv_color_hex(PF_UI_COLOR_INK), 0);
     lv_obj_set_style_border_width(button, 3, 0);
     lv_obj_set_style_text_color(lv_obj_get_child(button, 0),
                                 lv_color_hex(PF_UI_COLOR_INK), 0);
     lv_obj_align(button, LV_ALIGN_TOP_RIGHT, -8, 8);
+    button = pf_ui_create_button(page, LV_SYMBOL_EDIT, PF_INPUT_OPEN_PINYIN,
+                                 PF_UI_COLOR_LIME, true);
+    lv_obj_set_style_radius(button, 4, 0);
+    lv_obj_set_style_border_color(button, lv_color_hex(PF_UI_COLOR_INK), 0);
+    lv_obj_set_style_border_width(button, 3, 0);
+    lv_obj_set_style_text_color(lv_obj_get_child(button, 0),
+                                lv_color_hex(PF_UI_COLOR_INK), 0);
+    lv_obj_align(button, LV_ALIGN_TOP_LEFT, 8, 8);
     button = pf_ui_create_button(page, "SLEEP", PF_INPUT_TOGGLE_DND,
                                  PF_UI_COLOR_NIGHT, false);
     lv_obj_set_size(button, 112, 48);
@@ -404,6 +410,11 @@ static void pf_ui_create_idle_page(void)
     lv_obj_set_style_border_color(button, lv_color_hex(PF_UI_COLOR_INK), 0);
     lv_obj_set_style_border_width(button, 3, 0);
     lv_obj_align(button, LV_ALIGN_BOTTOM_MID, 0, -128);
+    sg_ui.wifi_status_label = lv_label_create(page);
+    lv_label_set_text(sg_ui.wifi_status_label, LV_SYMBOL_CLOSE);
+    lv_obj_set_style_text_color(sg_ui.wifi_status_label,
+                                lv_color_hex(0xE8F4FFU), 0);
+    lv_obj_align(sg_ui.wifi_status_label, LV_ALIGN_TOP_RIGHT, -76, 28);
 }
 
 static void pf_ui_create_photo_name_input_page(void)
@@ -1258,15 +1269,16 @@ void pf_ui_show_photo_name_input(void)
 
 void pf_ui_set_wifi_status(bool connected, bool busy)
 {
-    uint32_t color;
-
     if (!sg_ui_initialized) {
         return;
     }
-    (void)busy;
-    color = connected ? PF_UI_COLOR_SUCCESS : PF_UI_COLOR_MUTED;
     lv_vendor_disp_lock();
-    lv_obj_set_style_bg_color(sg_ui.wifi_button, lv_color_hex(color), 0);
+    lv_label_set_text(sg_ui.wifi_status_label,
+                      connected ? LV_SYMBOL_WIFI :
+                      (busy ? LV_SYMBOL_REFRESH : LV_SYMBOL_CLOSE));
+    lv_obj_set_style_text_color(
+        sg_ui.wifi_status_label,
+        lv_color_hex(connected ? PF_UI_COLOR_SUCCESS : PF_UI_COLOR_MUTED), 0);
     lv_vendor_disp_unlock();
 }
 
