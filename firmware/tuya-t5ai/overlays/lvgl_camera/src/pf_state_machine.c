@@ -21,8 +21,8 @@ static void pf_state_check_confirmed(PF_STATE_CONTEXT_T *ctx,
 {
     if (ctx->local_confirmed && ctx->peer_confirmed) {
         ctx->pairing_completed = true;
-        ctx->state = PF_STATE_CAPTURE_PREPARE;
-        *effects |= PF_EFFECT_SEND_PREPARE;
+        ctx->state = PF_STATE_PAIRED;
+        *effects |= PF_EFFECT_UI_REFRESH | PF_EFFECT_MOTOR_FEEDBACK;
     }
 }
 
@@ -256,6 +256,8 @@ OPERATE_RET pf_state_dispatch(PF_STATE_CONTEXT_T *ctx,
         if (next.state == PF_STATE_COUNTDOWN) {
             next.state = PF_STATE_CAPTURING;
             next_effects = PF_EFFECT_UI_REFRESH | PF_EFFECT_CAPTURE;
+        } else if (next.state == PF_STATE_PAIRED) {
+            pf_state_enter_idle(&next, &next_effects);
         } else if (next.state == PF_STATE_SUCCESS) {
             pf_state_enter_idle(&next, &next_effects);
         } else if (next.state >= PF_STATE_PEER_FOUND &&

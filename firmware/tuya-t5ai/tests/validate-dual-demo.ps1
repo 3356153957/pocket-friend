@@ -324,9 +324,10 @@ if (-not (Test-Path -LiteralPath $nameFontPath)) {
     throw "Missing generated pinyin name font: $nameFontPath"
 }
 
+$uiSource = Get-Content -LiteralPath $uiSourcePath -Raw -Encoding utf8
 $ui = @(
     Get-Content -LiteralPath $uiHeaderPath -Raw -Encoding utf8
-    Get-Content -LiteralPath $uiSourcePath -Raw -Encoding utf8
+    $uiSource
 ) -join "`n"
 $pinyinDict = @(
     Get-Content -LiteralPath $pinyinDictHeaderPath -Raw -Encoding utf8
@@ -795,8 +796,49 @@ $confirmedUiUpdate = [regex]::Match(
 )
 if (-not $confirmedUiUpdate.Success -or
     $confirmedUiUpdate.Value -notmatch 'sg_ui\.waiting_confirm_button' -or
+    $confirmedUiUpdate.Value -notmatch 'sg_ui\.waiting_confirm_shadow' -or
     $confirmedUiUpdate.Value -notmatch 'local[\s\S]*LV_OBJ_FLAG_HIDDEN') {
-    throw 'Waiting-confirm page must keep confirm available until this device confirms'
+    throw 'Waiting-confirm page must hide both confirm and its shadow after local confirmation'
+}
+$pairSuccessPage = [regex]::Match(
+    $ui,
+    'static void pf_ui_create_pair_success_page\(void\)[\s\S]*?(?=static void pf_ui_create_countdown_page)'
+)
+if (-not $protocolAndState.Contains('PF_STATE_PAIRED') -or
+    -not $ui.Contains('PF_UI_PAGE_PAIR_SUCCESS') -or
+    -not $pairSuccessPage.Success -or
+    $pairSuccessPage.Value -notmatch '"SUCCESS"' -or
+    $pairSuccessPage.Value -match 'pf_ui_create_button') {
+    throw 'Completed pairing must use a dedicated button-free SUCCESS page'
+}
+$pairedRefresh = [regex]::Match(
+    $app,
+    'case PF_STATE_PAIRED:[\s\S]*?break;'
+)
+$pairedTimeout = [regex]::Match(
+    $stateSource,
+    'case PF_EVENT_TIMEOUT:[\s\S]*?(?=case PF_EVENT_ENTER_DND:)'
+)
+if (-not $pairedRefresh.Success -or
+    $pairedRefresh.Value -notmatch 'PF_UI_PAGE_PAIR_SUCCESS' -or
+    $pairedRefresh.Value -notmatch 'PF_PAIR_SUCCESS_DISPLAY_MS' -or
+    $app -notmatch '#define PF_PAIR_SUCCESS_DISPLAY_MS\s+3000U' -or
+    -not $pairedTimeout.Success -or
+    $pairedTimeout.Value -notmatch 'PF_STATE_PAIRED[\s\S]*pf_state_enter_idle' -or
+    $app -notmatch 'sg_state\.state == PF_STATE_PAIRED[\s\S]*pf_ui_mark_started\(false\)') {
+    throw 'Pair SUCCESS must stay for three seconds and then return to START'
+}
+if ($stateSource -notmatch 'ctx->pairing_completed\s*=\s*true;[\s\S]*ctx->state\s*=\s*PF_STATE_PAIRED;' -or
+    $stateSource -match 'ctx->state\s*=\s*PF_STATE_PAIRED;[\s\S]{0,120}PF_EFFECT_SEND_PREPARE') {
+    throw 'Confirming both devices must finish pairing without starting photo capture'
+}
+$showPageBlock = [regex]::Match(
+    $uiSource,
+    'void pf_ui_show_page\(PF_UI_PAGE_E page\)[\s\S]*?(?=void pf_ui_mark_started)'
+)
+if (-not $showPageBlock.Success -or
+    $showPageBlock.Value -notmatch 'lv_screen_active\(\)\s*!=\s*sg_ui\.pages\[page\]') {
+    throw 'Loading an already active page must be skipped to prevent display flicker'
 }
 $peerFoundPage = [regex]::Match(
     $app,

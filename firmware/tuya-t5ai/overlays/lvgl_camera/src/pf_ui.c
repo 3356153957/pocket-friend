@@ -50,6 +50,7 @@ typedef struct {
     lv_obj_t *peer_label;
     lv_obj_t *waiting_peer_label;
     lv_obj_t *waiting_confirm_button;
+    lv_obj_t *waiting_confirm_shadow;
     lv_obj_t *match_status_label;
     lv_obj_t *waiting_status_label;
     lv_obj_t *countdown_label;
@@ -782,6 +783,7 @@ static void pf_ui_create_waiting_page(void)
     lv_obj_align(sg_ui.waiting_status_label, LV_ALIGN_BOTTOM_MID, 0, -14);
 
     shadow = lv_obj_create(page);
+    sg_ui.waiting_confirm_shadow = shadow;
     lv_obj_set_size(shadow, PF_UI_PRIMARY_WIDTH, PF_UI_PRIMARY_HEIGHT);
     lv_obj_set_style_bg_color(shadow, lv_color_hex(PF_UI_COLOR_INK), 0);
     lv_obj_set_style_border_width(shadow, 0, 0);
@@ -809,6 +811,51 @@ static void pf_ui_create_waiting_page(void)
     lv_obj_set_style_text_color(lv_obj_get_child(button, 0),
                                 lv_color_hex(PF_UI_COLOR_INK), 0);
     lv_obj_align(button, LV_ALIGN_TOP_LEFT, 8, 8);
+}
+
+static void pf_ui_create_pair_success_page(void)
+{
+    lv_obj_t *page;
+    lv_obj_t *label;
+    lv_obj_t *device;
+    lv_obj_t *badge;
+
+    page = pf_ui_create_blank_page(PF_UI_COLOR_SKY);
+    sg_ui.pages[PF_UI_PAGE_PAIR_SUCCESS] = page;
+
+    label = lv_label_create(page);
+    lv_label_set_text(label, "PAIRING");
+    lv_obj_set_style_text_color(label, lv_color_hex(PF_UI_COLOR_CYAN), 0);
+    lv_obj_set_style_text_font(label, &lv_font_montserrat_24, 0);
+    lv_obj_align(label, LV_ALIGN_TOP_MID, 0, 44);
+
+    label = lv_label_create(page);
+    lv_label_set_text(label, "SUCCESS");
+    lv_obj_set_style_text_color(label, lv_color_hex(PF_UI_COLOR_LIME), 0);
+    lv_obj_set_style_text_font(label, &lv_font_montserrat_24, 0);
+    lv_obj_align(label, LV_ALIGN_TOP_MID, 0, 82);
+
+    device = pf_ui_draw_pet_device(page, false);
+    lv_obj_align(device, LV_ALIGN_CENTER, -72, -8);
+    device = pf_ui_draw_pet_device(page, false);
+    lv_obj_set_style_bg_color(device, lv_color_hex(PF_UI_COLOR_CYAN), 0);
+    lv_obj_align(device, LV_ALIGN_CENTER, 72, -8);
+
+    badge = lv_obj_create(page);
+    lv_obj_set_size(badge, 248, 64);
+    lv_obj_set_style_bg_color(badge, lv_color_white(), 0);
+    lv_obj_set_style_border_color(badge, lv_color_hex(PF_UI_COLOR_INK), 0);
+    lv_obj_set_style_border_width(badge, 4, 0);
+    lv_obj_set_style_radius(badge, 4, 0);
+    lv_obj_set_style_pad_all(badge, 0, 0);
+    lv_obj_clear_flag(badge, LV_OBJ_FLAG_SCROLLABLE | LV_OBJ_FLAG_CLICKABLE);
+    lv_obj_align(badge, LV_ALIGN_BOTTOM_MID, 0, -54);
+
+    label = lv_label_create(badge);
+    lv_label_set_text(label, "CONNECTED");
+    lv_obj_set_style_text_color(label, lv_color_hex(PF_UI_COLOR_INK), 0);
+    lv_obj_set_style_text_font(label, &lv_font_montserrat_24, 0);
+    lv_obj_center(label);
 }
 
 static void pf_ui_create_countdown_page(void)
@@ -886,6 +933,7 @@ OPERATE_RET pf_ui_init(void)
     pf_ui_create_preview_page();
     pf_ui_create_match_page();
     pf_ui_create_waiting_page();
+    pf_ui_create_pair_success_page();
     pf_ui_create_countdown_page();
     pf_ui_create_result_page();
     pf_ui_create_dnd_page();
@@ -912,7 +960,9 @@ void pf_ui_show_page(PF_UI_PAGE_E page)
         page = PF_UI_PAGE_SLEEP;
     }
     lv_vendor_disp_lock();
-    lv_screen_load(sg_ui.pages[page]);
+    if (lv_screen_active() != sg_ui.pages[page]) {
+        lv_screen_load(sg_ui.pages[page]);
+    }
     lv_vendor_disp_unlock();
 }
 
@@ -953,8 +1003,10 @@ void pf_ui_set_confirmed(bool local, bool peer)
                           peer ? "ready" : "waiting");
     if (local) {
         lv_obj_add_flag(sg_ui.waiting_confirm_button, LV_OBJ_FLAG_HIDDEN);
+        lv_obj_add_flag(sg_ui.waiting_confirm_shadow, LV_OBJ_FLAG_HIDDEN);
     } else {
         lv_obj_clear_flag(sg_ui.waiting_confirm_button, LV_OBJ_FLAG_HIDDEN);
+        lv_obj_clear_flag(sg_ui.waiting_confirm_shadow, LV_OBJ_FLAG_HIDDEN);
     }
     lv_vendor_disp_unlock();
 }

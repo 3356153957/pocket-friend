@@ -16,6 +16,7 @@
 #define PF_APP_TASK_STACK_SIZE 6144U
 #define PF_CAPTURE_TASK_STACK_SIZE 4096U
 #define PF_RESULT_DISPLAY_MS 5000U
+#define PF_PAIR_SUCCESS_DISPLAY_MS 3000U
 #define PF_PHOTO_FILENAME_MAX 128U
 #define PF_PHOTO_NAME_FALLBACK "guest"
 
@@ -305,6 +306,13 @@ static void pf_refresh_ui(PF_STATE_E previous_state)
                             sg_state.peer_confirmed);
         pf_ui_show_page(PF_UI_PAGE_WAITING);
         break;
+    case PF_STATE_PAIRED:
+        tal_sw_timer_stop(sg_flow_timer);
+        pf_input_set_mode(PF_INPUT_MODE_LOCKED);
+        pf_ui_show_page(PF_UI_PAGE_PAIR_SUCCESS);
+        tal_sw_timer_start(sg_flow_timer, PF_PAIR_SUCCESS_DISPLAY_MS,
+                           TAL_TIMER_ONCE);
+        break;
     case PF_STATE_COUNTDOWN:
         pf_input_set_mode(PF_INPUT_MODE_LOCKED);
         pf_camera_prepare_capture_stream();
@@ -351,7 +359,8 @@ static void pf_play_feedback(void)
 
     if (sg_state.state == PF_STATE_PEER_FOUND) {
         pattern = PF_MOTOR_PATTERN_PEER_FOUND;
-    } else if (sg_state.state == PF_STATE_CAPTURE_PREPARE) {
+    } else if (sg_state.state == PF_STATE_PAIRED ||
+               sg_state.state == PF_STATE_CAPTURE_PREPARE) {
         pattern = PF_MOTOR_PATTERN_BOTH_CONFIRMED;
     } else if (sg_state.state == PF_STATE_SUCCESS) {
         pattern = PF_MOTOR_PATTERN_SUCCESS;
@@ -766,6 +775,9 @@ static void pf_handle_timer(PF_EVENT_E timer_event)
     if (sg_state.state == PF_STATE_PEER_FOUND ||
         sg_state.state == PF_STATE_WAITING_CONFIRM) {
         return;
+    }
+    if (sg_state.state == PF_STATE_PAIRED) {
+        pf_ui_mark_started(false);
     }
     pf_dispatch(PF_EVENT_TIMEOUT);
 }
