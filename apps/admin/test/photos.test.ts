@@ -130,3 +130,27 @@ test("photo history merges new in-memory photos with existing disk history", asy
     await rm(directory, { recursive: true, force: true });
   }
 });
+
+test("photo history deletion removes archived files and the matching latest photo", async () => {
+  const directory = await mkdtemp(join(tmpdir(), "pf-admin-photos-"));
+  try {
+    const jpeg = Uint8Array.from([0xff, 0xd8, 0x01, 0xff, 0xd9]);
+    const store = new LatestPhotoStore({ directory });
+    await store.put(
+      "board-a",
+      jpeg,
+      Date.parse("2026-07-24T22:55:00.000+08:00"),
+      { name: "达海" },
+    );
+    const history = await store.listHistory("board-a");
+    const id = history[0]?.id ?? "";
+
+    assert.equal(await store.deleteHistoryPhoto("board-a", id), true);
+    assert.equal(await store.getHistoryPhoto("board-a", id), undefined);
+    assert.deepEqual(await store.listHistory("board-a"), []);
+    assert.equal(await store.get("board-a"), undefined);
+    assert.equal(await store.deleteHistoryPhoto("board-a", id), false);
+  } finally {
+    await rm(directory, { recursive: true, force: true });
+  }
+});

@@ -130,6 +130,9 @@ h2 { margin: 0; font-size: 16px; letter-spacing: 0; }
 .history-card .photo-name { display: block; margin-top: 8px; color: #2b3732; font-size: 13px; font-weight: 900; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 .history-card time { display: block; margin-top: 4px; color: #2b3732; font-size: 12px; font-weight: 800; }
 .history-card span { display: block; margin-top: 3px; color: #7a8580; font-size: 11px; }
+.history-actions { display: flex; justify-content: flex-end; margin-top: 8px; }
+.history-delete { min-height: 30px; padding: 0 10px; color: #8f271f; background: #fff0ee; border: 1px solid #efb8b0; border-radius: 4px; font-size: 12px; font-weight: 900; cursor: pointer; }
+.history-delete:disabled { cursor: wait; opacity: 0.55; }
 .load-error { margin-top: 12px; padding: 12px 14px; color: #8f271f; background: #fff0ee; border-left: 4px solid #cf4437; font-size: 13px; }
 footer { width: min(1040px, calc(100% - 32px)); margin: 0 auto 28px; color: #7a8580; font-size: 11px; text-align: right; }
 @media (max-width: 760px) { .device-grid, .photo-grid, .history-grid { grid-template-columns: 1fr; } .device-card { min-height: 0; } }
@@ -262,6 +265,24 @@ function refreshPhotos() {
   photoUpdatedAt.textContent = "\u5237\u65B0\u4E8E " + new Date(timestamp).toLocaleTimeString("zh-CN", { hour12: false });
 }
 
+async function deleteHistoryPhoto(photo, button) {
+  var displayName = photo.name || "\u672A\u547D\u540D";
+  if (!confirm("\u5220\u9664\u7167\u7247\uFF1A" + displayName + "\uFF1F\u670D\u52A1\u5668\u4E0A\u7684\u56FE\u7247\u548C\u5143\u6570\u636E\u4E5F\u4F1A\u5220\u9664\u3002")) {
+    return;
+  }
+  button.disabled = true;
+  button.textContent = "\u5220\u9664\u4E2D";
+  var response = await fetch(photo.url, { method: "DELETE" });
+  if (!response.ok) {
+    button.disabled = false;
+    button.textContent = "\u5220\u9664";
+    alert("\u5220\u9664\u5931\u8D25\uFF1AHTTP " + response.status);
+    return;
+  }
+  refreshPhotos();
+  await refreshHistory(Date.now());
+}
+
 function renderHistoryPhoto(photo, timestamp) {
   var card = document.createElement("article");
   card.className = "history-card";
@@ -277,7 +298,18 @@ function renderHistoryPhoto(photo, timestamp) {
   time.textContent = "\u4E0A\u4F20\u4E8E " + new Date(photo.capturedAt).toLocaleString("zh-CN", { hour12: false });
   var size = document.createElement("span");
   size.textContent = Math.ceil(photo.bytes / 1024) + " KiB";
-  card.append(image, name, time, size);
+  var actions = document.createElement("div");
+  actions.className = "history-actions";
+  var deleteButton = document.createElement("button");
+  deleteButton.type = "button";
+  deleteButton.className = "history-delete";
+  deleteButton.textContent = "\u5220\u9664";
+  deleteButton.setAttribute("aria-label", "\u5220\u9664\u7167\u7247 " + displayName);
+  deleteButton.addEventListener("click", function() {
+    void deleteHistoryPhoto(photo, deleteButton);
+  });
+  actions.append(deleteButton);
+  card.append(image, name, time, size, actions);
   return card;
 }
 

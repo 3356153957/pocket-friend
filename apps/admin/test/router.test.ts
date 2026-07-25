@@ -180,6 +180,58 @@ describe("admin router", () => {
     assert.equal(deviceTokenDownload.status, 401);
   });
 
+  test("lets admins delete archived photos without granting deletion to download tokens", async () => {
+    const route = createAdminRouter({
+      env: {
+        ...env,
+        PF_PHOTO_DOWNLOAD_TOKEN: "photo-read-secret",
+      },
+      registry: new DeviceStatusRegistry(),
+      now: () => 10_000,
+    });
+    const jpeg = Uint8Array.from([0xff, 0xd8, 0x04, 0xff, 0xd9]);
+
+    assert.equal((await route(new Request("http://localhost/api/photos?deviceId=board-a&name=达海", {
+      method: "POST",
+      headers: {
+        Authorization: "Bearer board-secret",
+        "Content-Type": "image/jpeg",
+      },
+      body: jpeg,
+    }))).status, 204);
+
+    const history = await route(new Request("http://localhost/api/photos/board-a/history", {
+      headers: { Authorization: `Basic ${credentials}` },
+    }));
+    const body = await history.json() as { photos: Array<{ url: string }> };
+    const url = body.photos[0]?.url ?? "";
+
+    assert.equal((await route(new Request(`http://localhost${url}`, {
+      method: "DELETE",
+      headers: { Authorization: "Bearer photo-read-secret" },
+    }))).status, 401);
+
+    const downloaded = await route(new Request(`http://localhost${url}`, {
+      headers: { Authorization: "Bearer photo-read-secret" },
+    }));
+    assert.equal(downloaded.status, 200);
+    assert.deepEqual(new Uint8Array(await downloaded.arrayBuffer()), jpeg);
+
+    const deleted = await route(new Request(`http://localhost${url}`, {
+      method: "DELETE",
+      headers: { Authorization: `Basic ${credentials}` },
+    }));
+    assert.equal(deleted.status, 204);
+    assert.equal((await route(new Request(`http://localhost${url}`, {
+      headers: { Authorization: `Basic ${credentials}` },
+    }))).status, 404);
+
+    const latest = await route(new Request("http://localhost/api/photos/board-a/latest", {
+      headers: { Authorization: `Basic ${credentials}` },
+    }));
+    assert.equal(latest.status, 404);
+  });
+
   test("lets an admin generate a persisted photo download token", async () => {
     const route = createAdminRouter({
       env,
@@ -275,5 +327,7 @@ describe("admin router", () => {
     assert.match(javascript, /rotate-180/);
     assert.match(javascript, /photo-name/);
     assert.match(javascript, /上传于/);
+    assert.match(javascript, /DELETE/);
+    assert.match(javascript, /删除照片/);
   });
 });

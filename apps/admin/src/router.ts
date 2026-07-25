@@ -270,6 +270,17 @@ export function createAdminRouter(options: AdminRouterOptions): AdminRouter {
       return json(await photoDownloadTokens.generate(now()), 201);
     }
 
+    const archivedPhotoMutationMatch = /^\/api\/photos\/(board-a)\/history\/([^/]+)$/u.exec(url.pathname);
+    if (archivedPhotoMutationMatch && request.method === "DELETE") {
+      if (!isAdminAuthorized(request, options.env)) return unauthorized();
+      const deleted = await photos.deleteHistoryPhoto(
+        archivedPhotoMutationMatch[1] as BoardDeviceId,
+        decodeURIComponent(archivedPhotoMutationMatch[2] ?? ""),
+      );
+      if (!deleted) return json({ error: { code: "PHOTO_NOT_FOUND", message: "No photo has been uploaded." } }, 404);
+      return response(null, 204, "text/plain; charset=utf-8");
+    }
+
     if (request.method !== "GET" && request.method !== "HEAD") {
       const result = json({ error: { code: "METHOD_NOT_ALLOWED", message: "Method not allowed." } }, 405);
       result.headers.set("Allow", "GET, HEAD");

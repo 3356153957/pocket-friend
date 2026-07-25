@@ -1,4 +1,4 @@
-import { mkdir, readFile, readdir, writeFile } from "node:fs/promises";
+import { mkdir, readFile, readdir, rm, writeFile } from "node:fs/promises";
 import { join } from "node:path";
 
 export type BoardDeviceId = "board-a";
@@ -210,5 +210,35 @@ export class LatestPhotoStore {
     } catch {
       return undefined;
     }
+  }
+
+  async deleteHistoryPhoto(deviceId: BoardDeviceId, id: string): Promise<boolean> {
+    if (!id.endsWith(".jpg") || id.includes("/") || id.includes("\\")) return false;
+    const photo = await this.getHistoryPhoto(deviceId, id);
+    if (!photo) return false;
+
+    const cached = this.history.get(deviceId);
+    if (cached) {
+      this.history.set(deviceId, cached.filter((item) => item.id !== id));
+    }
+
+    const latest = await this.get(deviceId);
+    if (latest?.capturedAt === photo.capturedAt) {
+      this.photos.delete(deviceId);
+      if (this.directory) {
+        await Promise.all([
+          rm(this.photoPath(deviceId), { force: true }),
+          rm(this.metadataPath(deviceId), { force: true }),
+        ]);
+      }
+    }
+
+    if (this.directory) {
+      await Promise.all([
+        rm(this.historyPhotoPath(deviceId, id), { force: true }),
+        rm(this.historyMetadataPath(deviceId, id), { force: true }),
+      ]);
+    }
+    return true;
   }
 }
