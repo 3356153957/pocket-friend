@@ -1,4 +1,5 @@
 import { generateSeedreamPixelAvatar } from "./seedreamAvatar.ts";
+import { normalizeManagedPhotoName } from "./photoResidentSync.ts";
 
 export interface DownloadedPhoto {
   id: string;
@@ -30,7 +31,7 @@ interface PhotoHistoryResponse {
   }>;
 }
 
-const PHOTO_API_BASE = (import.meta.env.VITE_PHOTO_API_BASE_URL as string | undefined) ?? "/photo-api";
+const PHOTO_API_BASE = (import.meta.env.VITE_PHOTO_API_BASE_URL as string | undefined) ?? defaultPhotoApiBase();
 const DEMO_PHOTO_NAME = (import.meta.env.VITE_DEMO_PHOTO_NAME as string | undefined)?.trim();
 const HISTORY_TIMEOUT_MS = 5000;
 const PHOTO_DOWNLOAD_TIMEOUT_MS = 6000;
@@ -82,7 +83,7 @@ export async function fetchHardwarePhotoCandidates(): Promise<HardwarePhotoCandi
   const candidates = (Array.isArray(history.photos) ? history.photos : [])
     .filter((photo): photo is HardwarePhotoCandidate => Boolean(photo.id && photo.url))
     .map((photo) => ({
-      id: photo.id,
+      id: photo.capturedAt ?? photo.id,
       url: photo.url,
       ...(photo.name ? { name: photo.name } : {}),
       ...(photo.capturedAt ? { capturedAt: photo.capturedAt } : {}),
@@ -121,7 +122,7 @@ export async function processHardwarePhotoCandidate(
 
     return {
       id: candidate.id,
-      name: extractDisplayName(candidate.name ?? candidate.id),
+      name: normalizeManagedPhotoName(candidate.name ?? candidate.id),
       capturedAt: candidate.capturedAt ?? new Date().toISOString(),
       originalUrl: makePhotoApiUrl(candidate.url),
       originalDataUrl: normalized.dataUrl,
@@ -131,6 +132,13 @@ export async function processHardwarePhotoCandidate(
       ...(seedreamModel ? { seedreamModel } : {}),
       ...(warning ? { warning } : {}),
     };
+}
+
+function defaultPhotoApiBase(): string {
+  if (typeof window === "undefined") return "/photo-api";
+  const { hostname, protocol } = window.location;
+  if (hostname === "localhost" || hostname === "127.0.0.1" || hostname === "::1") return "/photo-api";
+  return `${protocol}//${hostname}:4311/island-photo-api`;
 }
 
 export async function createDemoDownloadedPhoto(warning = "照片服务暂时不可用。"): Promise<DownloadedPhoto> {
@@ -175,20 +183,12 @@ async function withTimeout<T>(promise: Promise<T>, timeoutMs: number, timeoutMes
   }
 }
 
-function extractDisplayName(rawName: string): string {
-  const decoded = decodeURIComponent(rawName);
-  const withoutExtension = decoded.replace(/\.[a-z0-9]+$/i, "");
-  const withoutTimestamp = withoutExtension.replace(/-\d{4}-\d{2}-\d{2}T.*$/i, "");
-  const beforeCounter = withoutTimestamp.split("_")[0]?.trim();
-  return beforeCounter || withoutTimestamp || "硬件照片";
-}
-
 function selectHardwarePhoto<T extends { id?: string; name?: string }>(photos: T[]): T | null {
   if (!DEMO_PHOTO_NAME) return photos[0] ?? null;
 
   const normalizedTarget = DEMO_PHOTO_NAME.toLocaleLowerCase();
   return photos.find((photo) => {
-    const displayName = extractDisplayName(photo.name ?? photo.id ?? "").toLocaleLowerCase();
+    const displayName = normalizeManagedPhotoName(photo.name ?? photo.id ?? "").toLocaleLowerCase();
     return displayName === normalizedTarget;
   }) ?? photos[0] ?? null;
 }

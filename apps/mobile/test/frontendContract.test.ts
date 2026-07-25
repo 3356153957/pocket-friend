@@ -113,7 +113,7 @@ describe("Spark Connect frontend contract", () => {
     ]);
 
     assert.match(app, /fetchHardwarePhotoCandidates/);
-    assert.match(app, /lastHandledPhotoId/);
+    assert.match(app, /knownPhotoIdsRef/);
     assert.match(arrival, /PhotoProcessingQueue/);
     assert.match(arrival, /检测到.*新照片/);
   });

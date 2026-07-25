@@ -43,6 +43,13 @@ function json(body: unknown, status = 200): Response {
   return response(JSON.stringify(body), status, "application/json; charset=utf-8");
 }
 
+function withIslandCors(result: Response, origin: string): Response {
+  result.headers.set("Access-Control-Allow-Origin", origin);
+  result.headers.set("Access-Control-Allow-Methods", "GET, HEAD, OPTIONS");
+  result.headers.set("Vary", "Origin");
+  return result;
+}
+
 function constantTimeEqual(left: string, right: string): boolean {
   const leftDigest = createHash("sha256").update(left).digest();
   const rightDigest = createHash("sha256").update(right).digest();
@@ -200,6 +207,54 @@ export function createAdminRouter(options: AdminRouterOptions): AdminRouter {
 
     if (url.pathname === "/health" && request.method === "GET") {
       return json({ status: "ok", service: "pocket-friend-admin" });
+    }
+
+    if (url.pathname.startsWith("/island-photo-api/")) {
+      const origin = allowedWebOrigin(request, options.env);
+      if (!origin) return json({ error: { code: "ORIGIN_DENIED", message: "Origin not allowed." } }, 403);
+      if (request.method === "OPTIONS") {
+        return withIslandCors(response(null, 204, "text/plain; charset=utf-8"), origin);
+      }
+      if (request.method !== "GET" && request.method !== "HEAD") {
+        return withIslandCors(json({ error: { code: "METHOD_NOT_ALLOWED", message: "Method not allowed." } }, 405), origin);
+      }
+
+      const islandPath = url.pathname.slice("/island-photo-api".length);
+      const historyMatch = /^\/api\/photos\/(board-a)\/history$/u.exec(islandPath);
+      if (historyMatch) {
+        const deviceId = historyMatch[1] as BoardDeviceId;
+        return withIslandCors(json({
+          photos: (await photos.listHistory(deviceId)).map((photo) => ({
+            ...photo,
+            url: `/api/photos/${deviceId}/history/${encodeURIComponent(photo.id)}`,
+          })),
+        }), origin);
+      }
+
+      const archivedMatch = /^\/api\/photos\/(board-a)\/history\/([^/]+)$/u.exec(islandPath);
+      if (archivedMatch) {
+        const photo = await photos.getHistoryPhoto(
+          archivedMatch[1] as BoardDeviceId,
+          decodeURIComponent(archivedMatch[2] ?? ""),
+        );
+        if (!photo) return withIslandCors(json({ error: { code: "PHOTO_NOT_FOUND", message: "No photo has been uploaded." } }, 404), origin);
+        const result = response(request.method === "HEAD" ? null : photo.bytes, 200, "image/jpeg");
+        result.headers.set("X-Captured-At", photo.capturedAt);
+        if (photo.name) result.headers.set("X-Photo-Name", encodeURIComponent(photo.name));
+        return withIslandCors(result, origin);
+      }
+
+      const latestMatch = /^\/api\/photos\/(board-a)\/latest$/u.exec(islandPath);
+      if (latestMatch) {
+        const photo = await photos.get(latestMatch[1] as BoardDeviceId);
+        if (!photo) return withIslandCors(json({ error: { code: "PHOTO_NOT_FOUND", message: "No photo has been uploaded." } }, 404), origin);
+        const result = response(request.method === "HEAD" ? null : photo.bytes, 200, "image/jpeg");
+        result.headers.set("X-Captured-At", photo.capturedAt);
+        if (photo.name) result.headers.set("X-Photo-Name", encodeURIComponent(photo.name));
+        return withIslandCors(result, origin);
+      }
+
+      return withIslandCors(json({ error: { code: "NOT_FOUND", message: "Route not found." } }, 404), origin);
     }
 
     if (url.pathname === "/api/heartbeat" && request.method === "OPTIONS") {

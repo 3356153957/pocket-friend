@@ -9,6 +9,8 @@ import {
   type ProductResident,
   type ProductScene,
 } from "../app/productApi.ts";
+import { fetchHardwarePhotoCandidates } from "../app/photoPipeline.ts";
+import { reconcileResidentsWithPhotos } from "../app/photoResidentSync.ts";
 import type { ScreenResident } from "../app/screenResident.ts";
 import { residentsForScene } from "../app/sceneResidents.ts";
 import InteractiveIsland, { type IslandPal, type IslandSceneConfig } from "./InteractiveIsland.tsx";
@@ -76,10 +78,9 @@ function fallbackPal(): IslandPal {
   };
 }
 
-function mergeResidents(current: ScreenResident | null | undefined, backendResidents: ProductResident[]) {
+function mergeResidents(backendResidents: ProductResident[]) {
   const merged = new Map<string, ScreenResident>();
   for (const item of backendResidents) merged.set(item.id, toScreenResident(item));
-  if (current) merged.set(current.id, current);
   return [...merged.values()];
 }
 
@@ -154,12 +155,13 @@ export default function HomeWorld({ resident }: { resident?: ScreenResident | nu
 
   async function refreshWorld() {
     try {
-      const [loadedScenes, loadedResidents] = await Promise.all([
+      const [loadedScenes, loadedResidents, managedPhotos] = await Promise.all([
         listProductScenes(),
         listProductResidents(),
+        fetchHardwarePhotoCandidates(),
       ]);
       setScenes(loadedScenes.length ? loadedScenes : fallbackProductScenes);
-      setBackendResidents(loadedResidents);
+      setBackendResidents(reconcileResidentsWithPhotos(loadedResidents, managedPhotos));
       setBackendNotice(null);
     } catch {
       setScenes(fallbackProductScenes);
@@ -169,9 +171,11 @@ export default function HomeWorld({ resident }: { resident?: ScreenResident | nu
 
   useEffect(() => {
     void refreshWorld();
+    const timer = window.setInterval(() => void refreshWorld(), 3000);
+    return () => window.clearInterval(timer);
   }, []);
 
-  const allResidents = useMemo(() => mergeResidents(resident, backendResidents), [backendResidents, resident]);
+  const allResidents = useMemo(() => mergeResidents(backendResidents), [backendResidents]);
   const currentSceneId = activeScene?.id;
   const sceneResidents = useMemo(() => {
     if (!currentSceneId) return allResidents;

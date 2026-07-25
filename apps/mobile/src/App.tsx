@@ -1,4 +1,4 @@
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 
 import {
   createInitialPrefs,
@@ -16,7 +16,7 @@ import {
   fetchHardwarePhotoCandidates,
   type HardwarePhotoCandidate,
 } from "./app/photoPipeline.ts";
-import { findPhotosAfter, shouldStartPhotoArrival } from "./app/photoUpdateQueue.ts";
+import { photosInUploadOrder } from "./app/photoUpdateQueue.ts";
 import { useNearbyDemo } from "./app/useNearbyDemo.ts";
 import type { ScreenResident } from "./app/screenResident.ts";
 import Arrival from "./components/Arrival.tsx";
@@ -45,8 +45,8 @@ export default function App() {
   const [screenResident, setScreenResident] = useState<ScreenResident | null>(null);
   const [productProfile, setProductProfile] = useState<ProductProfile | null>(null);
   const [backendWarning, setBackendWarning] = useState<string | null>(null);
-  const [lastHandledPhotoId, setLastHandledPhotoId] = useState<string | null>(null);
   const [arrivalBatch, setArrivalBatch] = useState<ArrivalBatch | null>(null);
+  const knownPhotoIdsRef = useRef<Set<string> | null>(null);
   const nearby = useNearbyDemo(prefs);
 
   useEffect(() => {
@@ -71,17 +71,21 @@ export default function App() {
       polling = true;
       try {
         const newestFirst = await fetchHardwarePhotoCandidates();
-        const latestId = newestFirst[0]?.id ?? "";
-        if (!disposed && shouldStartPhotoArrival(latestId, lastHandledPhotoId)) {
-          const candidates = findPhotosAfter(newestFirst, lastHandledPhotoId);
-          if (candidates.length > 0) {
-            setArrivalBatch({
-              candidates,
-              knownPhotoIds: newestFirst.map((candidate) => candidate.id),
-            });
-            setStep("arrival");
-            setPhase("onboarding");
-          }
+        const currentIds = new Set(newestFirst.map((candidate) => candidate.id));
+        const knownIds = knownPhotoIdsRef.current;
+        knownPhotoIdsRef.current = currentIds;
+        if (!knownIds || disposed) return;
+
+        const candidates = photosInUploadOrder(
+          newestFirst.filter((candidate) => !knownIds.has(candidate.id)),
+        );
+        if (candidates.length > 0) {
+          setArrivalBatch({
+            candidates,
+            knownPhotoIds: [...currentIds],
+          });
+          setStep("arrival");
+          setPhase("onboarding");
         }
       } catch {
         // Keep the island usable while the hardware photo service is temporarily offline.
@@ -96,7 +100,7 @@ export default function App() {
       disposed = true;
       window.clearInterval(timer);
     };
-  }, [lastHandledPhotoId, phase, prefs.encounterProfile]);
+  }, [phase, prefs.encounterProfile]);
 
   async function startWithProfile(profile: ProductProfileDraft) {
     setBackendWarning(null);
@@ -143,8 +147,7 @@ export default function App() {
     }
   }
 
-  function completeArrival(finalPhotoId: string | null) {
-    if (finalPhotoId) setLastHandledPhotoId(finalPhotoId);
+  function completeArrival(_finalPhotoId: string | null) {
     setArrivalBatch(null);
     setTab("pals");
     setPhase("app");

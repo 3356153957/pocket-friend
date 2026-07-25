@@ -9,7 +9,7 @@ import {
   type DownloadedPhoto,
   type HardwarePhotoCandidate,
 } from "../app/photoPipeline.ts";
-import { PhotoProcessingQueue } from "../app/photoUpdateQueue.ts";
+import { PhotoProcessingQueue, photosInUploadOrder } from "../app/photoUpdateQueue.ts";
 import { buildScreenResident, type ScreenResident } from "../app/screenResident.ts";
 import { AppLogo, PixelCard } from "./PixelUi.tsx";
 
@@ -111,10 +111,8 @@ export default function Arrival({
       }
 
       const newestFirst = await fetchHardwarePhotoCandidates();
-      queue.markSeen(newestFirst.map((candidate) => candidate.id));
-      const latest = newestFirst[0] ?? null;
-      if (latest) queue.start(latest);
-      return latest;
+      queue.observeMany(photosInUploadOrder(newestFirst));
+      return queue.takePending();
     }
 
     async function processCandidate(candidate: HardwarePhotoCandidate): Promise<ProcessedCandidate> {

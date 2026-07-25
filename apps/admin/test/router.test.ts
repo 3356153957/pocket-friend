@@ -113,6 +113,40 @@ describe("admin router", () => {
     assert.deepEqual(new Uint8Array(await archived.arrayBuffer()), Uint8Array.from([0xff, 0xd8, 0x02, 0xff, 0xd9]));
   });
 
+  test("serves current and historical photos to the island through the 4311 read-only API", async () => {
+    const route = createAdminRouter({ env, registry: new DeviceStatusRegistry(), now: () => 10_000 });
+    const jpeg = Uint8Array.from([0xff, 0xd8, 0x04, 0xff, 0xd9]);
+    await route(new Request("http://localhost/api/photos?deviceId=board-a&name=%E5%B0%8F%E6%98%8E_2", {
+      method: "POST",
+      headers: {
+        Authorization: "Bearer board-secret",
+        "Content-Type": "image/jpeg",
+      },
+      body: jpeg,
+    }));
+
+    const origin = "http://localhost:4320";
+    const history = await route(new Request("http://localhost:4311/island-photo-api/api/photos/board-a/history", {
+      headers: { Origin: origin },
+    }));
+    assert.equal(history.status, 200);
+    assert.equal(history.headers.get("access-control-allow-origin"), origin);
+    const body = await history.json() as { photos: Array<{ url: string; name?: string }> };
+    assert.equal(body.photos[0]?.name, "小明_2");
+
+    const archived = await route(new Request(`http://localhost:4311/island-photo-api${body.photos[0]?.url}`, {
+      headers: { Origin: origin },
+    }));
+    assert.equal(archived.status, 200);
+    assert.deepEqual(new Uint8Array(await archived.arrayBuffer()), jpeg);
+
+    const latest = await route(new Request("http://localhost:4311/island-photo-api/api/photos/board-a/latest", {
+      headers: { Origin: origin },
+    }));
+    assert.equal(latest.status, 200);
+    assert.deepEqual(new Uint8Array(await latest.arrayBuffer()), jpeg);
+  });
+
   test("extracts uploaded photo names from firmware filename query parameters", async () => {
     const route = createAdminRouter({ env, registry: new DeviceStatusRegistry(), now: () => 10_000 });
     const upload = await route(new Request(

@@ -56,6 +56,10 @@ export function findPhotosAfter<T extends PhotoWithId>(
   return newestFirst.slice(0, boundary).reverse();
 }
 
+export function photosInUploadOrder<T>(newestFirst: T[]): T[] {
+  return [...newestFirst].reverse();
+}
+
 export function shouldStartPhotoArrival(
   latestPhotoId: string,
   lastHandledId: string | null,

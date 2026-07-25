@@ -4,6 +4,7 @@ import { describe, test } from "node:test";
 import {
   PhotoProcessingQueue,
   findPhotosAfter,
+  photosInUploadOrder,
   shouldStartPhotoArrival,
 } from "../src/app/photoUpdateQueue.ts";
 
@@ -54,6 +55,20 @@ describe("hardware photo processing queue", () => {
     ];
 
     assert.deepEqual(findPhotosAfter(newestFirst, "a"), [
+      { id: "b", name: "照片 B" },
+      { id: "c", name: "照片 C" },
+    ]);
+  });
+
+  test("queues the complete 4311 history from oldest to newest", () => {
+    const newestFirst = [
+      { id: "c", name: "照片 C" },
+      { id: "b", name: "照片 B" },
+      { id: "a", name: "照片 A" },
+    ];
+
+    assert.deepEqual(photosInUploadOrder(newestFirst), [
+      { id: "a", name: "照片 A" },
       { id: "b", name: "照片 B" },
       { id: "c", name: "照片 C" },
     ]);
