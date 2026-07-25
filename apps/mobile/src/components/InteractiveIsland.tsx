@@ -48,12 +48,12 @@ interface SpriteState {
 const SCENES: Record<IslandSceneId, IslandSceneConfig> = {
   hackathon: {
     src: "/assets/scene-hackathon.png",
-    label: "HACKATHON ISLAND",
+    label: "黑客松小岛",
     walk: { x1: 0.18, x2: 0.82, y1: 0.30, y2: 0.82 },
   },
   alt: {
     src: "/assets/scene-alt.png",
-    label: "ISLAND CLOSE-UP",
+    label: "小岛近景",
     walk: { x1: 0.12, x2: 0.88, y1: 0.28, y2: 0.90 },
   },
 };
@@ -62,7 +62,7 @@ const DIALOGS = [
   "先把主流程跑通！",
   "这个岛终于动起来了。",
   "点我可以看名片。",
-  "Demo day mode on.",
+  "演示日模式开启。",
   "刚从工位出来透气。",
   "把灵感先贴上墙。",
 ];
@@ -381,5 +381,5 @@ export default function InteractiveIsland({ scene = "hackathon", sceneConfig: cu
     };
   }, [compact, image, pals, sceneConfig]);
 
-  return <canvas ref={canvasRef} className="h-full w-full pixel-image" aria-label="Pocket Friend interactive island" />;
+  return <canvas ref={canvasRef} className="h-full w-full pixel-image" aria-label="口袋朋友互动小岛" />;
 }

@@ -26,9 +26,9 @@ function labelFromName(name: string) {
 }
 
 function formatMetAt(createdAt?: string) {
-  if (!createdAt) return "Pocket Friend";
+  if (!createdAt) return "口袋朋友";
   const date = new Date(createdAt);
-  if (Number.isNaN(date.getTime())) return "Pocket Friend";
+  if (Number.isNaN(date.getTime())) return "口袋朋友";
   return `${date.getMonth() + 1}/${date.getDate()} ${date.getHours().toString().padStart(2, "0")}:${date.getMinutes().toString().padStart(2, "0")}`;
 }
 
@@ -44,14 +44,14 @@ function palFromResident(resident: ScreenResident, index: number, sceneId?: stri
   const isDemo = resident.source === "demo";
   const pal: IslandPal = {
     id: resident.id,
-    name: isDemo ? "Waiting" : resident.name,
-    label: labelFromName(isDemo ? "Waiting" : resident.name),
+    name: isDemo ? "等待中" : resident.name,
+    label: labelFromName(isDemo ? "等待中" : resident.name),
     hair: color.hair,
     body: color.body,
-    tags: isDemo ? ["waiting for hardware photo", "no resident saved"] : resident.tags.length ? resident.tags : ["island", "pixel friend"],
+    tags: isDemo ? ["等待硬件照片", "尚未保存居民"] : resident.tags.length ? resident.tags : ["小岛", "像素朋友"],
     bio: isDemo
-      ? "No real hardware photo has been saved yet. Capture a real photo to generate a resident."
-      : `${resident.magnetType}. Real photo recognized; Seedream pixel sprite entered the scene.`,
+      ? "尚未保存真实硬件照片。拍摄照片后即可生成居民。"
+      : `${resident.magnetType}。已识别真实照片，像素形象已进入场景。`,
     metAt: formatMetAt(resident.createdAt),
     rx: sceneId ? baseX : 0.5,
     ry: sceneId ? baseY : 0.6,
@@ -64,13 +64,13 @@ function palFromResident(resident: ScreenResident, index: number, sceneId?: stri
 function fallbackPal(): IslandPal {
   return {
     id: "local-preview",
-    name: "Waiting",
-    label: "W",
+    name: "等待中",
+    label: "等",
     hair: "#f472b6",
     body: "#ec4899",
-    tags: ["waiting for photo", "pixel resident"],
-    bio: "After hardware photo capture, the generated pixel friend will appear here.",
-    metAt: "Pocket Friend",
+    tags: ["等待照片", "像素居民"],
+    bio: "硬件拍照后，生成的像素朋友会出现在这里。",
+    metAt: "口袋朋友",
     rx: 0.5,
     ry: 0.62,
   };
@@ -102,18 +102,18 @@ function OuterIsland({
     <div className="relative h-full w-full overflow-hidden bg-ink">
       <img
         src="/assets/scene-hackathon.png"
-        alt="Pocket Friend island overview"
+        alt="口袋朋友小岛总览"
         className="h-full w-full object-cover pixel-image"
       />
       <div className="absolute left-2 top-2 border-2 border-ink bg-lime px-2 py-1 font-pixel text-[7px] shadow-[2px_2px_0_var(--ink)]">
-        PALS ISLAND
+        好友小岛
       </div>
       {scenes.map((scene, index) => (
         <button
           type="button"
           key={scene.id}
           onClick={() => onEnter(scene)}
-          aria-label={`Enter ${scene.name}`}
+          aria-label={`进入${scene.name}`}
           className="group absolute h-16 w-20 -translate-x-1/2 -translate-y-1/2 bg-transparent p-0"
           style={{ left: `${scene.outerX * 100}%`, top: `${scene.outerY * 100}%` }}
         >
@@ -126,7 +126,7 @@ function OuterIsland({
         </button>
       ))}
       <div className="absolute bottom-2 left-2 right-14 border-2 border-ink bg-mint px-2 py-1 font-pixel text-[6px] leading-3 shadow-[2px_2px_0_var(--ink)]">
-        TAP BUILDING TO ENTER
+        点击建筑进入
       </div>
     </div>
   );
@@ -139,7 +139,7 @@ function SceneBackButton({ onBack }: { onBack: () => void }) {
       onClick={onBack}
       className="absolute left-3 top-3 z-10 inline-flex min-h-9 items-center gap-1 border-2 border-ink bg-lime px-2 py-1 font-pixel text-[7px] text-ink shadow-[2px_2px_0_var(--ink)]"
     >
-      <ArrowLeft size={14} /> BACK
+      <ArrowLeft size={14} /> 返回
     </button>
   );
 }
@@ -163,7 +163,7 @@ export default function HomeWorld({ resident }: { resident?: ScreenResident | nu
       setBackendNotice(null);
     } catch {
       setScenes(fallbackProductScenes);
-      setBackendNotice("LOCAL SCENE CACHE");
+      setBackendNotice("正在使用本地场景缓存");
     }
   }
 
@@ -202,27 +202,27 @@ export default function HomeWorld({ resident }: { resident?: ScreenResident | nu
     setActiveScene(null);
   }
 
-  const sceneTitle = activeScene ? activeScene.name : "PALS ISLAND";
+  const sceneTitle = activeScene ? activeScene.name : "好友小岛";
 
   return (
     <section className="space-y-3 px-3 py-4">
       <header className="flex items-center justify-between gap-2">
         <div className="min-w-0">
-          <h1 className="font-pixel text-[10px]">POCKET FRIEND</h1>
+          <h1 className="font-pixel text-[10px]">口袋朋友</h1>
           <p className="truncate font-mono-pixel text-sm text-ink/70">
-            {activeScene ? `${activeScene.shortName} · ${pals.length} RESIDENTS` : "PALS · choose a building"}
+            {activeScene ? `${activeScene.shortName} · ${pals.length} 位居民` : "好友小岛 · 选择一座建筑"}
           </p>
         </div>
         <div className="flex gap-1">
           {activeScene && (
-            <button type="button" aria-label="Back to island overview" onClick={leaveScene} className="pixel-icon-button bg-card">
+            <button type="button" aria-label="返回小岛总览" onClick={leaveScene} className="pixel-icon-button bg-card">
               <ArrowLeft size={16} />
             </button>
           )}
-          <button type="button" aria-label="Refresh resident data" onClick={() => void refreshWorld()} className="pixel-icon-button bg-card">
+          <button type="button" aria-label="刷新居民数据" onClick={() => void refreshWorld()} className="pixel-icon-button bg-card">
             <RefreshCw size={15} />
           </button>
-          <button type="button" aria-label="Open landscape island" onClick={() => setLandscape(true)} className="pixel-icon-button bg-card">
+          <button type="button" aria-label="横屏查看小岛" onClick={() => setLandscape(true)} className="pixel-icon-button bg-card">
             <Maximize2 size={16} />
           </button>
         </div>
@@ -239,7 +239,7 @@ export default function HomeWorld({ resident }: { resident?: ScreenResident | nu
         )}
         <button
           type="button"
-          aria-label="Open landscape island"
+          aria-label="横屏查看小岛"
           onClick={() => setLandscape(true)}
           className="absolute bottom-3 right-3 grid h-10 w-10 place-items-center border-2 border-ink bg-lime shadow-[2px_2px_0_var(--ink)]"
         >
@@ -251,10 +251,10 @@ export default function HomeWorld({ resident }: { resident?: ScreenResident | nu
         <div className="flex items-center gap-3">
           <div className="grid grid-cols-2 gap-2">
             <div className="grid h-12 w-12 place-items-center overflow-hidden border-[3px] border-ink bg-card font-pixel text-[8px]">
-              {selected.realPhotoUrl ? <img src={selected.realPhotoUrl} alt={`${selected.name} real photo`} className="h-full w-full object-cover" /> : "REF"}
+              {selected.realPhotoUrl ? <img src={selected.realPhotoUrl} alt={`${selected.name}的真实照片`} className="h-full w-full object-cover" /> : "原图"}
             </div>
             <div className={`grid h-12 w-12 place-items-center overflow-hidden border-[3px] border-ink ${selectedColor.bg} font-pixel text-[10px]`}>
-              {selected.spriteUrl ? <img src={selected.spriteUrl} alt={`${selected.name} pixel sprite`} className="h-full w-full object-contain pixel-image" /> : selected.label}
+              {selected.spriteUrl ? <img src={selected.spriteUrl} alt={`${selected.name}的像素形象`} className="h-full w-full object-contain pixel-image" /> : selected.label}
             </div>
           </div>
           <div className="min-w-0 flex-1">
@@ -265,12 +265,12 @@ export default function HomeWorld({ resident }: { resident?: ScreenResident | nu
           <Heart size={22} fill="var(--pink)" color="var(--ink)" aria-hidden="true" />
         </div>
         <p className="mt-3 border-2 border-ink bg-mint p-2 font-mono-pixel text-sm leading-5">{selected.bio}</p>
-        <p className="mt-2 font-pixel text-[7px] text-ink/60">MET AT · {selected.metAt}</p>
+        <p className="mt-2 font-pixel text-[7px] text-ink/60">相遇于 · {selected.metAt}</p>
         {backendNotice && <p className="mt-2 font-pixel text-[6px] text-ink/50">{backendNotice}</p>}
       </PixelCard>
 
       <div>
-        <PixelLabel>{activeScene ? "SCENE RESIDENTS" : "SCENE ENTRANCES"}</PixelLabel>
+        <PixelLabel>{activeScene ? "场景居民" : "场景入口"}</PixelLabel>
         <div className="mt-2 space-y-2">
           {activeScene ? (
             pals.map((pal, index) => {
@@ -316,12 +316,12 @@ export default function HomeWorld({ resident }: { resident?: ScreenResident | nu
             )}
             {!activeScene && (
               <div className="absolute left-3 top-3 border-2 border-ink bg-lime px-3 py-2 font-pixel text-[8px] text-ink shadow-[2px_2px_0_var(--ink)]">
-                PALS ISLAND
+                好友小岛
               </div>
             )}
             <button
               type="button"
-              aria-label="Exit landscape"
+              aria-label="退出横屏"
               onClick={() => setLandscape(false)}
               className="absolute bottom-3 right-3 grid h-11 w-11 place-items-center border-2 border-ink bg-pink shadow-[2px_2px_0_var(--ink)]"
             >

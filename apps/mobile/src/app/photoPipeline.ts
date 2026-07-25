@@ -46,17 +46,17 @@ function makePhotoApiUrl(path: string): string {
 }
 
 async function fetchJson<T>(path: string, timeoutMs = HISTORY_TIMEOUT_MS): Promise<T> {
-  const response = await fetchWithTimeout(makePhotoApiUrl(path), {}, timeoutMs, "Photo API history request timed out.");
+  const response = await fetchWithTimeout(makePhotoApiUrl(path), {}, timeoutMs, "照片历史记录请求超时。");
   if (!response.ok) {
-    throw new Error(`Photo API failed: HTTP ${response.status}`);
+    throw new Error(`照片服务请求失败，状态码 ${response.status}。`);
   }
   return await response.json() as T;
 }
 
 async function fetchImageBlob(path: string, timeoutMs = PHOTO_DOWNLOAD_TIMEOUT_MS): Promise<Blob> {
-  const response = await fetchWithTimeout(makePhotoApiUrl(path), {}, timeoutMs, "Photo download timed out.");
+  const response = await fetchWithTimeout(makePhotoApiUrl(path), {}, timeoutMs, "照片下载超时。");
   if (!response.ok) {
-    throw new Error(`Photo download failed: HTTP ${response.status}`);
+    throw new Error(`照片下载失败，状态码 ${response.status}。`);
   }
   return await response.blob();
 }
@@ -66,11 +66,11 @@ export async function fetchLatestHardwarePhoto(): Promise<DownloadedPhoto> {
     const history = await fetchJson<PhotoHistoryResponse>("/api/photos/board-a/history");
     const latest = selectHardwarePhoto(Array.isArray(history.photos) ? history.photos : []);
     if (!latest?.id || !latest.url) {
-      throw new Error("Photo API returned no board-a photos.");
+      throw new Error("照片服务中没有找到硬件照片。");
     }
 
     const blob = await fetchImageBlob(latest.url);
-    const normalized = await withTimeout(normalizePhotoBlob(blob, 1024, 180), PHOTO_NORMALIZE_TIMEOUT_MS, "Photo orientation correction timed out.");
+    const normalized = await withTimeout(normalizePhotoBlob(blob, 1024, 180), PHOTO_NORMALIZE_TIMEOUT_MS, "照片方向校正超时。");
     let pixelPortraitUrl: string;
     let spriteSource: DownloadedPhoto["spriteSource"] = "seedream";
     let seedreamModel: string | undefined;
@@ -81,9 +81,9 @@ export async function fetchLatestHardwarePhoto(): Promise<DownloadedPhoto> {
       pixelPortraitUrl = seedream.imageUrl;
       seedreamModel = seedream.model;
     } catch (error) {
-      pixelPortraitUrl = await withTimeout(pixelatePhotoBlob(normalized.blob, 72, 28), PIXELATE_TIMEOUT_MS, "Local fallback pixelation timed out.");
+      pixelPortraitUrl = await withTimeout(pixelatePhotoBlob(normalized.blob, 72, 28), PIXELATE_TIMEOUT_MS, "本地备用像素化处理超时。");
       spriteSource = "local-fallback";
-      warning = `Seedream 生成失败，已使用固定本地像素兜底：${errorMessage(error)}`;
+      warning = `智能形象生成失败，已使用本地像素备用方案：${errorMessage(error)}`;
     }
 
     return {
@@ -103,11 +103,11 @@ export async function fetchLatestHardwarePhoto(): Promise<DownloadedPhoto> {
   }
 }
 
-export async function createDemoDownloadedPhoto(warning = "Photo API is unavailable."): Promise<DownloadedPhoto> {
+export async function createDemoDownloadedPhoto(warning = "照片服务暂时不可用。"): Promise<DownloadedPhoto> {
   const fallback = await createDemoPixelPortrait();
   return {
     id: `demo-${Date.now()}`,
-    name: "Waiting",
+    name: "等待中",
     capturedAt: new Date().toISOString(),
     originalDataUrl: fallback,
     pixelPortraitUrl: fallback,
@@ -150,7 +150,7 @@ function extractDisplayName(rawName: string): string {
   const withoutExtension = decoded.replace(/\.[a-z0-9]+$/i, "");
   const withoutTimestamp = withoutExtension.replace(/-\d{4}-\d{2}-\d{2}T.*$/i, "");
   const beforeCounter = withoutTimestamp.split("_")[0]?.trim();
-  return beforeCounter || withoutTimestamp || "Hardware Photo";
+  return beforeCounter || withoutTimestamp || "硬件照片";
 }
 
 function selectHardwarePhoto(photos: NonNullable<PhotoHistoryResponse["photos"]>) {
@@ -164,7 +164,7 @@ function selectHardwarePhoto(photos: NonNullable<PhotoHistoryResponse["photos"]>
 }
 
 function errorMessage(error: unknown): string {
-  return error instanceof Error ? error.message : "Photo API is unavailable.";
+  return error instanceof Error ? error.message : "照片服务暂时不可用。";
 }
 
 async function normalizePhotoBlob(blob: Blob, maxSide: number, rotateDegrees: 0 | 90 | 180 | 270): Promise<{ blob: Blob; dataUrl: string }> {
@@ -180,7 +180,7 @@ async function normalizePhotoBlob(blob: Blob, maxSide: number, rotateDegrees: 0 
   const ctx = canvas.getContext("2d");
   if (!ctx) {
     bitmap.close();
-    throw new Error("Failed to create photo orientation canvas.");
+    throw new Error("无法创建照片方向校正画布。");
   }
 
   ctx.translate(canvas.width / 2, canvas.height / 2);
@@ -191,7 +191,7 @@ async function normalizePhotoBlob(blob: Blob, maxSide: number, rotateDegrees: 0 
   const normalizedBlob = await new Promise<Blob>((resolve, reject) => {
     canvas.toBlob((result) => {
       if (result) resolve(result);
-      else reject(new Error("Failed to export corrected photo."));
+      else reject(new Error("无法导出校正后的照片。"));
     }, "image/jpeg", 0.9);
   });
 
@@ -212,7 +212,7 @@ async function pixelatePhotoBlob(blob: Blob, size: number, colorCount: number): 
   const ctx = canvas.getContext("2d", { willReadFrequently: true });
   if (!ctx) {
     bitmap.close();
-    throw new Error("Failed to create pixelation canvas.");
+    throw new Error("无法创建像素化画布。");
   }
 
   ctx.imageSmoothingEnabled = true;
@@ -311,7 +311,7 @@ async function createDemoPixelPortrait(): Promise<string> {
   canvas.width = 72;
   canvas.height = 72;
   const ctx = canvas.getContext("2d");
-  if (!ctx) throw new Error("Failed to create demo portrait canvas.");
+  if (!ctx) throw new Error("无法创建演示形象画布。");
 
   ctx.imageSmoothingEnabled = false;
   ctx.fillStyle = "#D5F5E8";

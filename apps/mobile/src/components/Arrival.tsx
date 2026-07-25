@@ -26,7 +26,7 @@ export default function Arrival({
   const [portraitUrl, setPortraitUrl] = useState<string | null>(null);
   const [warning, setWarning] = useState<string | null>(null);
   const [canUseDemo, setCanUseDemo] = useState(false);
-  const [residentName, setResidentName] = useState("Hardware Photo");
+  const [residentName, setResidentName] = useState("硬件照片");
 
   useEffect(() => {
     profileRef.current = profile;
@@ -49,7 +49,7 @@ export default function Arrival({
       let totalTimeout: ReturnType<typeof setTimeout> | undefined;
       const timedFallback = new Promise<DownloadedPhoto>((resolve) => {
         totalTimeout = setTimeout(() => {
-          void createDemoDownloadedPhoto("Photo and Seedream processing took over 75 seconds. Demo fallback was used and will not be saved as a real resident.").then(resolve);
+          void createDemoDownloadedPhoto("照片和像素形象处理超过 75 秒，已使用演示备用方案；该结果不会保存为真实居民。").then(resolve);
         }, ARRIVAL_TOTAL_TIMEOUT_MS);
       });
       const clickedFallback = new Promise<DownloadedPhoto>((resolve) => {
@@ -66,7 +66,7 @@ export default function Arrival({
 
       setStage("pixelating");
       setCanUseDemo(false);
-      setResidentName(photo.name ?? "Hardware Photo");
+      setResidentName(photo.name ?? "硬件照片");
       setPortraitUrl(photo.pixelPortraitUrl);
       setWarning(photo.warning ?? null);
 
@@ -93,21 +93,21 @@ export default function Arrival({
   }, []);
 
   const copy = stage === "fetching"
-    ? "FETCHING PHOTO..."
+    ? "正在获取照片..."
     : stage === "generating"
-      ? "GENERATING SEEDREAM SPRITE..."
+      ? "正在生成像素形象..."
       : stage === "pixelating"
-        ? "PIXEL SPRITE READY..."
+        ? "像素形象已就绪..."
         : stage === "entering"
-          ? "ENTERING ISLAND..."
-          : "DONE";
+          ? "正在进入小岛..."
+          : "已完成";
 
   return (
     <section className="flex min-h-full flex-col justify-center gap-5 px-4 py-5">
       <div>
-        <div className="font-pixel text-[8px] text-pink">03 / ARRIVAL</div>
+        <div className="font-pixel text-[8px] text-pink">03 / 抵达</div>
         <h1 className="mt-3 font-pixel text-[14px] leading-7 text-ink">
-          Connecting <span className="text-pink">{residentName}</span> to island
+          正在连接 <span className="text-pink">{residentName}</span> 与小岛
         </h1>
       </div>
 
@@ -121,7 +121,7 @@ export default function Arrival({
 
           <div className={`relative z-10 grid h-28 w-28 place-items-center border-[4px] border-ink bg-card shadow-[5px_5px_0_var(--ink)] ${stage === "entering" ? "animate-float" : ""}`}>
             {portraitUrl ? (
-              <img src={portraitUrl} alt="pixel portrait" className="h-20 w-20 object-contain pixel-image" />
+              <img src={portraitUrl} alt="像素形象" className="h-20 w-20 object-contain pixel-image" />
             ) : (
               <AppLogo size={72} />
             )}
@@ -135,21 +135,21 @@ export default function Arrival({
           <div>
             <div className="font-pixel text-[9px] text-ink">{copy}</div>
             <p className="mt-1 font-mono-pixel text-sm text-ink/70">
-              Magnet: {profile.archetype} / {profile.sceneTags.slice(0, 3).join(" / ")}
+              磁场：{profile.archetype} / {profile.sceneTags.slice(0, 3).join(" / ")}
             </p>
           </div>
         </div>
-        {warning && <p className="font-mono-pixel text-xs leading-4 text-ink/60">Notice: {warning}</p>}
+        {warning && <p className="font-mono-pixel text-xs leading-4 text-ink/60">提示：{warning}</p>}
         {(stage === "fetching" || stage === "generating") && canUseDemo && (
           <button
             type="button"
             className="pixel-border bg-lime px-3 py-2 font-pixel text-[8px] text-ink shadow-[3px_3px_0_var(--ink)] active:translate-x-[2px] active:translate-y-[2px] active:shadow-[1px_1px_0_var(--ink)]"
             onClick={() => {
               setCanUseDemo(false);
-              void createDemoDownloadedPhoto("Manual demo fallback was used and will not be saved as a real resident.").then((photo) => manualFallback.current?.(photo));
+              void createDemoDownloadedPhoto("已手动使用演示备用方案，该结果不会保存为真实居民。").then((photo) => manualFallback.current?.(photo));
             }}
           >
-            USE DEMO FALLBACK
+            使用演示备用方案
           </button>
         )}
       </PixelCard>

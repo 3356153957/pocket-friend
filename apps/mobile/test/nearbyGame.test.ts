@@ -133,6 +133,6 @@ describe("createNearbyGameState", () => {
     const bridge = state.visiblePlayers.find((player) => player.id === "bridge");
 
     assert.equal(bridge?.location.coordinateSystem, "gcj02");
-    assert.equal(bridge?.sourceLabel, "GPS");
+    assert.equal(bridge?.sourceLabel, "真实定位");
   });
 });

@@ -16,21 +16,21 @@ export function PhoneFrame({ children }: { children: ReactNode }) {
         <div className="phone-screen">
           <div className="phone-status" aria-hidden="true">
             <span>9:41</span>
-            <span>PF NET&nbsp; [===]</span>
+            <span>口袋网络&nbsp; [===]</span>
           </div>
           <div className="phone-viewport">{children}</div>
         </div>
       </div>
-      <div className="mt-3 text-center font-pixel text-[8px] text-ink/60">POCKET FRIEND · WEB DEMO</div>
+      <div className="mt-3 text-center font-pixel text-[8px] text-ink/60">口袋朋友 · 网页演示</div>
     </div>
   );
 }
 
 export function BottomTabs({ tab, setTab }: { tab: AppTab; setTab: (tab: AppTab) => void }) {
   const items = [
-    { key: "map" as const, label: "MAP", Icon: Map },
-    { key: "pals" as const, label: "PALS", Icon: House },
-    { key: "settings" as const, label: "SET", Icon: SettingsIcon },
+    { key: "map" as const, label: "地图", Icon: Map },
+    { key: "pals" as const, label: "好友", Icon: House },
+    { key: "settings" as const, label: "设置", Icon: SettingsIcon },
   ];
 
   return (

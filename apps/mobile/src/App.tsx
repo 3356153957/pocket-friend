@@ -53,7 +53,7 @@ export default function App() {
       const savedProfile = await upsertProductProfile(profile);
       setProductProfile(savedProfile);
     } catch (error) {
-      setBackendWarning(error instanceof Error ? error.message : "Product backend is unavailable.");
+      setBackendWarning(error instanceof Error ? error.message : "产品服务暂时不可用。");
       setProductProfile({
         id: `local-${Date.now().toString(36)}`,
         name: profile.name,
@@ -70,7 +70,7 @@ export default function App() {
   async function finishArrival(resident: ScreenResident) {
     if (resident.source === "demo") {
       setBackendWarning(resident.spriteSource === "local-fallback"
-        ? "Hardware photo was not available, so no resident was saved. Please capture a real photo and run arrival again."
+        ? "未获取到硬件照片，因此没有保存居民。请拍摄真实照片后重新进入。"
         : null);
       setScreenResident(resident);
       setTab("pals");
@@ -89,7 +89,7 @@ export default function App() {
       window.localStorage.setItem("pf:last-screen-resident", JSON.stringify(savedResident));
       setBackendWarning(null);
     } catch (error) {
-      setBackendWarning(error instanceof Error ? error.message : "Failed to save resident.");
+      setBackendWarning(error instanceof Error ? error.message : "居民保存失败。");
       setScreenResident(resident);
     }
     setTab("pals");

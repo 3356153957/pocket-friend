@@ -5,8 +5,8 @@ export function getLocationBadge(state: {
   loading: boolean;
   location: GeoPoint | null;
   mode: LocationMode;
-}): "GPS" | "DEMO" | "LOCATING" | "NO FIX" {
-  if (state.loading) return "LOCATING";
-  if (!state.location) return "NO FIX";
-  return state.mode === "native" ? "GPS" : "DEMO";
+}): "真实定位" | "演示定位" | "定位中" | "未定位" {
+  if (state.loading) return "定位中";
+  if (!state.location) return "未定位";
+  return state.mode === "native" ? "真实定位" : "演示定位";
 }

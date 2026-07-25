@@ -58,13 +58,13 @@ describe("Pocket Friend app flow", () => {
     assert.equal(profile.firstMeetStyle, "直接聊天");
     assert.equal(profile.encounterPreference, "深聊");
     assert.equal(profile.sceneType, "户外游走");
-    assert.deepEqual(profile.sceneTags, ["citywalk", "公园", "户外散步"]);
+    assert.deepEqual(profile.sceneTags, ["城市漫步", "公园", "户外散步"]);
     assert.equal(profile.privacyMode, "需确认");
     assert.match(profile.displayText, /观察气氛/);
 
     assert.deepEqual(deriveLegacyMatchingPrefs(profile), {
       vibe: "quiet",
-      interests: ["citywalk", "公园", "户外散步"],
+      interests: ["城市漫步", "公园", "户外散步"],
       meetStyle: "chat",
     });
   });

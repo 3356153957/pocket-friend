@@ -100,7 +100,7 @@ export const quizQuestions: QuizQuestion[] = [
 
 const sceneTagsByType: Record<SceneType, string[]> = {
   安静室内: ["咖啡店", "书店", "陶艺", "独立小店"],
-  户外游走: ["citywalk", "公园", "户外散步"],
+  户外游走: ["城市漫步", "公园", "户外散步"],
   夜晚文化: ["livehouse", "展览", "市集", "电影"],
   游戏共创: ["桌游", "手作", "项目共创", "剧本杀"],
 };
