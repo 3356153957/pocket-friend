@@ -766,6 +766,21 @@ if (-not $idlePage.Success -or
     $idlePage.Value -match 'PF_INPUT_OPEN_PINYIN') {
     throw 'Brand home must expose SLEEP without the pinyin test shortcut'
 }
+$brandPage = [regex]::Match(
+    $uiSource,
+    'static lv_obj_t \*pf_ui_create_brand_page[\s\S]*?(?=static void pf_ui_create_start_page)'
+)
+if (-not $brandPage.Success -or
+    $brandPage.Value -notmatch 'lv_obj_align\(device,\s*LV_ALIGN_TOP_MID,\s*0,\s*104\)' -or
+    $idlePage.Value -notmatch 'lv_obj_t \*shadow;' -or
+    $idlePage.Value -notmatch 'lv_obj_set_size\(shadow,\s*PF_UI_PRIMARY_WIDTH,\s*PF_UI_PRIMARY_HEIGHT\)' -or
+    $idlePage.Value -notmatch '"SLEEP",\s*PF_INPUT_TOGGLE_DND,\s*PF_UI_COLOR_PINK,\s*false' -or
+    $idlePage.Value -notmatch 'lv_obj_set_style_border_width\(button,\s*4,\s*0\)' -or
+    $idlePage.Value -notmatch 'lv_font_montserrat_24' -or
+    $idlePage.Value -notmatch 'lv_obj_align\(button,\s*LV_ALIGN_BOTTOM_MID,\s*0,\s*-136\)' -or
+    $idlePage.Value -match 'lv_obj_set_size\(button,\s*112,\s*48\)') {
+    throw 'SLEEP must match the full primary CAMERA button style without overlap'
+}
 $wifiStatusUpdate = [regex]::Match(
     $uiSource,
     'void pf_ui_set_wifi_status\(bool connected, bool busy\)[\s\S]*?(?=void pf_ui_wifi_show_scan)'

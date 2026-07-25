@@ -301,7 +301,7 @@ static lv_obj_t *pf_ui_create_brand_page(PF_UI_PAGE_E page_id,
     lv_obj_align(label, LV_ALIGN_TOP_MID, 0, 68);
 
     device = pf_ui_draw_pet_device(page, false, false);
-    lv_obj_align(device, LV_ALIGN_TOP_MID, 0, 120);
+    lv_obj_align(device, LV_ALIGN_TOP_MID, 0, 104);
 
     shadow = lv_obj_create(page);
     lv_obj_set_size(shadow, PF_UI_PRIMARY_WIDTH, PF_UI_PRIMARY_HEIGHT);
@@ -385,6 +385,7 @@ static void pf_ui_create_idle_page(void)
 {
     lv_obj_t *page;
     lv_obj_t *button;
+    lv_obj_t *shadow;
 
     page = pf_ui_create_brand_page(PF_UI_PAGE_IDLE, "CAMERA",
                                    PF_INPUT_OPEN_CAMERA,
@@ -399,13 +400,24 @@ static void pf_ui_create_idle_page(void)
     lv_obj_set_style_text_color(lv_obj_get_child(button, 0),
                                 lv_color_hex(PF_UI_COLOR_INK), 0);
     lv_obj_align(button, LV_ALIGN_TOP_RIGHT, -8, 8);
+
+    shadow = lv_obj_create(page);
+    lv_obj_set_size(shadow, PF_UI_PRIMARY_WIDTH, PF_UI_PRIMARY_HEIGHT);
+    lv_obj_set_style_bg_color(shadow, lv_color_hex(PF_UI_COLOR_INK), 0);
+    lv_obj_set_style_border_width(shadow, 0, 0);
+    lv_obj_set_style_radius(shadow, 4, 0);
+    lv_obj_set_style_pad_all(shadow, 0, 0);
+    lv_obj_clear_flag(shadow, LV_OBJ_FLAG_SCROLLABLE | LV_OBJ_FLAG_CLICKABLE);
+    lv_obj_align(shadow, LV_ALIGN_BOTTOM_MID, 6, -130);
+
     button = pf_ui_create_button(page, "SLEEP", PF_INPUT_TOGGLE_DND,
-                                 PF_UI_COLOR_NIGHT, false);
-    lv_obj_set_size(button, 112, 48);
+                                 PF_UI_COLOR_PINK, false);
     lv_obj_set_style_radius(button, 4, 0);
     lv_obj_set_style_border_color(button, lv_color_hex(PF_UI_COLOR_INK), 0);
-    lv_obj_set_style_border_width(button, 3, 0);
-    lv_obj_align(button, LV_ALIGN_BOTTOM_MID, 0, -128);
+    lv_obj_set_style_border_width(button, 4, 0);
+    lv_obj_set_style_text_font(lv_obj_get_child(button, 0),
+                               &lv_font_montserrat_24, 0);
+    lv_obj_align(button, LV_ALIGN_BOTTOM_MID, 0, -136);
 }
 
 static void pf_ui_create_photo_name_input_page(void)
