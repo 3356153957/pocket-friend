@@ -24,6 +24,7 @@ export default defineConfig(({ mode }) => {
     ?? env.VITE_DOUBAO_API_KEY
     ?? process.env.DOUBAO_API_KEY
     ?? process.env.VITE_DOUBAO_API_KEY;
+  const gatewayUrl = env.EXPO_PUBLIC_GATEWAY_URL ?? env.VITE_GATEWAY_URL ?? "http://127.0.0.1:4312";
 
   return {
     envPrefix: ["VITE_", "EXPO_PUBLIC_"],
@@ -53,6 +54,11 @@ export default defineConfig(({ mode }) => {
               }
             });
           },
+        },
+        "/product-api": {
+          target: gatewayUrl,
+          changeOrigin: true,
+          rewrite: (path) => path.replace(/^\/product-api/, "/api/product"),
         },
       },
     },

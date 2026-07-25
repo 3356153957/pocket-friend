@@ -17,8 +17,15 @@ export interface IslandPal {
 
 export type IslandSceneId = "hackathon" | "alt";
 
+export interface IslandSceneConfig {
+  src: string;
+  label: string;
+  walk: { x1: number; x2: number; y1: number; y2: number };
+}
+
 interface InteractiveIslandProps {
-  scene: IslandSceneId;
+  scene?: IslandSceneId;
+  sceneConfig?: IslandSceneConfig;
   pals: IslandPal[];
   selectedId: string;
   onSelect: (palId: string) => void;
@@ -38,7 +45,7 @@ interface SpriteState {
   loadedRealPhoto?: HTMLImageElement | undefined;
 }
 
-const SCENES: Record<IslandSceneId, { src: string; label: string; walk: { x1: number; x2: number; y1: number; y2: number } }> = {
+const SCENES: Record<IslandSceneId, IslandSceneConfig> = {
   hackathon: {
     src: "/assets/scene-hackathon.png",
     label: "HACKATHON ISLAND",
@@ -80,8 +87,8 @@ function coverRect(canvasW: number, canvasH: number, imageW: number, imageH: num
   return { x: (canvasW - w) / 2, y: (canvasH - h) / 2, w, h };
 }
 
-function isWalkable(scene: IslandSceneId, rx: number, ry: number) {
-  const walk = SCENES[scene].walk;
+function isWalkable(sceneConfig: IslandSceneConfig, rx: number, ry: number) {
+  const walk = sceneConfig.walk;
   return rx >= walk.x1 && rx <= walk.x2 && ry >= walk.y1 && ry <= walk.y2;
 }
 
@@ -139,12 +146,12 @@ function drawGeneratedSprite(ctx: CanvasRenderingContext2D, sprite: SpriteState,
   ctx.restore();
 }
 
-export default function InteractiveIsland({ scene, pals, selectedId, onSelect, compact = false }: InteractiveIslandProps) {
+export default function InteractiveIsland({ scene = "hackathon", sceneConfig: customSceneConfig, pals, selectedId, onSelect, compact = false }: InteractiveIslandProps) {
   const canvasRef = useRef<HTMLCanvasElement | null>(null);
   const onSelectRef = useRef(onSelect);
   const selectedIdRef = useRef(selectedId);
 
-  const sceneConfig = SCENES[scene];
+  const sceneConfig = customSceneConfig ?? SCENES[scene];
   const image = useMemo(() => {
     const img = new Image();
     img.src = sceneConfig.src;
@@ -222,7 +229,7 @@ export default function InteractiveIsland({ scene, pals, selectedId, onSelect, c
       if (!settled) return;
       const nx = sprite.rx + Math.cos(sprite.angle) * sprite.speed;
       const ny = sprite.ry + Math.sin(sprite.angle) * sprite.speed * 0.68;
-      if (isWalkable(scene, nx, ny)) {
+      if (isWalkable(sceneConfig, nx, ny)) {
         sprite.rx = nx;
         sprite.ry = ny;
       } else {
@@ -372,7 +379,7 @@ export default function InteractiveIsland({ scene, pals, selectedId, onSelect, c
       observer.disconnect();
       window.removeEventListener("resize", resize);
     };
-  }, [compact, image, pals, scene, sceneConfig.label]);
+  }, [compact, image, pals, sceneConfig]);
 
   return <canvas ref={canvasRef} className="h-full w-full pixel-image" aria-label="Pocket Friend interactive island" />;
 }

@@ -2,6 +2,7 @@ import { House, Map, Settings as SettingsIcon } from "lucide-react";
 import type { ReactNode } from "react";
 
 import type { AppTab, Prefs } from "../app/appFlow.ts";
+import type { ProductProfile } from "../app/productApi.ts";
 import type { ScreenResident } from "../app/screenResident.ts";
 import type { NearbyDemoController } from "../app/useNearbyDemo.ts";
 import HomeWorld from "./HomeWorld.tsx";
@@ -53,20 +54,45 @@ export function BottomTabs({ tab, setTab }: { tab: AppTab; setTab: (tab: AppTab)
   );
 }
 
-export default function AppShell({ tab, setTab, prefs, setPrefs, nearby, resident }: {
+export default function AppShell({
+  tab,
+  setTab,
+  prefs,
+  setPrefs,
+  nearby,
+  resident,
+  productProfile,
+  setProductProfile,
+  backendWarning,
+  setBackendWarning,
+}: {
   tab: AppTab;
   setTab: (tab: AppTab) => void;
   prefs: Prefs;
   setPrefs: (prefs: Prefs) => void;
   nearby: NearbyDemoController;
   resident?: ScreenResident | null;
+  productProfile?: ProductProfile | null;
+  setProductProfile?: (profile: ProductProfile | null) => void;
+  backendWarning?: string | null;
+  setBackendWarning?: (warning: string | null) => void;
 }) {
   return (
     <div className="relative flex h-full flex-col">
       <main className="min-h-0 flex-1 overflow-y-auto pb-24">
         {tab === "map" && <MatchingMap nearby={nearby} />}
         {tab === "pals" && <HomeWorld resident={resident} />}
-        {tab === "settings" && <Settings prefs={prefs} setPrefs={setPrefs} />}
+        {tab === "settings" && (
+          <Settings
+            prefs={prefs}
+            setPrefs={setPrefs}
+            productProfile={productProfile}
+            setProductProfile={setProductProfile}
+            resident={resident}
+            backendWarning={backendWarning}
+            setBackendWarning={setBackendWarning}
+          />
+        )}
       </main>
       <BottomTabs tab={tab} setTab={setTab} />
     </div>

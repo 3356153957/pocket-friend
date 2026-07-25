@@ -1,6 +1,7 @@
-import { createServer, type Server } from "node:http";
+import { createServer, type IncomingMessage, type Server } from "node:http";
 import { pathToFileURL } from "node:url";
 
+import { FileProductStore } from "./productStore.ts";
 import {
   createGatewayRouter,
   type GatewayEnvironment,
@@ -17,14 +18,17 @@ export function createGatewayServer(options: GatewayServerOptions = {}): Server 
     env,
     ...(options.fetcher ? { fetcher: options.fetcher } : {}),
     ...(options.now ? { now: options.now } : {}),
+    productStore: options.productStore ?? new FileProductStore(env.PF_PRODUCT_STORE_FILE ?? "./data/product-state.json"),
   });
 
   return createServer(async (request, response) => {
     try {
       const host = request.headers.host ?? "127.0.0.1";
+      const body = await readRequestBody(request);
       const routed = await route(new Request(`http://${host}${request.url ?? "/"}`, {
         method: request.method ?? "GET",
         headers: request.headers as HeadersInit,
+        ...(body ? { body } : {}),
       }));
 
       response.statusCode = routed.status;
@@ -41,6 +45,17 @@ export function createGatewayServer(options: GatewayServerOptions = {}): Server 
       }));
     }
   });
+}
+
+async function readRequestBody(request: IncomingMessage): Promise<Buffer | undefined> {
+  const method = request.method ?? "GET";
+  if (method === "GET" || method === "HEAD" || method === "OPTIONS") return undefined;
+
+  const chunks: Buffer[] = [];
+  for await (const chunk of request) {
+    chunks.push(Buffer.isBuffer(chunk) ? chunk : Buffer.from(chunk));
+  }
+  return Buffer.concat(chunks);
 }
 
 export async function startGatewayServer(

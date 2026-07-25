@@ -31,11 +31,13 @@ web-build/
 .expo/
 .expo-shared/
 *.tsbuildinfo
+apps/gateway/data/
 
 # Temporary files and caches
 .cache/
 .playwright-cli/
 .worktrees/
+background-preview-raw/
 tmp/
 temp/
 *.tmp
