@@ -762,8 +762,20 @@ $idlePage = [regex]::Match(
     'static void pf_ui_create_idle_page\(void\)[\s\S]*?(?=static void pf_ui_create_photo_name_input_page)'
 )
 if (-not $idlePage.Success -or
-    $idlePage.Value -notmatch '"SLEEP",\s*PF_INPUT_TOGGLE_DND') {
-    throw 'Brand home must expose a SLEEP control that enters DND'
+    $idlePage.Value -notmatch '"SLEEP",\s*PF_INPUT_TOGGLE_DND' -or
+    $idlePage.Value -match 'PF_INPUT_OPEN_PINYIN') {
+    throw 'Brand home must expose SLEEP without the pinyin test shortcut'
+}
+$wifiStatusUpdate = [regex]::Match(
+    $uiSource,
+    'void pf_ui_set_wifi_status\(bool connected, bool busy\)[\s\S]*?(?=void pf_ui_wifi_show_scan)'
+)
+if ($uiSource -match 'wifi_status_label' -or
+    $idlePage.Value -notmatch 'sg_ui\.wifi_button\s*=\s*pf_ui_create_button\([\s\S]*PF_UI_COLOR_MUTED' -or
+    -not $wifiStatusUpdate.Success -or
+    $wifiStatusUpdate.Value -notmatch 'sg_ui\.wifi_button' -or
+    $wifiStatusUpdate.Value -notmatch 'connected\s*\?\s*PF_UI_COLOR_SUCCESS\s*:\s*PF_UI_COLOR_MUTED') {
+    throw 'Wi-Fi connectivity must be shown by a gray/green Wi-Fi button without a separate status label'
 }
 $matchPage = [regex]::Match(
     $ui,
@@ -868,8 +880,8 @@ if (-not $transportPeerFound.Success -or
     $transportPeerFound.Value -notmatch 'sg_state\.state == PF_STATE_PEER_FOUND[\s\S]*pf_ui_set_peer\(PF_PEER_ID,\s*true\)' -or
     $transportPeerFound.Value -notmatch 'sg_state\.state == PF_STATE_WAITING_CONFIRM[\s\S]*pf_ui_set_peer\(PF_PEER_ID,\s*true\)[\s\S]*PF_MSG_CONFIRM' -or
     -not $transportPeerLost.Success -or
-    $transportPeerLost.Value -notmatch 'PF_STATE_PEER_FOUND[\s\S]*PF_STATE_WAITING_CONFIRM[\s\S]*pf_ui_set_peer\(PF_PEER_ID,\s*false\)') {
-    throw 'Transient peer loss must keep matching and waiting-confirm pages stable'
+    $transportPeerLost.Value -notmatch 'PF_STATE_PEER_FOUND[\s\S]*PF_STATE_WAITING_CONFIRM[\s\S]*pf_start_pairing_cooldown\(\)[\s\S]*sg_pairing_peer_pending\s*=\s*false[\s\S]*pf_dispatch\(PF_EVENT_RESET\)') {
+    throw 'Sustained peer loss must leave pairing and suppress immediate rematching'
 }
 $timerHandler = [regex]::Match(
     $app,

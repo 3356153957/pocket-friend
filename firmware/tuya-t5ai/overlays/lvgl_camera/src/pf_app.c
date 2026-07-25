@@ -720,7 +720,9 @@ static void pf_handle_transport(const PF_APP_EVENT_T *event)
         }
         if (sg_state.state == PF_STATE_PEER_FOUND ||
             sg_state.state == PF_STATE_WAITING_CONFIRM) {
-            pf_ui_set_peer(PF_PEER_ID, false);
+            pf_start_pairing_cooldown();
+            sg_pairing_peer_pending = false;
+            pf_dispatch(PF_EVENT_RESET);
         } else if (sg_state.state != PF_STATE_DND &&
                    ((sg_state.state >= PF_STATE_CAPTURE_PREPARE &&
                       sg_state.state <= PF_STATE_SUCCESS) ||
