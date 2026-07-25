@@ -148,6 +148,53 @@ describe("admin router", () => {
     assert.deepEqual(new Uint8Array(await latest.arrayBuffer()), jpeg);
   });
 
+  test("serves Seedream pixel avatar generation through the 4311 island API", async () => {
+    const calls: Array<{ input: string; init?: RequestInit }> = [];
+    const route = createAdminRouter({
+      env: {
+        ...env,
+        DOUBAO_API_KEY: "server-only-seedream-secret",
+        DOUBAO_MODEL: "seedream-test-model",
+      },
+      registry: new DeviceStatusRegistry(),
+      seedreamFetch: async (input, init) => {
+        calls.push({ input: input.toString(), ...(init ? { init } : {}) });
+        if (calls.length === 1) {
+          return new Response(JSON.stringify({
+            data: [{ url: "https://images.example/avatar.png" }],
+          }), {
+            status: 200,
+            headers: { "Content-Type": "application/json" },
+          });
+        }
+
+        return new Response(new Uint8Array([0x89, 0x50, 0x4e, 0x47]), {
+          status: 200,
+          headers: { "Content-Type": "image/png" },
+        });
+      },
+    });
+
+    const response = await route(new Request("http://localhost:4311/island-avatar-api/generate", {
+      method: "POST",
+      headers: {
+        Origin: "http://localhost:4320",
+        "Content-Type": "application/json",
+      },
+      body: JSON.stringify({ image: "data:image/jpeg;base64,cGhvdG8=" }),
+    }));
+    const text = await response.text();
+
+    assert.equal(response.status, 200);
+    assert.equal(response.headers.get("access-control-allow-origin"), "http://localhost:4320");
+    assert.equal(text.includes("server-only-seedream-secret"), false);
+    assert.deepEqual(JSON.parse(text), {
+      data: [{ b64_json: "iVBORw==" }],
+      model: "seedream-test-model",
+    });
+    assert.equal(new Headers(calls[0]?.init?.headers).get("Authorization"), "Bearer server-only-seedream-secret");
+  });
+
   test("uses the newest historical photo when the separate current file is missing", async () => {
     const jpeg = Uint8Array.from([0xff, 0xd8, 0x05, 0xff, 0xd9]);
     const archived = {

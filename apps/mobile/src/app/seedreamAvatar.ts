@@ -1,4 +1,4 @@
-const AVATAR_GENERATION_ENDPOINT = "/avatar-api/generate";
+const AVATAR_GENERATION_ENDPOINT = defaultAvatarGenerationEndpoint();
 const SEEDREAM_TIMEOUT_MS = 60000;
 const WHITE_THRESHOLD = 242;
 const CROP_PADDING = 18;
@@ -67,6 +67,13 @@ async function fetchSeedreamWithTimeout(body: Record<string, unknown>): Promise<
   } finally {
     window.clearTimeout(timer);
   }
+}
+
+function defaultAvatarGenerationEndpoint(): string {
+  if (typeof window === "undefined") return "/avatar-api/generate";
+  const { hostname, protocol } = window.location;
+  if (hostname === "localhost" || hostname === "127.0.0.1" || hostname === "::1") return "/avatar-api/generate";
+  return `${protocol}//${hostname}:4311/island-avatar-api/generate`;
 }
 
 async function isolateSpriteFromWhiteCanvas(imageUrl: string): Promise<string> {

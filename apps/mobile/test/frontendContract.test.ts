@@ -93,6 +93,7 @@ describe("Spark Connect frontend contract", () => {
     assert.doesNotMatch(combined, /ark\.cn-beijing\.volces\.com/);
     assert.doesNotMatch(combined, /seedream-image-proxy/);
     assert.match(avatarClient, /\/avatar-api\/generate/);
+    assert.match(avatarClient, /\/island-avatar-api\/generate/);
     assert.match(viteConfig, /\/avatar-api/);
     assert.match(viteConfig, /PF_PRODUCT_API_TOKEN/);
     assert.match(viteConfig, /PF_PHOTO_API_URL/);
@@ -116,6 +117,7 @@ describe("Spark Connect frontend contract", () => {
     assert.match(app, /knownPhotoIdsRef/);
     assert.match(arrival, /PhotoProcessingQueue/);
     assert.match(arrival, /检测到.*新照片/);
+    assert.match(arrival, /spriteSource === "seedream"/);
   });
 
   test("uses consistent Chinese copy across the complete demo flow", async () => {

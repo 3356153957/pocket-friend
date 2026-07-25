@@ -12,6 +12,10 @@ import {
   type BoardDeviceId,
 } from "./photos.ts";
 import { PhotoDownloadTokenStore } from "./photoDownloadTokens.ts";
+import {
+  generateSeedreamAvatar,
+  SeedreamAdminError,
+} from "./seedream.ts";
 
 export type AdminEnvironment = Record<string, string | undefined>;
 export type AdminRouter = (request: Request) => Promise<Response>;
@@ -21,6 +25,7 @@ export interface AdminRouterOptions {
   registry: DeviceStatusRegistry;
   photos?: LatestPhotoStore;
   photoDownloadTokens?: PhotoDownloadTokenStore;
+  seedreamFetch?: (input: string | URL, init?: RequestInit) => Promise<Response>;
   now?: () => number;
 }
 
@@ -45,7 +50,8 @@ function json(body: unknown, status = 200): Response {
 
 function withIslandCors(result: Response, origin: string): Response {
   result.headers.set("Access-Control-Allow-Origin", origin);
-  result.headers.set("Access-Control-Allow-Methods", "GET, HEAD, OPTIONS");
+  result.headers.set("Access-Control-Allow-Methods", "GET, HEAD, POST, OPTIONS");
+  result.headers.set("Access-Control-Allow-Headers", "Content-Type");
   result.headers.set("Vary", "Origin");
   return result;
 }
@@ -214,6 +220,37 @@ export function createAdminRouter(options: AdminRouterOptions): AdminRouter {
 
     if (url.pathname === "/health" && request.method === "GET") {
       return json({ status: "ok", service: "pocket-friend-admin" });
+    }
+
+    if (url.pathname === "/island-avatar-api/generate") {
+      const origin = allowedWebOrigin(request, options.env);
+      if (!origin) return json({ error: { code: "ORIGIN_DENIED", message: "Origin not allowed." } }, 403);
+      if (request.method === "OPTIONS") {
+        return withIslandCors(response(null, 204, "text/plain; charset=utf-8"), origin);
+      }
+      if (request.method !== "POST") {
+        return withIslandCors(json({ error: { code: "METHOD_NOT_ALLOWED", message: "Only POST requests are supported." } }, 405), origin);
+      }
+
+      try {
+        const body = await request.json() as { image?: unknown };
+        if (typeof body.image !== "string" || !body.image.startsWith("data:image/")) {
+          return withIslandCors(json({ error: { code: "SEEDREAM_IMAGE_REQUIRED", message: "A data URL image is required." } }, 400), origin);
+        }
+        const result = await generateSeedreamAvatar({
+          apiKey: options.env.DOUBAO_API_KEY ?? "",
+          image: body.image,
+          ...(options.env.DOUBAO_MODEL ? { model: options.env.DOUBAO_MODEL } : {}),
+          ...(options.env.DOUBAO_ENDPOINT ? { endpoint: options.env.DOUBAO_ENDPOINT } : {}),
+          ...(options.seedreamFetch ? { fetcher: options.seedreamFetch } : {}),
+        });
+        return withIslandCors(json(result), origin);
+      } catch (error) {
+        if (error instanceof SeedreamAdminError) {
+          return withIslandCors(json({ error: { code: error.code, message: error.message } }, error.status), origin);
+        }
+        return withIslandCors(json({ error: { code: "SEEDREAM_ADMIN_ERROR", message: "Seedream generation failed." } }, 502), origin);
+      }
     }
 
     if (url.pathname.startsWith("/island-photo-api/")) {

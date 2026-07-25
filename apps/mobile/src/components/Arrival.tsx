@@ -161,7 +161,7 @@ export default function Arrival({
     async function animateAndSave(photo: DownloadedPhoto, attemptedPhotoId: string | null) {
       setStage("pixelating");
       setResidentName(photo.name ?? "硬件照片");
-      setPortraitUrl(photo.pixelPortraitUrl);
+      setPortraitUrl(photo.spriteSource === "seedream" ? photo.pixelPortraitUrl : null);
       setWarning(photo.warning ?? null);
       await delay(900);
       if (cancelled) return;
