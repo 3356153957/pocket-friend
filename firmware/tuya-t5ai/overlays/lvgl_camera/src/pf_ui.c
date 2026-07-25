@@ -48,6 +48,7 @@ typedef struct {
     lv_obj_t *preview_canvas;
     lv_obj_t *result_image;
     lv_obj_t *peer_label;
+    lv_obj_t *waiting_peer_label;
     lv_obj_t *match_status_label;
     lv_obj_t *waiting_status_label;
     lv_obj_t *countdown_label;
@@ -724,16 +725,68 @@ static void pf_ui_create_match_page(void)
 
 static void pf_ui_create_waiting_page(void)
 {
+    lv_obj_t *page;
+    lv_obj_t *label;
+    lv_obj_t *device;
+    lv_obj_t *badge;
     lv_obj_t *button;
 
-    sg_ui.pages[PF_UI_PAGE_WAITING] = pf_ui_create_page("Almost ready");
-    sg_ui.waiting_status_label =
-        pf_ui_create_label(sg_ui.pages[PF_UI_PAGE_WAITING],
-                           "You: waiting\nFriend: waiting",
-                           LV_ALIGN_CENTER, 0, -16);
-    button = pf_ui_create_button(sg_ui.pages[PF_UI_PAGE_WAITING], "Cancel",
-                                 PF_INPUT_CANCEL, PF_UI_COLOR_SURFACE, false);
-    lv_obj_align(button, LV_ALIGN_BOTTOM_MID, 0, -24);
+    page = pf_ui_create_blank_page(PF_UI_COLOR_SKY);
+    sg_ui.pages[PF_UI_PAGE_WAITING] = page;
+
+    label = lv_label_create(page);
+    lv_label_set_text(label, "ALMOST");
+    lv_obj_set_style_text_color(label, lv_color_hex(PF_UI_COLOR_CYAN), 0);
+    lv_obj_set_style_text_font(label, &lv_font_montserrat_24, 0);
+    lv_obj_align(label, LV_ALIGN_TOP_MID, 0, 28);
+
+    label = lv_label_create(page);
+    lv_label_set_text(label, "READY!");
+    lv_obj_set_style_text_color(label, lv_color_hex(PF_UI_COLOR_LIME), 0);
+    lv_obj_set_style_text_font(label, &lv_font_montserrat_24, 0);
+    lv_obj_align(label, LV_ALIGN_TOP_MID, 0, 60);
+
+    device = pf_ui_draw_pet_device(page, false);
+    lv_obj_align(device, LV_ALIGN_TOP_MID, -72, 96);
+    device = pf_ui_draw_pet_device(page, false);
+    lv_obj_set_style_bg_color(device, lv_color_hex(PF_UI_COLOR_CYAN), 0);
+    lv_obj_align(device, LV_ALIGN_TOP_MID, 72, 96);
+
+    badge = lv_obj_create(page);
+    lv_obj_set_size(badge, 248, 104);
+    lv_obj_set_style_bg_color(badge, lv_color_white(), 0);
+    lv_obj_set_style_border_color(badge, lv_color_hex(PF_UI_COLOR_INK), 0);
+    lv_obj_set_style_border_width(badge, 4, 0);
+    lv_obj_set_style_radius(badge, 4, 0);
+    lv_obj_set_style_pad_all(badge, 0, 0);
+    lv_obj_clear_flag(badge, LV_OBJ_FLAG_SCROLLABLE | LV_OBJ_FLAG_CLICKABLE);
+    lv_obj_align(badge, LV_ALIGN_CENTER, 0, 100);
+
+    sg_ui.waiting_peer_label = lv_label_create(badge);
+    lv_label_set_text(sg_ui.waiting_peer_label, "Friend -- online");
+    lv_obj_set_style_text_color(sg_ui.waiting_peer_label,
+                                lv_color_hex(PF_UI_COLOR_INK), 0);
+    lv_obj_set_style_text_font(sg_ui.waiting_peer_label,
+                               &lv_font_montserrat_16, 0);
+    lv_obj_align(sg_ui.waiting_peer_label, LV_ALIGN_TOP_MID, 0, 14);
+
+    sg_ui.waiting_status_label = lv_label_create(badge);
+    lv_label_set_text(sg_ui.waiting_status_label,
+                      "You: waiting  Friend: waiting");
+    lv_obj_set_style_text_color(sg_ui.waiting_status_label,
+                                lv_color_hex(PF_UI_COLOR_INK), 0);
+    lv_obj_set_style_text_font(sg_ui.waiting_status_label,
+                               &lv_font_montserrat_14, 0);
+    lv_obj_align(sg_ui.waiting_status_label, LV_ALIGN_BOTTOM_MID, 0, -18);
+
+    button = pf_ui_create_button(page, LV_SYMBOL_CLOSE, PF_INPUT_CANCEL,
+                                 PF_UI_COLOR_LIME, true);
+    lv_obj_set_style_radius(button, 4, 0);
+    lv_obj_set_style_border_color(button, lv_color_hex(PF_UI_COLOR_INK), 0);
+    lv_obj_set_style_border_width(button, 3, 0);
+    lv_obj_set_style_text_color(lv_obj_get_child(button, 0),
+                                lv_color_hex(PF_UI_COLOR_INK), 0);
+    lv_obj_align(button, LV_ALIGN_TOP_LEFT, 8, 8);
 }
 
 static void pf_ui_create_countdown_page(void)
@@ -859,6 +912,8 @@ void pf_ui_set_peer(char peer_id, bool online)
     lv_vendor_disp_lock();
     lv_label_set_text_fmt(sg_ui.peer_label, "Friend %c  %s", peer_id,
                           online ? "online" : "offline");
+    lv_label_set_text_fmt(sg_ui.waiting_peer_label, "Friend %c  %s", peer_id,
+                          online ? "online" : "offline");
     lv_vendor_disp_unlock();
 }
 
@@ -871,7 +926,7 @@ void pf_ui_set_confirmed(bool local, bool peer)
     lv_label_set_text(sg_ui.match_status_label,
                       local ? "Waiting for friend" : "Ready to connect");
     lv_label_set_text_fmt(sg_ui.waiting_status_label,
-                          "You: %s\nFriend: %s",
+                          "You: %s  Friend: %s",
                           local ? "ready" : "waiting",
                           peer ? "ready" : "waiting");
     lv_vendor_disp_unlock();

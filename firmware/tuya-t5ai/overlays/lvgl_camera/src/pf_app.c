@@ -23,6 +23,7 @@ typedef enum {
     PF_APP_EVENT_INPUT,
     PF_APP_EVENT_TRANSPORT,
     PF_APP_EVENT_TIMER,
+    PF_APP_EVENT_PAIRING_COOLDOWN,
     PF_APP_EVENT_CAPTURE_DONE,
     PF_APP_EVENT_WIFI,
 } PF_APP_EVENT_TYPE_E;
@@ -50,6 +51,7 @@ static SEM_HANDLE sg_capture_request;
 static THREAD_HANDLE sg_app_thread;
 static THREAD_HANDLE sg_capture_thread;
 static TIMER_ID sg_flow_timer;
+static TIMER_ID sg_pairing_cooldown_timer;
 static PF_STATE_CONTEXT_T sg_state;
 static uint8_t sg_countdown_remaining;
 static uint8_t *sg_photo_jpeg;
@@ -64,6 +66,8 @@ static char sg_wifi_password[PF_WIFI_PASSWORD_MAX + 1U];
 static bool sg_wifi_manual_connecting;
 static volatile bool sg_manual_capture_requested;
 static bool sg_manual_result_visible;
+static bool sg_pairing_cooldown_active;
+static bool sg_pairing_peer_pending;
 
 static void pf_post_event(const PF_APP_EVENT_T *event)
 {
@@ -112,6 +116,25 @@ static void pf_flow_timer_cb(TIMER_ID timer_id, void *arg)
     (void)arg;
     event.data.timer_event = PF_EVENT_TIMEOUT;
     pf_post_event(&event);
+}
+
+static void pf_pairing_cooldown_timer_cb(TIMER_ID timer_id, void *arg)
+{
+    PF_APP_EVENT_T event = {.type = PF_APP_EVENT_PAIRING_COOLDOWN};
+    (void)timer_id;
+    (void)arg;
+    pf_post_event(&event);
+}
+
+static void pf_start_pairing_cooldown(void)
+{
+    sg_pairing_peer_pending = true;
+    if (sg_pairing_cooldown_active) {
+        return;
+    }
+    sg_pairing_cooldown_active = true;
+    tal_sw_timer_start(sg_pairing_cooldown_timer, PF_PAIRING_COOLDOWN_MS,
+                       TAL_TIMER_ONCE);
 }
 
 static void pf_capture_task(void *arg)
@@ -268,16 +291,12 @@ static void pf_refresh_ui(PF_STATE_E previous_state)
         break;
     case PF_STATE_WAITING_CONFIRM:
     case PF_STATE_CAPTURE_PREPARE:
+        tal_sw_timer_stop(sg_flow_timer);
         pf_input_set_mode(PF_INPUT_MODE_WAITING);
+        pf_ui_set_peer(PF_PEER_ID, true);
         pf_ui_set_confirmed(sg_state.local_confirmed,
                             sg_state.peer_confirmed);
         pf_ui_show_page(PF_UI_PAGE_WAITING);
-        if (sg_state.state == PF_STATE_WAITING_CONFIRM) {
-            tal_sw_timer_start(sg_flow_timer, PF_CONFIRM_TIMEOUT_MS,
-                               TAL_TIMER_ONCE);
-        } else {
-            tal_sw_timer_stop(sg_flow_timer);
-        }
         break;
     case PF_STATE_COUNTDOWN:
         pf_input_set_mode(PF_INPUT_MODE_LOCKED);
@@ -393,6 +412,23 @@ static void pf_dispatch(PF_EVENT_E state_event)
     pf_execute_effects(effects, previous_state, session_id);
 }
 
+static void pf_finish_pairing_cooldown(void)
+{
+    bool should_match;
+
+    if (!sg_pairing_cooldown_active) {
+        return;
+    }
+    sg_pairing_cooldown_active = false;
+    should_match = sg_pairing_peer_pending &&
+                   (sg_state.state == PF_STATE_ONLINE_IDLE ||
+                    sg_state.state == PF_STATE_CAMERA_PREVIEW);
+    sg_pairing_peer_pending = false;
+    if (should_match) {
+        pf_dispatch(PF_EVENT_PEER_FOUND);
+    }
+}
+
 static void pf_handle_input(const PF_INPUT_EVENT_T *input)
 {
     if (input == NULL) {
@@ -421,6 +457,10 @@ static void pf_handle_input(const PF_INPUT_EVENT_T *input)
         pf_dispatch(PF_EVENT_LOCAL_CONFIRM);
         break;
     case PF_INPUT_CANCEL:
+        if (sg_state.state >= PF_STATE_PEER_FOUND &&
+            sg_state.state <= PF_STATE_CAPTURE_PREPARE) {
+            pf_start_pairing_cooldown();
+        }
         pf_dispatch(PF_EVENT_LOCAL_CANCEL);
         break;
     case PF_INPUT_TOGGLE_DND:
@@ -594,6 +634,9 @@ static void pf_handle_message(const PF_MESSAGE_T *message)
         pf_dispatch(PF_EVENT_PEER_CONFIRM);
         break;
     case PF_MSG_CANCEL:
+        pf_start_pairing_cooldown();
+        pf_dispatch(PF_EVENT_RESET);
+        break;
     case PF_MSG_RESET:
         pf_dispatch(PF_EVENT_RESET);
         break;
@@ -639,18 +682,31 @@ static void pf_handle_transport(const PF_APP_EVENT_T *event)
         pf_dispatch(PF_EVENT_WIFI_LOST);
         break;
     case PF_TRANSPORT_PEER_FOUND:
-        if (sg_state.state == PF_STATE_PEER_FOUND) {
+        if (sg_pairing_cooldown_active) {
+            sg_pairing_peer_pending = true;
+        } else if (sg_state.state == PF_STATE_PEER_FOUND) {
             pf_ui_set_peer(PF_PEER_ID, true);
+            (void)pf_motor_play(PF_MOTOR_PATTERN_PEER_FOUND);
+        } else if (sg_state.state == PF_STATE_WAITING_CONFIRM) {
+            pf_ui_set_peer(PF_PEER_ID, true);
+            if (sg_state.local_confirmed) {
+                (void)pf_transport_send(PF_MSG_CONFIRM, sg_state.session_id,
+                                        0, true);
+            }
         } else {
             pf_dispatch(PF_EVENT_PEER_FOUND);
         }
         break;
     case PF_TRANSPORT_PEER_LOST:
-        if (sg_state.state == PF_STATE_PEER_FOUND) {
+        if (sg_pairing_cooldown_active) {
+            sg_pairing_peer_pending = false;
+        }
+        if (sg_state.state == PF_STATE_PEER_FOUND ||
+            sg_state.state == PF_STATE_WAITING_CONFIRM) {
             pf_ui_set_peer(PF_PEER_ID, false);
         } else if (sg_state.state != PF_STATE_DND &&
-                   ((sg_state.state >= PF_STATE_WAITING_CONFIRM &&
-                     sg_state.state <= PF_STATE_SUCCESS) ||
+                   ((sg_state.state >= PF_STATE_CAPTURE_PREPARE &&
+                      sg_state.state <= PF_STATE_SUCCESS) ||
                     sg_state.state == PF_STATE_ERROR)) {
             pf_dispatch(PF_EVENT_RESET);
         }
@@ -697,8 +753,8 @@ static void pf_handle_timer(PF_EVENT_E timer_event)
         tal_semaphore_post(sg_capture_request);
         return;
     }
-    if (sg_state.state == PF_STATE_WAITING_CONFIRM) {
-        pf_dispatch(PF_EVENT_RESET);
+    if (sg_state.state == PF_STATE_PEER_FOUND ||
+        sg_state.state == PF_STATE_WAITING_CONFIRM) {
         return;
     }
     pf_dispatch(PF_EVENT_TIMEOUT);
@@ -725,6 +781,9 @@ static void pf_app_task(void *arg)
             break;
         case PF_APP_EVENT_TIMER:
             pf_handle_timer(event.data.timer_event);
+            break;
+        case PF_APP_EVENT_PAIRING_COOLDOWN:
+            pf_finish_pairing_cooldown();
             break;
         case PF_APP_EVENT_CAPTURE_DONE:
             sg_last_capture_result = event.data.capture.capture_result;
@@ -787,6 +846,8 @@ OPERATE_RET pf_app_start(void)
     TUYA_CALL_ERR_RETURN(tal_semaphore_create_init(&sg_capture_request, 0, 1));
     TUYA_CALL_ERR_RETURN(tal_sw_timer_create(pf_flow_timer_cb, NULL,
                                              &sg_flow_timer));
+    TUYA_CALL_ERR_RETURN(tal_sw_timer_create(pf_pairing_cooldown_timer_cb, NULL,
+                                             &sg_pairing_cooldown_timer));
     TUYA_CALL_ERR_RETURN(pf_motor_init());
     TUYA_CALL_ERR_RETURN(pf_camera_init());
     TUYA_CALL_ERR_RETURN(pf_input_init(pf_input_cb, NULL));

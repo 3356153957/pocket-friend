@@ -601,9 +601,10 @@ foreach ($symbol in @(
 
 $appHeaderPath = Join-Path $root 'overlays\lvgl_camera\include\pf_app.h'
 $appSourcePath = Join-Path $root 'overlays\lvgl_camera\src\pf_app.c'
+$configHeaderPath = Join-Path $root 'overlays\lvgl_camera\include\pf_demo_config.h'
 $entryPath = Join-Path $root 'overlays\lvgl_camera\src\example_lvgl_camera.c'
 
-foreach ($path in @($appHeaderPath, $appSourcePath, $entryPath)) {
+foreach ($path in @($appHeaderPath, $appSourcePath, $configHeaderPath, $entryPath)) {
     if (-not (Test-Path -LiteralPath $path)) {
         throw "Missing integrated app source file: $path"
     }
@@ -614,6 +615,7 @@ $app = @(
     Get-Content -LiteralPath $appSourcePath -Raw
 ) -join "`n"
 $entry = Get-Content -LiteralPath $entryPath -Raw
+$config = Get-Content -LiteralPath $configHeaderPath -Raw
 
 $appRequired = @(
     'PF_APP_EVENT_INPUT'
@@ -752,6 +754,18 @@ if (-not $matchPage.Success -or
     $matchPage.Value -match 'pf_ui_create_page\("Friend found"\)') {
     throw 'Friend match page must use the teammate brand layout'
 }
+$waitingUiPage = [regex]::Match(
+    $ui,
+    'static void pf_ui_create_waiting_page\(void\)[\s\S]*?(?=static void pf_ui_create_countdown_page)'
+)
+if (-not $waitingUiPage.Success -or
+    $waitingUiPage.Value -notmatch 'pf_ui_create_blank_page\(PF_UI_COLOR_SKY\)' -or
+    $waitingUiPage.Value -notmatch '"ALMOST"' -or
+    $waitingUiPage.Value -notmatch '"READY!"' -or
+    $waitingUiPage.Value -notmatch 'PF_INPUT_CANCEL,\s*PF_UI_COLOR_LIME' -or
+    $waitingUiPage.Value -match 'pf_ui_create_page\("Almost ready"\)') {
+    throw 'Waiting-confirm page must use the same branded layout as friend matching'
+}
 $peerFoundPage = [regex]::Match(
     $app,
     'case PF_STATE_PEER_FOUND:[\s\S]*?break;'
@@ -764,8 +778,9 @@ if (-not $peerFoundPage.Success -or
     $peerFoundPage.Value -notmatch 'tal_sw_timer_stop\(sg_flow_timer\)' -or
     $peerFoundPage.Value -match 'tal_sw_timer_start' -or
     -not $waitingPage.Success -or
-    $waitingPage.Value -notmatch 'tal_sw_timer_start\(sg_flow_timer,\s*PF_CONFIRM_TIMEOUT_MS') {
-    throw 'Friend match page must stay visible; timeout begins only after confirmation'
+    $waitingPage.Value -notmatch 'tal_sw_timer_stop\(sg_flow_timer\)' -or
+    $waitingPage.Value -match 'tal_sw_timer_start') {
+    throw 'Friend match and waiting-confirm pages must stay visible without a flow timeout'
 }
 $transportPeerFound = [regex]::Match(
     $app,
@@ -777,17 +792,28 @@ $transportPeerLost = [regex]::Match(
 )
 if (-not $transportPeerFound.Success -or
     $transportPeerFound.Value -notmatch 'sg_state\.state == PF_STATE_PEER_FOUND[\s\S]*pf_ui_set_peer\(PF_PEER_ID,\s*true\)' -or
+    $transportPeerFound.Value -notmatch 'sg_state\.state == PF_STATE_WAITING_CONFIRM[\s\S]*pf_ui_set_peer\(PF_PEER_ID,\s*true\)[\s\S]*PF_MSG_CONFIRM' -or
     -not $transportPeerLost.Success -or
-    $transportPeerLost.Value -notmatch 'sg_state\.state == PF_STATE_PEER_FOUND[\s\S]*pf_ui_set_peer\(PF_PEER_ID,\s*false\)') {
-    throw 'Transient peer heartbeat loss must update match status without leaving or re-vibrating the page'
+    $transportPeerLost.Value -notmatch 'PF_STATE_PEER_FOUND[\s\S]*PF_STATE_WAITING_CONFIRM[\s\S]*pf_ui_set_peer\(PF_PEER_ID,\s*false\)') {
+    throw 'Transient peer loss must keep matching and waiting-confirm pages stable'
 }
 $timerHandler = [regex]::Match(
     $app,
     'static void pf_handle_timer\(PF_EVENT_E timer_event\)[\s\S]*?(?=static void pf_app_task)'
 )
 if (-not $timerHandler.Success -or
-    $timerHandler.Value -match 'sg_state\.state == PF_STATE_PEER_FOUND') {
-    throw 'Friend-found page must ignore stale flow-timer events'
+    $timerHandler.Value -notmatch 'PF_STATE_PEER_FOUND[\s\S]*PF_STATE_WAITING_CONFIRM[\s\S]*return;' -or
+    $timerHandler.Value -match 'PF_STATE_WAITING_CONFIRM[\s\S]*pf_dispatch\(PF_EVENT_RESET\)') {
+    throw 'Friend-found and waiting-confirm pages must ignore stale flow-timer events'
+}
+if ($config -notmatch '#define PF_PEER_TIMEOUT_MS\s+8000U') {
+    throw 'Peer heartbeat timeout must tolerate short Wi-Fi broadcast gaps'
+}
+if ($config -notmatch '#define PF_PAIRING_COOLDOWN_MS\s+10000U' -or
+    $app -notmatch 'case PF_INPUT_CANCEL:[\s\S]*PF_STATE_CAPTURE_PREPARE[\s\S]*pf_start_pairing_cooldown\(\)' -or
+    $app -notmatch 'sg_pairing_cooldown_active[\s\S]*PF_TRANSPORT_PEER_FOUND' -or
+    $app -notmatch 'PF_APP_EVENT_PAIRING_COOLDOWN[\s\S]*pf_finish_pairing_cooldown\(\)') {
+    throw 'Cancel must suppress automatic friend matching for ten seconds'
 }
 if ($stateSource -notmatch 'case PF_EVENT_PEER_FOUND:[\s\S]*PF_STATE_PEER_FOUND;[\s\S]*PF_EFFECT_UI_REFRESH\s*\|\s*PF_EFFECT_MOTOR_FEEDBACK' -or
     $app -notmatch 'sg_state\.state == PF_STATE_PEER_FOUND[\s\S]*PF_MOTOR_PATTERN_PEER_FOUND') {
