@@ -2,47 +2,75 @@ import { Check, Loader2 } from "lucide-react";
 import { useEffect, useRef, useState } from "react";
 
 import type { EncounterProfile } from "../app/encounterProfile.ts";
-import { fetchLatestHardwarePhoto } from "../app/photoPipeline.ts";
+import { createDemoDownloadedPhoto, fetchLatestHardwarePhoto, type DownloadedPhoto } from "../app/photoPipeline.ts";
 import { buildScreenResident, type ScreenResident } from "../app/screenResident.ts";
 import { AppLogo, PixelCard } from "./PixelUi.tsx";
 
 type ArrivalStage = "fetching" | "pixelating" | "entering" | "done";
 
+const ARRIVAL_TOTAL_TIMEOUT_MS = 8500;
+const FALLBACK_BUTTON_DELAY_MS = 4500;
+
 export default function Arrival({ profile, onDone }: {
   profile: EncounterProfile;
   onDone: (resident: ScreenResident) => void;
 }) {
-  const started = useRef(false);
+  const manualFallback = useRef<((photo: DownloadedPhoto) => void) | null>(null);
+  const profileRef = useRef(profile);
+  const onDoneRef = useRef(onDone);
   const [stage, setStage] = useState<ArrivalStage>("fetching");
   const [portraitUrl, setPortraitUrl] = useState<string | null>(null);
   const [warning, setWarning] = useState<string | null>(null);
+  const [canUseDemo, setCanUseDemo] = useState(false);
 
   useEffect(() => {
-    if (started.current) return;
-    started.current = true;
+    profileRef.current = profile;
+    onDoneRef.current = onDone;
+  }, [onDone, profile]);
 
+  useEffect(() => {
     let cancelled = false;
     const timers: ReturnType<typeof setTimeout>[] = [];
 
     async function runArrival() {
       setStage("fetching");
-      const photo = await fetchLatestHardwarePhoto();
+      timers.push(setTimeout(() => {
+        if (!cancelled) setCanUseDemo(true);
+      }, FALLBACK_BUTTON_DELAY_MS));
+
+      let totalTimeout: ReturnType<typeof setTimeout> | undefined;
+      const timedFallback = new Promise<DownloadedPhoto>((resolve) => {
+        totalTimeout = setTimeout(() => {
+          void createDemoDownloadedPhoto("照片处理超过 8 秒，已使用演示头像继续。").then(resolve);
+        }, ARRIVAL_TOTAL_TIMEOUT_MS);
+      });
+      const clickedFallback = new Promise<DownloadedPhoto>((resolve) => {
+        manualFallback.current = resolve;
+      });
+      const photo = await Promise.race([
+        fetchLatestHardwarePhoto(),
+        timedFallback,
+        clickedFallback,
+      ]);
+      if (totalTimeout) clearTimeout(totalTimeout);
+      manualFallback.current = null;
       if (cancelled) return;
 
       setStage("pixelating");
+      setCanUseDemo(false);
       setPortraitUrl(photo.pixelPortraitUrl);
       setWarning(photo.warning ?? null);
 
       timers.push(setTimeout(() => {
         if (cancelled) return;
         setStage("entering");
-        const resident = buildScreenResident(profile, photo);
+        const resident = buildScreenResident(profileRef.current, photo);
         console.log("[screen-resident]", resident);
         window.localStorage.setItem("pf:last-screen-resident", JSON.stringify(resident));
         timers.push(setTimeout(() => {
           if (cancelled) return;
           setStage("done");
-          onDone(resident);
+          onDoneRef.current(resident);
         }, 1200));
       }, 900));
     }
@@ -51,9 +79,10 @@ export default function Arrival({ profile, onDone }: {
 
     return () => {
       cancelled = true;
+      manualFallback.current = null;
       timers.forEach((timer) => clearTimeout(timer));
     };
-  }, [onDone, profile]);
+  }, []);
 
   const copy = stage === "fetching"
     ? "FETCHING PHOTO..."
@@ -66,7 +95,7 @@ export default function Arrival({ profile, onDone }: {
   return (
     <section className="flex min-h-full flex-col justify-center gap-5 px-4 py-5">
       <div>
-        <div className="font-pixel text-[8px] text-pink">03 · ARRIVAL</div>
+        <div className="font-pixel text-[8px] text-pink">03 路 ARRIVAL</div>
         <h1 className="mt-3 font-pixel text-[14px] leading-7 text-ink">正在把 <span className="text-pink">Luna</span> 接入小岛</h1>
       </div>
 
@@ -97,6 +126,18 @@ export default function Arrival({ profile, onDone }: {
           </div>
         </div>
         {warning && <p className="font-mono-pixel text-xs leading-4 text-ink/60">照片接口暂不可用，已使用演示头像兜底：{warning}</p>}
+        {stage === "fetching" && canUseDemo && (
+          <button
+            type="button"
+            className="pixel-border bg-lime px-3 py-2 font-pixel text-[8px] text-ink shadow-[3px_3px_0_var(--ink)] active:translate-x-[2px] active:translate-y-[2px] active:shadow-[1px_1px_0_var(--ink)]"
+            onClick={() => {
+              setCanUseDemo(false);
+              void createDemoDownloadedPhoto("已手动使用演示头像继续。").then((photo) => manualFallback.current?.(photo));
+            }}
+          >
+            使用演示头像继续
+          </button>
+        )}
       </PixelCard>
     </section>
   );

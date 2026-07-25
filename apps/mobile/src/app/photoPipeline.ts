@@ -19,13 +19,24 @@ interface PhotoHistoryResponse {
 
 const PHOTO_API_BASE = (import.meta.env.VITE_PHOTO_API_BASE_URL as string | undefined) ?? "/photo-api";
 const PHOTO_API_TOKEN = import.meta.env.VITE_PF_PHOTO_TOKEN as string | undefined;
+const HISTORY_TIMEOUT_MS = 5000;
+const PHOTO_DOWNLOAD_TIMEOUT_MS = 6000;
+const PHOTO_READ_TIMEOUT_MS = 3000;
+const PIXELATE_TIMEOUT_MS = 6000;
 
 function makePhotoApiUrl(path: string): string {
-  if (PHOTO_API_BASE.startsWith("http")) {
-    return `${PHOTO_API_BASE.replace(/\/$/, "")}${path}`;
+  if (/^https?:\/\//i.test(path)) {
+    if (PHOTO_API_BASE.startsWith("http")) return path;
+    const url = new URL(path);
+    return `${PHOTO_API_BASE}${url.pathname}${url.search}`;
   }
 
-  return `${PHOTO_API_BASE}${path}`;
+  const normalizedPath = path.startsWith("/") ? path : `/${path}`;
+  if (PHOTO_API_BASE.startsWith("http")) {
+    return `${PHOTO_API_BASE.replace(/\/$/, "")}${normalizedPath}`;
+  }
+
+  return `${PHOTO_API_BASE}${normalizedPath}`;
 }
 
 function authHeaders(): HeadersInit {
@@ -33,16 +44,16 @@ function authHeaders(): HeadersInit {
   return { Authorization: `Bearer ${PHOTO_API_TOKEN}` };
 }
 
-async function fetchJson<T>(path: string): Promise<T> {
-  const response = await fetch(makePhotoApiUrl(path), { headers: authHeaders() });
+async function fetchJson<T>(path: string, timeoutMs = HISTORY_TIMEOUT_MS): Promise<T> {
+  const response = await fetchWithTimeout(makePhotoApiUrl(path), { headers: authHeaders() }, timeoutMs, "Photo API history request timed out.");
   if (!response.ok) {
     throw new Error(`Photo API failed: HTTP ${response.status}`);
   }
   return await response.json() as T;
 }
 
-async function fetchImageBlob(path: string): Promise<Blob> {
-  const response = await fetch(makePhotoApiUrl(path), { headers: authHeaders() });
+async function fetchImageBlob(path: string, timeoutMs = PHOTO_DOWNLOAD_TIMEOUT_MS): Promise<Blob> {
+  const response = await fetchWithTimeout(makePhotoApiUrl(path), { headers: authHeaders() }, timeoutMs, "Photo download timed out.");
   if (!response.ok) {
     throw new Error(`Photo download failed: HTTP ${response.status}`);
   }
@@ -58,8 +69,8 @@ export async function fetchLatestHardwarePhoto(): Promise<DownloadedPhoto> {
     }
 
     const blob = await fetchImageBlob(latest.url);
-    const originalDataUrl = await blobToDataUrl(blob);
-    const pixelPortraitUrl = await pixelatePhotoBlob(blob, 72, 28);
+    const originalDataUrl = await withTimeout(blobToDataUrl(blob), PHOTO_READ_TIMEOUT_MS, "Photo file read timed out.");
+    const pixelPortraitUrl = await withTimeout(pixelatePhotoBlob(blob, 72, 28), PIXELATE_TIMEOUT_MS, "Photo pixelation timed out.");
 
     return {
       id: latest.id,
@@ -70,16 +81,52 @@ export async function fetchLatestHardwarePhoto(): Promise<DownloadedPhoto> {
       source: "hardware",
     };
   } catch (error) {
-    const fallback = await createDemoPixelPortrait();
-    return {
-      id: `demo-${Date.now()}`,
-      capturedAt: new Date().toISOString(),
-      originalDataUrl: fallback,
-      pixelPortraitUrl: fallback,
-      source: "demo",
-      warning: error instanceof Error ? error.message : "Photo API is unavailable.",
-    };
+    return await createDemoDownloadedPhoto(errorMessage(error));
   }
+}
+
+export async function createDemoDownloadedPhoto(warning = "Photo API is unavailable."): Promise<DownloadedPhoto> {
+  const fallback = await createDemoPixelPortrait();
+  return {
+    id: `demo-${Date.now()}`,
+    capturedAt: new Date().toISOString(),
+    originalDataUrl: fallback,
+    pixelPortraitUrl: fallback,
+    source: "demo",
+    warning,
+  };
+}
+
+async function fetchWithTimeout(url: string, init: RequestInit, timeoutMs: number, timeoutMessage: string): Promise<Response> {
+  const controller = new AbortController();
+  const timer = window.setTimeout(() => controller.abort(), timeoutMs);
+  try {
+    return await fetch(url, { ...init, signal: controller.signal });
+  } catch (error) {
+    if (error instanceof DOMException && error.name === "AbortError") {
+      throw new Error(timeoutMessage);
+    }
+    throw error;
+  } finally {
+    window.clearTimeout(timer);
+  }
+}
+
+async function withTimeout<T>(promise: Promise<T>, timeoutMs: number, timeoutMessage: string): Promise<T> {
+  let timer: ReturnType<typeof setTimeout> | undefined;
+  const timeout = new Promise<never>((_, reject) => {
+    timer = setTimeout(() => reject(new Error(timeoutMessage)), timeoutMs);
+  });
+
+  try {
+    return await Promise.race([promise, timeout]);
+  } finally {
+    if (timer) clearTimeout(timer);
+  }
+}
+
+function errorMessage(error: unknown): string {
+  return error instanceof Error ? error.message : "Photo API is unavailable.";
 }
 
 async function blobToDataUrl(blob: Blob): Promise<string> {
