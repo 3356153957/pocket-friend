@@ -823,6 +823,15 @@ if (-not $protocolAndState.Contains('PF_STATE_PAIRED') -or
     $pairSuccessPage.Value -match 'pf_ui_create_button') {
     throw 'Completed pairing must use a dedicated button-free SUCCESS page'
 }
+$happyPetCount = ([regex]::Matches(
+    $pairSuccessPage.Value,
+    'pf_ui_draw_pet_device\(page,\s*false,\s*true\)'
+)).Count
+if ($happyPetCount -ne 2 -or
+    $uiSource -notmatch 'pf_ui_draw_pet_device\(lv_obj_t \*parent,\s*bool asleep,\s*bool happy\)' -or
+    $uiSource -notmatch 'happy\s*\?\s*"\(\^_\^\)"\s*:\s*"\(o_o\)"') {
+    throw 'Both devices on the pairing SUCCESS page must show happy faces'
+}
 $pairedRefresh = [regex]::Match(
     $app,
     'case PF_STATE_PAIRED:[\s\S]*?break;'

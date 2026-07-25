@@ -212,7 +212,8 @@ static lv_obj_t *pf_ui_create_blank_page(uint32_t bg_color)
     return page;
 }
 
-static lv_obj_t *pf_ui_draw_pet_device(lv_obj_t *parent, bool asleep)
+static lv_obj_t *pf_ui_draw_pet_device(lv_obj_t *parent, bool asleep,
+                                       bool happy)
 {
     lv_obj_t *body;
     lv_obj_t *screen;
@@ -248,7 +249,8 @@ static lv_obj_t *pf_ui_draw_pet_device(lv_obj_t *parent, bool asleep)
                       LV_OBJ_FLAG_SCROLLABLE | LV_OBJ_FLAG_CLICKABLE);
 
     pet = lv_label_create(screen);
-    lv_label_set_text(pet, asleep ? "(-_-)" : "(o_o)");
+    lv_label_set_text(pet, asleep ? "(-_-)" :
+                      (happy ? "(^_^)" : "(o_o)"));
     lv_obj_set_style_text_color(pet, lv_color_hex(PF_UI_COLOR_PET), 0);
     lv_obj_center(pet);
 
@@ -298,7 +300,7 @@ static lv_obj_t *pf_ui_create_brand_page(PF_UI_PAGE_E page_id,
     lv_obj_set_style_text_font(label, &lv_font_montserrat_24, 0);
     lv_obj_align(label, LV_ALIGN_TOP_MID, 0, 68);
 
-    device = pf_ui_draw_pet_device(page, false);
+    device = pf_ui_draw_pet_device(page, false, false);
     lv_obj_align(device, LV_ALIGN_TOP_MID, 0, 120);
 
     shadow = lv_obj_create(page);
@@ -347,7 +349,7 @@ static void pf_ui_create_sleep_page(void)
     lv_obj_add_event_cb(page, pf_ui_button_cb, LV_EVENT_CLICKED,
                         (void *)(uintptr_t)PF_INPUT_WAKE);
 
-    device = pf_ui_draw_pet_device(page, true);
+    device = pf_ui_draw_pet_device(page, true, false);
     lv_obj_align(device, LV_ALIGN_TOP_MID, 0, 96);
 
     zzz = lv_label_create(page);
@@ -658,9 +660,9 @@ static void pf_ui_create_match_page(void)
     lv_obj_set_style_text_font(label, &lv_font_montserrat_24, 0);
     lv_obj_align(label, LV_ALIGN_TOP_MID, 0, 60);
 
-    device = pf_ui_draw_pet_device(page, false);
+    device = pf_ui_draw_pet_device(page, false, false);
     lv_obj_align(device, LV_ALIGN_TOP_MID, -72, 96);
-    device = pf_ui_draw_pet_device(page, false);
+    device = pf_ui_draw_pet_device(page, false, false);
     lv_obj_set_style_bg_color(device, lv_color_hex(PF_UI_COLOR_CYAN), 0);
     lv_obj_align(device, LV_ALIGN_TOP_MID, 72, 96);
 
@@ -738,9 +740,9 @@ static void pf_ui_create_waiting_page(void)
     lv_obj_set_style_text_font(label, &lv_font_montserrat_24, 0);
     lv_obj_align(label, LV_ALIGN_TOP_MID, 0, 60);
 
-    device = pf_ui_draw_pet_device(page, false);
+    device = pf_ui_draw_pet_device(page, false, false);
     lv_obj_align(device, LV_ALIGN_TOP_MID, -72, 96);
-    device = pf_ui_draw_pet_device(page, false);
+    device = pf_ui_draw_pet_device(page, false, false);
     lv_obj_set_style_bg_color(device, lv_color_hex(PF_UI_COLOR_CYAN), 0);
     lv_obj_align(device, LV_ALIGN_TOP_MID, 72, 96);
 
@@ -824,9 +826,9 @@ static void pf_ui_create_pair_success_page(void)
     lv_obj_set_style_text_font(label, &lv_font_montserrat_24, 0);
     lv_obj_align(label, LV_ALIGN_TOP_MID, 0, 82);
 
-    device = pf_ui_draw_pet_device(page, false);
+    device = pf_ui_draw_pet_device(page, false, true);
     lv_obj_align(device, LV_ALIGN_CENTER, -72, -8);
-    device = pf_ui_draw_pet_device(page, false);
+    device = pf_ui_draw_pet_device(page, false, true);
     lv_obj_set_style_bg_color(device, lv_color_hex(PF_UI_COLOR_CYAN), 0);
     lv_obj_align(device, LV_ALIGN_CENTER, 72, -8);
 
