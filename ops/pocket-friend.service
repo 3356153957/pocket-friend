@@ -8,6 +8,7 @@ Type=simple
 User=pf-web
 Group=pf-web
 WorkingDirectory=/srv/pocket-friend/current
+EnvironmentFile=-/etc/pocket-friend/web.env
 Environment=HOST=::
 Environment=PORT=80
 Environment=POCKET_FRIEND_STATIC_ROOT=/srv/pocket-friend/current

@@ -405,6 +405,12 @@ test("服务器配置固定静态 release 根目录并只授权重启指定服�
   assert.match(serviceUnit, /^ProtectHome=true$/mu);
   assert.match(staticServer, /realpath/u);
   assert.match(staticServer, /resolves outside static root/u);
+  assert.match(staticServer, /\/avatar-api/u);
+  assert.match(staticServer, /\/product-api/u);
+  assert.match(staticServer, /\/photo-api/u);
+  assert.match(staticServer, /PF_PRODUCT_API_TOKEN/u);
+  assert.match(staticServer, /PF_PHOTO_TOKEN/u);
+  assert.match(serviceUnit, /^EnvironmentFile=-\/etc\/pocket-friend\/web\.env$/mu);
 
   const rules = sudoers
     .split(/\r?\n/u)

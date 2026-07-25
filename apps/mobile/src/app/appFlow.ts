@@ -1,10 +1,14 @@
-export type OnboardingStep = "welcome" | "quiz" | "pendant";
+import type { EncounterProfile, QuizAnswers } from "./encounterProfile.ts";
+
+export type OnboardingStep = "welcome" | "quiz" | "pendant" | "arrival";
 export type AppTab = "map" | "pals" | "settings";
 
 export interface Prefs {
   vibe?: string;
   interests: string[];
   meetStyle?: string;
+  quizAnswers: QuizAnswers;
+  encounterProfile?: EncounterProfile;
   buzz?: string;
   radius: number;
   quiet: boolean;
@@ -13,6 +17,7 @@ export interface Prefs {
 export function createInitialPrefs(): Prefs {
   return {
     interests: [],
+    quizAnswers: {},
     radius: 300,
     quiet: false,
   };

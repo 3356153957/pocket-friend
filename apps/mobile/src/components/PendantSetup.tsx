@@ -11,7 +11,12 @@ const buzzOptions = [
   { key: "secret", label: "暗号模式" },
 ];
 
-export default function PendantSetup({ prefs, setPrefs, onNext, onBack }: {
+export default function PendantSetup({
+  prefs,
+  setPrefs,
+  onNext,
+  onBack,
+}: {
   prefs: Prefs;
   setPrefs: (prefs: Prefs) => void;
   onNext: () => void;
@@ -20,7 +25,9 @@ export default function PendantSetup({ prefs, setPrefs, onNext, onBack }: {
   const [buzzing, setBuzzing] = useState(false);
   const timer = useRef<ReturnType<typeof setTimeout> | null>(null);
 
-  useEffect(() => () => { if (timer.current) clearTimeout(timer.current); }, []);
+  useEffect(() => () => {
+    if (timer.current) clearTimeout(timer.current);
+  }, []);
 
   function tryBuzz() {
     if (timer.current) clearTimeout(timer.current);
@@ -37,8 +44,8 @@ export default function PendantSetup({ prefs, setPrefs, onNext, onBack }: {
       </div>
 
       <div>
-        <div className="font-pixel text-[8px] text-pink">02 · PAIR PENDANT</div>
-        <h1 className="mt-3 font-pixel text-[14px] leading-7">给挂坠一点 <span className="text-pink">脾气</span></h1>
+        <div className="font-pixel text-[8px] text-pink">02 / PAIR PENDANT</div>
+        <h1 className="mt-3 font-pixel text-[14px] leading-7">给挂坠一点<span className="text-pink">脾气</span></h1>
       </div>
 
       <div className="pixel-border bg-mint-screen p-4">
@@ -59,7 +66,7 @@ export default function PendantSetup({ prefs, setPrefs, onNext, onBack }: {
       </fieldset>
 
       <label className="block">
-        <PixelLabel>感应半径 · {prefs.radius}m</PixelLabel>
+        <PixelLabel>感应半径 / {prefs.radius}m</PixelLabel>
         <input type="range" min={50} max={800} step={50} value={prefs.radius} onChange={(event) => setPrefs({ ...prefs, radius: Number(event.target.value) })} className="mt-2 h-11 w-full accent-[color:var(--pink)]" />
       </label>
 

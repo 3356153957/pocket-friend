@@ -1,6 +1,7 @@
 import { createServer, type IncomingMessage, type Server } from "node:http";
 import { pathToFileURL } from "node:url";
 
+import { FileProductStore } from "./productStore.ts";
 import {
   createGatewayRouter,
   type GatewayEnvironment,
@@ -11,18 +12,9 @@ export interface GatewayServerOptions extends Omit<GatewayRouterOptions, "env"> 
   env?: GatewayEnvironment;
 }
 
-async function readRequestBody(request: IncomingMessage): Promise<Buffer | undefined> {
-  return await new Promise((resolve, reject) => {
-    const chunks: Buffer[] = [];
-    request.on("data", (chunk: Buffer | string) => {
-      chunks.push(Buffer.isBuffer(chunk) ? chunk : Buffer.from(chunk));
-    });
-    request.once("end", () => {
-      resolve(chunks.length > 0 ? Buffer.concat(chunks) : undefined);
-    });
-    request.once("error", reject);
-  });
-}
+const DEFAULT_MAX_BODY_BYTES = 4 * 1024 * 1024;
+
+class PayloadTooLargeError extends Error {}
 
 export function createGatewayServer(options: GatewayServerOptions = {}): Server {
   const env = options.env ?? process.env;
@@ -30,12 +22,13 @@ export function createGatewayServer(options: GatewayServerOptions = {}): Server 
     env,
     ...(options.fetcher ? { fetcher: options.fetcher } : {}),
     ...(options.now ? { now: options.now } : {}),
+    productStore: options.productStore ?? new FileProductStore(env.PF_PRODUCT_STORE_FILE ?? "./data/product-state.json"),
   });
 
   return createServer(async (request, response) => {
     try {
       const host = request.headers.host ?? "127.0.0.1";
-      const body = await readRequestBody(request);
+      const body = await readRequestBody(request, maxBodyBytes(env.PF_GATEWAY_MAX_BODY_BYTES));
       const requestInit: RequestInit = {
         method: request.method ?? "GET",
         headers: request.headers as HeadersInit,
@@ -48,7 +41,20 @@ export function createGatewayServer(options: GatewayServerOptions = {}): Server 
       response.statusCode = routed.status;
       routed.headers.forEach((value, name) => response.setHeader(name, value));
       response.end(Buffer.from(await routed.arrayBuffer()));
-    } catch {
+    } catch (error) {
+      if (error instanceof PayloadTooLargeError) {
+        response.statusCode = 413;
+        response.setHeader("Content-Type", "application/json; charset=utf-8");
+        response.setHeader("Cache-Control", "no-store");
+        response.end(JSON.stringify({
+          error: {
+            code: "PAYLOAD_TOO_LARGE",
+            message: "Request body exceeds the configured limit.",
+          },
+        }));
+        return;
+      }
+
       response.statusCode = 500;
       response.setHeader("Content-Type", "application/json; charset=utf-8");
       response.end(JSON.stringify({
@@ -59,6 +65,38 @@ export function createGatewayServer(options: GatewayServerOptions = {}): Server 
       }));
     }
   });
+}
+
+function maxBodyBytes(configured: string | undefined): number {
+  const parsed = Number.parseInt(configured ?? "", 10);
+  return Number.isSafeInteger(parsed) && parsed > 0 ? parsed : DEFAULT_MAX_BODY_BYTES;
+}
+
+async function readRequestBody(
+  request: IncomingMessage,
+  limit: number,
+): Promise<Buffer | undefined> {
+  const method = request.method ?? "GET";
+  if (method === "GET" || method === "HEAD" || method === "OPTIONS") return undefined;
+
+  const contentLength = Number.parseInt(request.headers["content-length"] ?? "", 10);
+  if (Number.isFinite(contentLength) && contentLength > limit) {
+    request.resume();
+    throw new PayloadTooLargeError();
+  }
+
+  const chunks: Buffer[] = [];
+  let total = 0;
+  for await (const chunk of request) {
+    const bytes = Buffer.isBuffer(chunk) ? chunk : Buffer.from(chunk);
+    total += bytes.byteLength;
+    if (total > limit) {
+      request.resume();
+      throw new PayloadTooLargeError();
+    }
+    chunks.push(bytes);
+  }
+  return Buffer.concat(chunks);
 }
 
 export async function startGatewayServer(

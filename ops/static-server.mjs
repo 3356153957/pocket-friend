@@ -1,6 +1,6 @@
 import { createReadStream } from "node:fs";
 import { realpath, stat } from "node:fs/promises";
-import { createServer } from "node:http";
+import { createServer, request as httpRequest } from "node:http";
 import { extname, join, normalize, relative, resolve, sep } from "node:path";
 
 const configuredRoot = resolve(
@@ -9,6 +9,29 @@ const configuredRoot = resolve(
 const root = await realpath(configuredRoot);
 const host = process.env.HOST ?? "0.0.0.0";
 const port = Number.parseInt(process.env.PORT ?? "4320", 10);
+const gatewayOrigin = new URL(process.env.PF_GATEWAY_ORIGIN ?? "http://127.0.0.1:4310");
+const photoApiOrigin = new URL(process.env.PF_PHOTO_API_ORIGIN ?? "http://127.0.0.1:4311");
+
+const apiRoutes = [
+  {
+    prefix: "/avatar-api",
+    replacement: "/api/avatar",
+    origin: gatewayOrigin,
+    token: process.env.PF_PRODUCT_API_TOKEN,
+  },
+  {
+    prefix: "/product-api",
+    replacement: "/api/product",
+    origin: gatewayOrigin,
+    token: process.env.PF_PRODUCT_API_TOKEN,
+  },
+  {
+    prefix: "/photo-api",
+    replacement: "",
+    origin: photoApiOrigin,
+    token: process.env.PF_PHOTO_TOKEN,
+  },
+];
 
 const contentTypes = new Map([
   [".html", "text/html; charset=utf-8"],
@@ -81,7 +104,59 @@ async function findResponseFile(requestUrl) {
   }
 }
 
+function matchingApiRoute(requestUrl) {
+  const pathname = new URL(requestUrl, "http://localhost").pathname;
+  return apiRoutes.find(({ prefix }) => pathname === prefix || pathname.startsWith(`${prefix}/`));
+}
+
+function proxyApiRequest(request, response, route) {
+  const incomingUrl = new URL(request.url ?? "/", "http://localhost");
+  const upstreamPath = `${incomingUrl.pathname.replace(route.prefix, route.replacement)}${incomingUrl.search}`;
+  const headers = { ...request.headers, host: route.origin.host };
+  if (route.token) headers.authorization = `Bearer ${route.token}`;
+
+  const upstreamRequest = httpRequest({
+    protocol: route.origin.protocol,
+    hostname: route.origin.hostname,
+    port: route.origin.port,
+    method: request.method,
+    path: upstreamPath,
+    headers,
+  }, (upstreamResponse) => {
+    response.writeHead(upstreamResponse.statusCode ?? 502, upstreamResponse.headers);
+    upstreamResponse.pipe(response);
+  });
+
+  upstreamRequest.setTimeout(70_000, () => {
+    upstreamRequest.destroy(new Error("API proxy timed out"));
+  });
+  upstreamRequest.on("error", (error) => {
+    if (response.headersSent) {
+      response.destroy(error);
+      return;
+    }
+    response.writeHead(502, {
+      "Content-Type": "application/json; charset=utf-8",
+      "Cache-Control": "no-store",
+    });
+    response.end(JSON.stringify({
+      error: {
+        code: "API_PROXY_ERROR",
+        message: "Backend service is unavailable.",
+      },
+    }));
+    console.error(error);
+  });
+  request.pipe(upstreamRequest);
+}
+
 const server = createServer(async (request, response) => {
+  const apiRoute = matchingApiRoute(request.url ?? "/");
+  if (apiRoute) {
+    proxyApiRequest(request, response, apiRoute);
+    return;
+  }
+
   if (request.method !== "GET" && request.method !== "HEAD") {
     response.writeHead(405, { Allow: "GET, HEAD" });
     response.end();

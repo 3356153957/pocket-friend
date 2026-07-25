@@ -79,4 +79,30 @@ describe("Spark Connect frontend contract", () => {
     assert.match(html, /href="\/favicon\.svg"/);
     assert.match(favicon, /Pocket Friend/);
   });
+
+  test("keeps Seedream credentials and upstream traffic out of the browser", async () => {
+    const [avatarClient, photoClient, viteConfig] = await Promise.all([
+      read("src/app/seedreamAvatar.ts"),
+      read("src/app/photoPipeline.ts"),
+      read("vite.config.ts"),
+    ]);
+    const combined = `${avatarClient}\n${photoClient}\n${viteConfig}`;
+
+    assert.doesNotMatch(combined, /VITE_DOUBAO_API_KEY/);
+    assert.doesNotMatch(combined, /VITE_PF_PHOTO_TOKEN/);
+    assert.doesNotMatch(combined, /ark\.cn-beijing\.volces\.com/);
+    assert.doesNotMatch(combined, /seedream-image-proxy/);
+    assert.match(avatarClient, /\/avatar-api\/generate/);
+    assert.match(viteConfig, /\/avatar-api/);
+    assert.match(viteConfig, /PF_PRODUCT_API_TOKEN/);
+    assert.match(viteConfig, /PF_PHOTO_API_URL/);
+    assert.doesNotMatch(viteConfig, /117\.72\.82\.29/);
+  });
+
+  test("refreshes island residents without resetting onboarding", async () => {
+    const homeWorld = await read("src/components/HomeWorld.tsx");
+
+    assert.doesNotMatch(homeWorld, /window\.location\.reload/);
+    assert.match(homeWorld, /refreshWorld/);
+  });
 });
