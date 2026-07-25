@@ -106,6 +106,18 @@ describe("Spark Connect frontend contract", () => {
     assert.match(homeWorld, /refreshWorld/);
   });
 
+  test("watches for new hardware photos and queues every arrival", async () => {
+    const [app, arrival] = await Promise.all([
+      read("src/App.tsx"),
+      read("src/components/Arrival.tsx"),
+    ]);
+
+    assert.match(app, /fetchHardwarePhotoCandidates/);
+    assert.match(app, /lastHandledPhotoId/);
+    assert.match(arrival, /PhotoProcessingQueue/);
+    assert.match(arrival, /检测到.*新照片/);
+  });
+
   test("uses consistent Chinese copy across the complete demo flow", async () => {
     const sources = await Promise.all([
       read("src/components/Welcome.tsx"),

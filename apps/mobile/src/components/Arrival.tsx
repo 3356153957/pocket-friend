@@ -2,85 +2,220 @@ import { Check, Loader2 } from "lucide-react";
 import { useEffect, useRef, useState } from "react";
 
 import type { EncounterProfile } from "../app/encounterProfile.ts";
-import { createDemoDownloadedPhoto, fetchLatestHardwarePhoto, type DownloadedPhoto } from "../app/photoPipeline.ts";
+import {
+  createDemoDownloadedPhoto,
+  fetchHardwarePhotoCandidates,
+  processHardwarePhotoCandidate,
+  type DownloadedPhoto,
+  type HardwarePhotoCandidate,
+} from "../app/photoPipeline.ts";
+import { PhotoProcessingQueue } from "../app/photoUpdateQueue.ts";
 import { buildScreenResident, type ScreenResident } from "../app/screenResident.ts";
 import { AppLogo, PixelCard } from "./PixelUi.tsx";
 
 type ArrivalStage = "fetching" | "generating" | "pixelating" | "entering" | "done";
 
-const ARRIVAL_TOTAL_TIMEOUT_MS = 75000;
+const ARRIVAL_JOB_TIMEOUT_MS = 75000;
 const GENERATING_STATUS_DELAY_MS = 2600;
 const FALLBACK_BUTTON_DELAY_MS = 18000;
+const PHOTO_POLL_INTERVAL_MS = 3000;
+
+interface ArrivalProps {
+  profile: EncounterProfile;
+  initialCandidates?: HardwarePhotoCandidate[] | undefined;
+  initialKnownPhotoIds?: string[] | undefined;
+  onResidentReady: (resident: ScreenResident, attemptedPhotoId: string | null) => Promise<void> | void;
+  onComplete: (lastAttemptedPhotoId: string | null) => void;
+}
+
+interface ProcessedCandidate {
+  photo: DownloadedPhoto;
+  waitForActiveJob: Promise<void>;
+}
 
 export default function Arrival({
   profile,
-  onDone,
-}: {
-  profile: EncounterProfile;
-  onDone: (resident: ScreenResident) => void;
-}) {
+  initialCandidates,
+  initialKnownPhotoIds,
+  onResidentReady,
+  onComplete,
+}: ArrivalProps) {
   const manualFallback = useRef<((photo: DownloadedPhoto) => void) | null>(null);
   const profileRef = useRef(profile);
-  const onDoneRef = useRef(onDone);
+  const onResidentReadyRef = useRef(onResidentReady);
+  const onCompleteRef = useRef(onComplete);
   const [stage, setStage] = useState<ArrivalStage>("fetching");
   const [portraitUrl, setPortraitUrl] = useState<string | null>(null);
   const [warning, setWarning] = useState<string | null>(null);
+  const [queueNotice, setQueueNotice] = useState<string | null>(null);
   const [canUseDemo, setCanUseDemo] = useState(false);
   const [residentName, setResidentName] = useState("硬件照片");
 
   useEffect(() => {
     profileRef.current = profile;
-    onDoneRef.current = onDone;
-  }, [onDone, profile]);
+    onResidentReadyRef.current = onResidentReady;
+    onCompleteRef.current = onComplete;
+  }, [onComplete, onResidentReady, profile]);
 
   useEffect(() => {
     let cancelled = false;
-    const timers: ReturnType<typeof setTimeout>[] = [];
+    let pollingPromise: Promise<void> | null = null;
+    let pollInterval: ReturnType<typeof setInterval> | null = null;
+    const timers = new Set<ReturnType<typeof setTimeout>>();
+    const queue = new PhotoProcessingQueue<HardwarePhotoCandidate>();
 
-    async function runArrival() {
+    function schedule(callback: () => void, delayMs: number) {
+      const timer = setTimeout(() => {
+        timers.delete(timer);
+        callback();
+      }, delayMs);
+      timers.add(timer);
+      return timer;
+    }
+
+    function cancelTimer(timer: ReturnType<typeof setTimeout> | undefined) {
+      if (!timer) return;
+      clearTimeout(timer);
+      timers.delete(timer);
+    }
+
+    function delay(delayMs: number): Promise<void> {
+      return new Promise((resolve) => schedule(resolve, delayMs));
+    }
+
+    async function pollForNewPhotos() {
+      if (pollingPromise) return await pollingPromise;
+      pollingPromise = (async () => {
+        try {
+          const newestFirst = await fetchHardwarePhotoCandidates();
+          const added = queue.observeMany([...newestFirst].reverse());
+          if (!cancelled && added > 0) {
+            setQueueNotice(`检测到 ${added} 张新照片，已加入队列；还有 ${queue.pendingCount} 张待处理。`);
+          }
+        } catch {
+          // A transient polling failure must not interrupt the active Seedream job.
+        }
+      })();
+      try {
+        await pollingPromise;
+      } finally {
+        pollingPromise = null;
+      }
+    }
+
+    async function loadInitialCandidate(): Promise<HardwarePhotoCandidate | null> {
+      if (initialCandidates?.length) {
+        queue.observeMany(initialCandidates);
+        queue.markSeen(initialKnownPhotoIds ?? []);
+        return queue.takePending();
+      }
+
+      const newestFirst = await fetchHardwarePhotoCandidates();
+      queue.markSeen(newestFirst.map((candidate) => candidate.id));
+      const latest = newestFirst[0] ?? null;
+      if (latest) queue.start(latest);
+      return latest;
+    }
+
+    async function processCandidate(candidate: HardwarePhotoCandidate): Promise<ProcessedCandidate> {
       setStage("fetching");
-      timers.push(setTimeout(() => {
-        if (!cancelled) setStage("generating");
-      }, GENERATING_STATUS_DELAY_MS));
-      timers.push(setTimeout(() => {
-        if (!cancelled) setCanUseDemo(true);
-      }, FALLBACK_BUTTON_DELAY_MS));
-
-      let totalTimeout: ReturnType<typeof setTimeout> | undefined;
-      const timedFallback = new Promise<DownloadedPhoto>((resolve) => {
-        totalTimeout = setTimeout(() => {
-          void createDemoDownloadedPhoto("照片和像素形象处理超过 75 秒，已使用演示备用方案；该结果不会保存为真实居民。").then(resolve);
-        }, ARRIVAL_TOTAL_TIMEOUT_MS);
-      });
-      const clickedFallback = new Promise<DownloadedPhoto>((resolve) => {
-        manualFallback.current = resolve;
-      });
-      const photo = await Promise.race([
-        fetchLatestHardwarePhoto(),
-        timedFallback,
-        clickedFallback,
-      ]);
-      if (totalTimeout) clearTimeout(totalTimeout);
-      manualFallback.current = null;
-      if (cancelled) return;
-
-      setStage("pixelating");
+      setPortraitUrl(null);
+      setWarning(null);
+      setResidentName(candidate.name ?? "硬件照片");
+      setQueueNotice(queue.pendingCount > 0 ? `队列中还有 ${queue.pendingCount} 张照片。` : null);
       setCanUseDemo(false);
+
+      const generatingTimer = schedule(() => {
+        if (!cancelled) setStage("generating");
+      }, GENERATING_STATUS_DELAY_MS);
+      const fallbackButtonTimer = schedule(() => {
+        if (!cancelled) setCanUseDemo(true);
+      }, FALLBACK_BUTTON_DELAY_MS);
+
+      let timeoutTimer: ReturnType<typeof setTimeout> | undefined;
+      const timedFallback = new Promise<{ kind: "fallback"; photo: DownloadedPhoto }>((resolve) => {
+        timeoutTimer = schedule(() => {
+          void createDemoDownloadedPhoto("照片和像素形象处理超过 75 秒，本张照片已使用演示备用方案。").then((photo) => resolve({ kind: "fallback", photo }));
+        }, ARRIVAL_JOB_TIMEOUT_MS);
+      });
+      const clickedFallback = new Promise<{ kind: "fallback"; photo: DownloadedPhoto }>((resolve) => {
+        manualFallback.current = (photo) => resolve({ kind: "fallback", photo });
+      });
+      const processing = processHardwarePhotoCandidate(candidate).catch((error: unknown) => (
+        createDemoDownloadedPhoto(error instanceof Error ? error.message : "照片处理失败。")
+      ));
+      const processingResult = processing.then((photo) => ({ kind: "processed" as const, photo }));
+      const result = await Promise.race([processingResult, timedFallback, clickedFallback]);
+
+      cancelTimer(timeoutTimer);
+      cancelTimer(generatingTimer);
+      cancelTimer(fallbackButtonTimer);
+      manualFallback.current = null;
+      setCanUseDemo(false);
+      return {
+        photo: result.photo,
+        waitForActiveJob: result.kind === "processed"
+          ? Promise.resolve()
+          : processing.then(() => undefined, () => undefined),
+      };
+    }
+
+    async function animateAndSave(photo: DownloadedPhoto, attemptedPhotoId: string | null) {
+      setStage("pixelating");
       setResidentName(photo.name ?? "硬件照片");
       setPortraitUrl(photo.pixelPortraitUrl);
       setWarning(photo.warning ?? null);
+      await delay(900);
+      if (cancelled) return;
 
-      timers.push(setTimeout(() => {
-        if (cancelled) return;
-        setStage("entering");
-        const resident = buildScreenResident(profileRef.current, photo);
-        console.log("[screen-resident]", resident);
-        timers.push(setTimeout(() => {
-          if (cancelled) return;
-          setStage("done");
-          onDoneRef.current(resident);
-        }, 1200));
-      }, 900));
+      setStage("entering");
+      await delay(1200);
+      if (cancelled) return;
+
+      const resident = buildScreenResident(profileRef.current, photo);
+      console.log("[screen-resident]", resident);
+      await onResidentReadyRef.current(resident, attemptedPhotoId);
+    }
+
+    async function runArrival() {
+      let current: HardwarePhotoCandidate | null = null;
+      let lastAttemptedPhotoId: string | null = null;
+
+      try {
+        current = await loadInitialCandidate();
+      } catch (error) {
+        const fallback = await createDemoDownloadedPhoto(error instanceof Error ? error.message : "照片服务暂时不可用。");
+        await animateAndSave(fallback, null);
+      }
+
+      if (cancelled) return;
+      pollInterval = setInterval(() => void pollForNewPhotos(), PHOTO_POLL_INTERVAL_MS);
+
+      while (current && !cancelled) {
+        lastAttemptedPhotoId = current.id;
+        const processed = await processCandidate(current);
+        if (cancelled) break;
+
+        await pollForNewPhotos();
+        await animateAndSave(processed.photo, current.id);
+        if (cancelled) break;
+
+        if (queue.pendingCount > 0) {
+          setQueueNotice(`队列中还有 ${queue.pendingCount} 张照片，等待当前生成任务结束。`);
+        }
+        await processed.waitForActiveJob;
+        if (cancelled) break;
+
+        await pollForNewPhotos();
+        current = queue.takePending();
+      }
+
+      clearInterval(pollInterval);
+      pollInterval = null;
+      if (!cancelled) {
+        setStage("done");
+        onCompleteRef.current(lastAttemptedPhotoId);
+      }
     }
 
     void runArrival();
@@ -88,9 +223,11 @@ export default function Arrival({
     return () => {
       cancelled = true;
       manualFallback.current = null;
-      timers.forEach((timer) => clearTimeout(timer));
+      if (pollInterval) clearInterval(pollInterval);
+      for (const timer of timers) clearTimeout(timer);
+      timers.clear();
     };
-  }, []);
+  }, [initialCandidates, initialKnownPhotoIds]);
 
   const copy = stage === "fetching"
     ? "正在获取照片..."
@@ -139,6 +276,7 @@ export default function Arrival({
             </p>
           </div>
         </div>
+        {queueNotice && <p className="font-mono-pixel text-xs leading-4 text-ink/70">{queueNotice}</p>}
         {warning && <p className="font-mono-pixel text-xs leading-4 text-ink/60">提示：{warning}</p>}
         {(stage === "fetching" || stage === "generating") && canUseDemo && (
           <button
@@ -146,10 +284,10 @@ export default function Arrival({
             className="pixel-border bg-lime px-3 py-2 font-pixel text-[8px] text-ink shadow-[3px_3px_0_var(--ink)] active:translate-x-[2px] active:translate-y-[2px] active:shadow-[1px_1px_0_var(--ink)]"
             onClick={() => {
               setCanUseDemo(false);
-              void createDemoDownloadedPhoto("已手动使用演示备用方案，该结果不会保存为真实居民。").then((photo) => manualFallback.current?.(photo));
+              void createDemoDownloadedPhoto("已手动使用演示备用方案，本张照片不会保存为真实居民。").then((photo) => manualFallback.current?.(photo));
             }}
           >
-            使用演示备用方案
+            本张使用演示备用方案
           </button>
         )}
       </PixelCard>

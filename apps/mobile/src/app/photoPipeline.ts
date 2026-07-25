@@ -13,6 +13,13 @@ export interface DownloadedPhoto {
   warning?: string;
 }
 
+export interface HardwarePhotoCandidate {
+  id: string;
+  name?: string;
+  capturedAt?: string;
+  url: string;
+}
+
 interface PhotoHistoryResponse {
   photos?: Array<{
     id?: string;
@@ -63,13 +70,39 @@ async function fetchImageBlob(path: string, timeoutMs = PHOTO_DOWNLOAD_TIMEOUT_M
 
 export async function fetchLatestHardwarePhoto(): Promise<DownloadedPhoto> {
   try {
-    const history = await fetchJson<PhotoHistoryResponse>("/api/photos/board-a/history");
-    const latest = selectHardwarePhoto(Array.isArray(history.photos) ? history.photos : []);
-    if (!latest?.id || !latest.url) {
-      throw new Error("照片服务中没有找到硬件照片。");
-    }
+    const latest = await fetchLatestHardwarePhotoCandidate();
+    return await processHardwarePhotoCandidate(latest);
+  } catch (error) {
+    return await createDemoDownloadedPhoto(errorMessage(error));
+  }
+}
 
-    const blob = await fetchImageBlob(latest.url);
+export async function fetchHardwarePhotoCandidates(): Promise<HardwarePhotoCandidate[]> {
+  const history = await fetchJson<PhotoHistoryResponse>("/api/photos/board-a/history");
+  const candidates = (Array.isArray(history.photos) ? history.photos : [])
+    .filter((photo): photo is HardwarePhotoCandidate => Boolean(photo.id && photo.url))
+    .map((photo) => ({
+      id: photo.id,
+      url: photo.url,
+      ...(photo.name ? { name: photo.name } : {}),
+      ...(photo.capturedAt ? { capturedAt: photo.capturedAt } : {}),
+    }));
+
+  if (!DEMO_PHOTO_NAME) return candidates;
+  const selected = selectHardwarePhoto(candidates);
+  return selected ? [selected] : [];
+}
+
+export async function fetchLatestHardwarePhotoCandidate(): Promise<HardwarePhotoCandidate> {
+  const latest = (await fetchHardwarePhotoCandidates())[0];
+  if (!latest) throw new Error("照片服务中没有找到硬件照片。");
+  return latest;
+}
+
+export async function processHardwarePhotoCandidate(
+  candidate: HardwarePhotoCandidate,
+): Promise<DownloadedPhoto> {
+    const blob = await fetchImageBlob(candidate.url);
     const normalized = await withTimeout(normalizePhotoBlob(blob, 1024, 180), PHOTO_NORMALIZE_TIMEOUT_MS, "照片方向校正超时。");
     let pixelPortraitUrl: string;
     let spriteSource: DownloadedPhoto["spriteSource"] = "seedream";
@@ -87,20 +120,17 @@ export async function fetchLatestHardwarePhoto(): Promise<DownloadedPhoto> {
     }
 
     return {
-      id: latest.id,
-      name: extractDisplayName(latest.name ?? latest.id),
-      capturedAt: latest.capturedAt ?? new Date().toISOString(),
-      originalUrl: makePhotoApiUrl(latest.url),
+      id: candidate.id,
+      name: extractDisplayName(candidate.name ?? candidate.id),
+      capturedAt: candidate.capturedAt ?? new Date().toISOString(),
+      originalUrl: makePhotoApiUrl(candidate.url),
       originalDataUrl: normalized.dataUrl,
       pixelPortraitUrl,
-      source: "hardware",
+      source: spriteSource === "seedream" ? "hardware" : "demo",
       spriteSource,
       ...(seedreamModel ? { seedreamModel } : {}),
       ...(warning ? { warning } : {}),
     };
-  } catch (error) {
-    return await createDemoDownloadedPhoto(errorMessage(error));
-  }
 }
 
 export async function createDemoDownloadedPhoto(warning = "照片服务暂时不可用。"): Promise<DownloadedPhoto> {
@@ -153,7 +183,7 @@ function extractDisplayName(rawName: string): string {
   return beforeCounter || withoutTimestamp || "硬件照片";
 }
 
-function selectHardwarePhoto(photos: NonNullable<PhotoHistoryResponse["photos"]>) {
+function selectHardwarePhoto<T extends { id?: string; name?: string }>(photos: T[]): T | null {
   if (!DEMO_PHOTO_NAME) return photos[0] ?? null;
 
   const normalizedTarget = DEMO_PHOTO_NAME.toLocaleLowerCase();
