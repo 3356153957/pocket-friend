@@ -13,6 +13,10 @@ export interface ScreenResident {
   spriteSource: "seedream" | "local-fallback";
   seedreamModel?: string;
   activeSceneId?: string;
+  needsSeedream?: boolean;
+  spriteRotation?: 0 | 180;
+  realPhotoRotation?: 0 | 180;
+  warning?: string;
 }
 
 const FALLBACK_RESIDENT_NAME = "硬件照片";
@@ -28,6 +32,9 @@ export function buildScreenResident(profile: EncounterProfile, photo: Downloaded
     createdAt: photo.capturedAt,
     source: photo.source,
     spriteSource: photo.spriteSource,
+    spriteRotation: 0,
+    realPhotoRotation: 0,
     ...(photo.seedreamModel ? { seedreamModel: photo.seedreamModel } : {}),
+    ...(photo.warning ? { warning: photo.warning } : {}),
   };
 }

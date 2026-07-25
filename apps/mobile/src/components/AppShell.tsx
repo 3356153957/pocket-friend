@@ -16,12 +16,12 @@ export function PhoneFrame({ children }: { children: ReactNode }) {
         <div className="phone-screen">
           <div className="phone-status" aria-hidden="true">
             <span>9:41</span>
-            <span>口袋网络&nbsp; [===]</span>
+            <span>pocket network&nbsp; [===]</span>
           </div>
           <div className="phone-viewport">{children}</div>
         </div>
       </div>
-      <div className="mt-3 text-center font-pixel text-[8px] text-ink/60">口袋朋友 · 网页演示</div>
+      <div className="mt-3 text-center font-pixel text-[8px] text-ink/60">pocket friend · 网页演示</div>
     </div>
   );
 }

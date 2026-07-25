@@ -6,6 +6,9 @@ export interface IslandPal {
   label: string;
   spriteUrl?: string | undefined;
   realPhotoUrl?: string | undefined;
+  spriteSource?: "seedream" | "local-fallback" | undefined;
+  spriteRotation?: 0 | 180 | undefined;
+  realPhotoRotation?: 0 | 180 | undefined;
   hair: string;
   body: string;
   tags: string[];
@@ -19,6 +22,7 @@ export type IslandSceneId = "hackathon" | "alt";
 
 export interface IslandSceneConfig {
   src: string;
+  kind?: "lakeside" | "garden" | "lab" | "stage";
   label: string;
   walk: { x1: number; x2: number; y1: number; y2: number };
 }
@@ -43,6 +47,47 @@ interface SpriteState {
   spawnAt: number;
   loadedSprite?: HTMLImageElement | undefined;
   loadedRealPhoto?: HTMLImageElement | undefined;
+}
+
+function loadOptionalImage(src?: string): HTMLImageElement | undefined {
+  if (!src) return undefined;
+  const image = new Image();
+  image.src = src;
+  return image;
+}
+
+function createSpriteState(pal: IslandPal, index: number, now: number): SpriteState {
+  return {
+    pal,
+    rx: pal.rx,
+    ry: pal.ry,
+    angle: -0.6 + index * 0.7,
+    speed: 0.00018 + index * 0.000035,
+    frame: 0,
+    clickScale: 1,
+    spawnAt: now + index * 180,
+    loadedSprite: loadOptionalImage(pal.spriteUrl),
+    loadedRealPhoto: loadOptionalImage(pal.realPhotoUrl),
+  };
+}
+
+function syncSpriteStates(states: Map<string, SpriteState>, pals: IslandPal[], now: number) {
+  const nextIds = new Set(pals.map((pal) => pal.id));
+  for (const id of states.keys()) {
+    if (!nextIds.has(id)) states.delete(id);
+  }
+
+  pals.forEach((pal, index) => {
+    const existing = states.get(pal.id);
+    if (!existing) {
+      states.set(pal.id, createSpriteState(pal, index, now));
+      return;
+    }
+
+    if (existing.pal.spriteUrl !== pal.spriteUrl) existing.loadedSprite = loadOptionalImage(pal.spriteUrl);
+    if (existing.pal.realPhotoUrl !== pal.realPhotoUrl) existing.loadedRealPhoto = loadOptionalImage(pal.realPhotoUrl);
+    existing.pal = pal;
+  });
 }
 
 const SCENES: Record<IslandSceneId, IslandSceneConfig> = {
@@ -87,6 +132,153 @@ function coverRect(canvasW: number, canvasH: number, imageW: number, imageH: num
   return { x: (canvasW - w) / 2, y: (canvasH - h) / 2, w, h };
 }
 
+function fillPixelScene(ctx: CanvasRenderingContext2D, w: number, h: number, palette: string[]) {
+  ctx.fillStyle = palette[0] ?? "#0f172a";
+  ctx.fillRect(0, 0, w, h);
+  ctx.fillStyle = palette[1] ?? "#1f2937";
+  ctx.fillRect(0, h * 0.55, w, h * 0.45);
+  ctx.fillStyle = palette[2] ?? "#334155";
+  for (let i = 0; i < 120; i += 1) {
+    const x = (i * 97) % w;
+    const y = h * 0.55 + ((i * 53) % (h * 0.4));
+    ctx.fillRect(x, y, 3, 3);
+  }
+}
+
+function drawPixelSceneLabel(ctx: CanvasRenderingContext2D, w: number, h: number, text: string) {
+  ctx.fillStyle = "rgba(10,10,18,0.35)";
+  ctx.fillRect(w * 0.5 - 70, h * 0.12, 140, 22);
+  ctx.fillStyle = "rgba(255,255,255,0.72)";
+  ctx.font = "10px 'Press Start 2P', monospace";
+  ctx.textAlign = "center";
+  ctx.fillText(text, w * 0.5, h * 0.12 + 15);
+}
+
+function drawGardenScene(ctx: CanvasRenderingContext2D, w: number, h: number) {
+  fillPixelScene(ctx, w, h, ["#2f6b3a", "#4a8f4a", "#8bc34a", "#c4a484", "#5d4037"]);
+  ctx.fillStyle = "#a3e635";
+  ctx.fillRect(0, 0, w, h * 0.55);
+  for (let i = 0; i < 14; i += 1) {
+    ctx.fillStyle = i % 2 ? "#d6c2a3" : "#b8956c";
+    ctx.fillRect(w * 0.2 + i * w * 0.04, h * 0.62, w * 0.035, h * 0.2);
+  }
+  ctx.fillStyle = "#6d4c41";
+  ctx.fillRect(w * 0.55, h * 0.38, w * 0.28, h * 0.28);
+  ctx.fillStyle = "#f5f5f4";
+  ctx.fillRect(w * 0.52, h * 0.32, w * 0.34, h * 0.08);
+  ctx.fillStyle = "#1e3a5f";
+  ctx.fillRect(w * 0.58, h * 0.4, w * 0.22, h * 0.12);
+  ctx.fillStyle = "#38bdf8";
+  for (let i = 0; i < 4; i += 1) ctx.fillRect(w * 0.6 + i * w * 0.05, h * 0.42, w * 0.035, h * 0.04);
+  ctx.fillStyle = "#166534";
+  for (let i = 0; i < 6; i += 1) {
+    ctx.beginPath();
+    ctx.arc(w * (0.12 + i * 0.12), h * 0.5, 22, 0, Math.PI * 2);
+    ctx.fill();
+  }
+  drawPixelSceneLabel(ctx, w, h, "GARDEN STALL");
+}
+
+function drawLabScene(ctx: CanvasRenderingContext2D, w: number, h: number) {
+  fillPixelScene(ctx, w, h, ["#1a1a2e", "#16213e", "#0f3460", "#e94560", "#533483"]);
+  ctx.fillStyle = "#0f172a";
+  ctx.fillRect(0, 0, w, h);
+  for (let i = 0; i < 5; i += 1) {
+    ctx.fillStyle = "rgba(94,234,212,0.15)";
+    ctx.fillRect(w * (0.12 + i * 0.16), 0, w * 0.08, h * 0.55);
+    ctx.fillStyle = "#5eead4";
+    ctx.fillRect(w * (0.14 + i * 0.16), h * 0.05, w * 0.04, 6);
+  }
+  for (let row = 0; row < 2; row += 1) {
+    for (let i = 0; i < 4; i += 1) {
+      const x = w * (0.12 + i * 0.2);
+      const y = h * (0.42 + row * 0.18);
+      ctx.fillStyle = "#334155";
+      ctx.fillRect(x, y, w * 0.14, h * 0.08);
+      ctx.fillStyle = "#22d3ee";
+      ctx.fillRect(x + 8, y - 18, w * 0.08, 16);
+      ctx.fillStyle = "#1e293b";
+      ctx.fillRect(x + 10, y + h * 0.08, 10, h * 0.06);
+      ctx.fillRect(x + w * 0.1, y + h * 0.08, 10, h * 0.06);
+    }
+  }
+  ctx.fillStyle = "#1e293b";
+  ctx.fillRect(0, h * 0.72, w, h * 0.28);
+  ctx.fillStyle = "#334155";
+  for (let i = 0; i < 10; i += 1) ctx.fillRect(i * w * 0.1, h * 0.72, 2, h * 0.28);
+  drawPixelSceneLabel(ctx, w, h, "ALL-NIGHT LAB");
+}
+
+function drawStageScene(ctx: CanvasRenderingContext2D, w: number, h: number) {
+  fillPixelScene(ctx, w, h, ["#2b1055", "#7597de", "#ffd700", "#1a1a2e", "#ff6b6b"]);
+  ctx.fillStyle = "#7f1d1d";
+  ctx.fillRect(0, 0, w * 0.12, h * 0.7);
+  ctx.fillRect(w * 0.88, 0, w * 0.12, h * 0.7);
+  ctx.fillStyle = "#b91c1c";
+  for (let i = 0; i < 6; i += 1) {
+    ctx.fillRect(i * w * 0.02, 0, w * 0.012, h * 0.7);
+    ctx.fillRect(w * 0.88 + i * w * 0.02, 0, w * 0.012, h * 0.7);
+  }
+  ctx.fillStyle = "#312e81";
+  ctx.fillRect(w * 0.12, h * 0.08, w * 0.76, h * 0.45);
+  ctx.fillStyle = "#fbbf24";
+  ctx.font = `${Math.max(14, w * 0.04)}px "Press Start 2P", monospace`;
+  ctx.textAlign = "center";
+  ctx.fillText("DEMO DAY", w * 0.5, h * 0.3);
+  ctx.fillStyle = "#78350f";
+  ctx.fillRect(0, h * 0.55, w, h * 0.12);
+  ctx.fillStyle = "#92400e";
+  ctx.fillRect(0, h * 0.67, w, h * 0.33);
+  ctx.fillStyle = "rgba(254,240,138,0.12)";
+  ctx.beginPath();
+  ctx.moveTo(w * 0.3, 0);
+  ctx.lineTo(w * 0.15, h * 0.55);
+  ctx.lineTo(w * 0.45, h * 0.55);
+  ctx.closePath();
+  ctx.fill();
+  ctx.beginPath();
+  ctx.moveTo(w * 0.7, 0);
+  ctx.lineTo(w * 0.55, h * 0.55);
+  ctx.lineTo(w * 0.85, h * 0.55);
+  ctx.closePath();
+  ctx.fill();
+  drawPixelSceneLabel(ctx, w, h, "PITCH STAGE");
+}
+
+function drawLakesideScene(ctx: CanvasRenderingContext2D, w: number, h: number) {
+  fillPixelScene(ctx, w, h, ["#1e3a5f", "#2d5a3d", "#3d7a4a", "#87ceeb", "#c4a574"]);
+  ctx.fillStyle = "#3b82f6";
+  ctx.beginPath();
+  ctx.ellipse(w * 0.5, h * 0.48, w * 0.18, h * 0.12, 0, 0, Math.PI * 2);
+  ctx.fill();
+  ctx.fillStyle = "rgba(147,197,253,0.45)";
+  ctx.beginPath();
+  ctx.ellipse(w * 0.5, h * 0.46, w * 0.1, h * 0.06, 0, 0, Math.PI * 2);
+  ctx.fill();
+  ctx.strokeStyle = "#c4a574";
+  ctx.lineWidth = Math.max(6, w * 0.012);
+  ctx.beginPath();
+  ctx.ellipse(w * 0.5, h * 0.48, w * 0.28, h * 0.2, 0, 0, Math.PI * 2);
+  ctx.stroke();
+  for (let i = 0; i < 8; i += 1) {
+    const x = w * (0.1 + i * 0.11);
+    ctx.fillStyle = "#5d4037";
+    ctx.fillRect(x, h * 0.32, 6, h * 0.16);
+    ctx.fillStyle = "#2d6a4f";
+    ctx.beginPath();
+    ctx.arc(x + 3, h * 0.3, 18 + (i % 3) * 4, 0, Math.PI * 2);
+    ctx.fill();
+  }
+  drawPixelSceneLabel(ctx, w, h, "LAKESIDE HACK");
+}
+
+function drawSceneBackdrop(ctx: CanvasRenderingContext2D, kind: IslandSceneConfig["kind"], w: number, h: number) {
+  if (kind === "garden") drawGardenScene(ctx, w, h);
+  else if (kind === "lab") drawLabScene(ctx, w, h);
+  else if (kind === "stage") drawStageScene(ctx, w, h);
+  else drawLakesideScene(ctx, w, h);
+}
+
 function isWalkable(sceneConfig: IslandSceneConfig, rx: number, ry: number) {
   const walk = sceneConfig.walk;
   return rx >= walk.x1 && rx <= walk.x2 && ry >= walk.y1 && ry <= walk.y2;
@@ -127,6 +319,27 @@ function drawBlockPerson(ctx: CanvasRenderingContext2D, sprite: SpriteState, siz
   ctx.restore();
 }
 
+function drawImageWithRotation(
+  ctx: CanvasRenderingContext2D,
+  image: HTMLImageElement,
+  x: number,
+  y: number,
+  width: number,
+  height: number,
+  rotation: 0 | 180 | undefined,
+) {
+  if (rotation !== 180) {
+    ctx.drawImage(image, x, y, width, height);
+    return;
+  }
+
+  ctx.save();
+  ctx.translate(x + width / 2, y + height / 2);
+  ctx.rotate(Math.PI);
+  ctx.drawImage(image, -width / 2, -height / 2, width, height);
+  ctx.restore();
+}
+
 function drawGeneratedSprite(ctx: CanvasRenderingContext2D, sprite: SpriteState, size: number, now: number) {
   const image = sprite.loadedSprite;
   if (!image?.complete || image.naturalWidth <= 0) {
@@ -142,7 +355,7 @@ function drawGeneratedSprite(ctx: CanvasRenderingContext2D, sprite: SpriteState,
   ctx.imageSmoothingEnabled = false;
   ctx.fillStyle = "rgba(6,22,39,0.28)";
   ctx.fillRect(-width * 0.32, -4, width * 0.64, 5);
-  ctx.drawImage(image, -width / 2, -height, width, height);
+  drawImageWithRotation(ctx, image, -width / 2, -height, width, height, sprite.pal.spriteRotation);
   ctx.restore();
 }
 
@@ -150,6 +363,8 @@ export default function InteractiveIsland({ scene = "hackathon", sceneConfig: cu
   const canvasRef = useRef<HTMLCanvasElement | null>(null);
   const onSelectRef = useRef(onSelect);
   const selectedIdRef = useRef(selectedId);
+  const palsRef = useRef(pals);
+  const spriteStatesRef = useRef(new Map<string, SpriteState>());
 
   const sceneConfig = customSceneConfig ?? SCENES[scene];
   const image = useMemo(() => {
@@ -162,6 +377,11 @@ export default function InteractiveIsland({ scene = "hackathon", sceneConfig: cu
     onSelectRef.current = onSelect;
     selectedIdRef.current = selectedId;
   }, [onSelect, selectedId]);
+
+  useEffect(() => {
+    palsRef.current = pals;
+    syncSpriteStates(spriteStatesRef.current, pals, performance.now());
+  }, [pals]);
 
   useEffect(() => {
     const canvas = canvasRef.current;
@@ -177,26 +397,9 @@ export default function InteractiveIsland({ scene = "hackathon", sceneConfig: cu
     let rect = { x: 0, y: 0, w: 1, h: 1 };
     let lastBubbleAt = 0;
     let bubble = "";
-    let bubbleOwner = pals[0]?.id ?? "";
-
-    const sprites: SpriteState[] = pals.map((pal, index) => {
-      const loadedSprite = pal.spriteUrl ? new Image() : undefined;
-      const loadedRealPhoto = pal.realPhotoUrl ? new Image() : undefined;
-      if (loadedSprite && pal.spriteUrl) loadedSprite.src = pal.spriteUrl;
-      if (loadedRealPhoto && pal.realPhotoUrl) loadedRealPhoto.src = pal.realPhotoUrl;
-      return {
-        pal,
-        rx: pal.rx,
-        ry: pal.ry,
-        angle: -0.6 + index * 0.7,
-        speed: 0.00018 + index * 0.000035,
-        frame: 0,
-        clickScale: 1,
-        spawnAt: performance.now() + index * 180,
-        loadedSprite,
-        loadedRealPhoto,
-      };
-    });
+    let bubbleOwner = palsRef.current[0]?.id ?? "";
+    spriteStatesRef.current.clear();
+    syncSpriteStates(spriteStatesRef.current, palsRef.current, performance.now());
 
     function resize() {
       dpr = window.devicePixelRatio || 1;
@@ -206,19 +409,33 @@ export default function InteractiveIsland({ scene = "hackathon", sceneConfig: cu
     }
 
     function drawBackground() {
+      const kind = sceneConfig.kind;
+      const shouldDrawCanvasScene = kind === "lakeside" || kind === "garden" || kind === "lab" || kind === "stage";
+      rect = { x: 0, y: 0, w: canvasEl.width, h: canvasEl.height };
+
+      if (shouldDrawCanvasScene) {
+        drawSceneBackdrop(ctx, kind, canvasEl.width, canvasEl.height);
+        return;
+      }
+
       ctx.fillStyle = "#c8f3e7";
       ctx.fillRect(0, 0, canvasEl.width, canvasEl.height);
-      if (image.complete && image.naturalWidth > 0) {
+      if (sceneConfig.src && image.complete && image.naturalWidth > 0) {
         rect = coverRect(canvasEl.width, canvasEl.height, image.naturalWidth, image.naturalHeight);
         ctx.imageSmoothingEnabled = false;
         ctx.drawImage(image, rect.x, rect.y, rect.w, rect.h);
-      } else {
-        rect = { x: 0, y: 0, w: canvasEl.width, h: canvasEl.height };
-        ctx.fillStyle = "#10bde8";
-        ctx.fillRect(0, 0, canvasEl.width, canvasEl.height * 0.44);
-        ctx.fillStyle = "#9fe94b";
-        ctx.fillRect(0, canvasEl.height * 0.44, canvasEl.width, canvasEl.height * 0.56);
+        return;
       }
+
+      if (kind) {
+        drawSceneBackdrop(ctx, kind, canvasEl.width, canvasEl.height);
+        return;
+      }
+
+      ctx.fillStyle = "#10bde8";
+      ctx.fillRect(0, 0, canvasEl.width, canvasEl.height * 0.44);
+      ctx.fillStyle = "#9fe94b";
+      ctx.fillRect(0, canvasEl.height * 0.44, canvasEl.width, canvasEl.height * 0.56);
     }
 
     function updateSprite(sprite: SpriteState, now: number) {
@@ -281,7 +498,15 @@ export default function InteractiveIsland({ scene = "hackathon", sceneConfig: cu
       ctx.lineWidth = 2 * dpr;
       ctx.fillRect(badgeX, badgeY, badge, badge);
       ctx.strokeRect(badgeX, badgeY, badge, badge);
-      ctx.drawImage(sprite.loadedRealPhoto, badgeX + 3 * dpr, badgeY + 3 * dpr, badge - 6 * dpr, badge - 6 * dpr);
+      drawImageWithRotation(
+        ctx,
+        sprite.loadedRealPhoto,
+        badgeX + 3 * dpr,
+        badgeY + 3 * dpr,
+        badge - 6 * dpr,
+        badge - 6 * dpr,
+        sprite.pal.realPhotoRotation,
+      );
       ctx.restore();
     }
 
@@ -310,6 +535,7 @@ export default function InteractiveIsland({ scene = "hackathon", sceneConfig: cu
       if (disposed) return;
       drawBackground();
 
+      const sprites = [...spriteStatesRef.current.values()];
       if (now - lastBubbleAt > 3200 && sprites.length > 0) {
         const index = Math.floor((now / 3200) % sprites.length);
         bubbleOwner = sprites[index]?.pal.id ?? "";
@@ -348,6 +574,7 @@ export default function InteractiveIsland({ scene = "hackathon", sceneConfig: cu
       const mx = (event.clientX - bounds.left) * dpr;
       const my = (event.clientY - bounds.top) * dpr;
       const now = performance.now();
+      const sprites = [...spriteStatesRef.current.values()];
       for (let index = sprites.length - 1; index >= 0; index--) {
         const sprite = sprites[index];
         if (!sprite) continue;
@@ -379,7 +606,7 @@ export default function InteractiveIsland({ scene = "hackathon", sceneConfig: cu
       observer.disconnect();
       window.removeEventListener("resize", resize);
     };
-  }, [compact, image, pals, sceneConfig]);
+  }, [compact, image, sceneConfig]);
 
-  return <canvas ref={canvasRef} className="h-full w-full pixel-image" aria-label="口袋朋友互动小岛" />;
+  return <canvas ref={canvasRef} className="h-full w-full pixel-image" aria-label="pocket friend 互动小岛" />;
 }

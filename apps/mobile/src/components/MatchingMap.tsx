@@ -40,7 +40,7 @@ export default function MatchingMap({ nearby }: { nearby: NearbyDemoController }
       <header className="flex items-center justify-between gap-2">
         <div className="flex min-w-0 items-center gap-2">
           <AppLogo size={34} />
-          <div className="min-w-0"><h1 className="font-pixel text-[9px]">口袋朋友</h1><p className="truncate font-mono-pixel text-sm text-ink/70">附近 {people.length} 位磁场接近</p></div>
+          <div className="min-w-0"><h1 className="font-pixel text-[9px]">pocket friend</h1><p className="truncate font-mono-pixel text-sm text-ink/70">附近 {people.length} 位磁场接近</p></div>
         </div>
         <span className="pixel-border-sm bg-lime px-2 py-1 font-pixel text-[7px]">{locationBadge}</span>
       </header>

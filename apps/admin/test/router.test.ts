@@ -195,6 +195,52 @@ describe("admin router", () => {
     assert.equal(new Headers(calls[0]?.init?.headers).get("Authorization"), "Bearer server-only-seedream-secret");
   });
 
+  test("accepts legacy Vite Seedream env names through the 4311 island API", async () => {
+    const calls: Array<{ input: string; init?: RequestInit }> = [];
+    const route = createAdminRouter({
+      env: {
+        ...env,
+        VITE_DOUBAO_API_KEY: "legacy-vite-seedream-secret",
+        VITE_DOUBAO_MODEL: "legacy-vite-seedream-model",
+      },
+      registry: new DeviceStatusRegistry(),
+      seedreamFetch: async (input, init) => {
+        calls.push({ input: input.toString(), ...(init ? { init } : {}) });
+        if (calls.length === 1) {
+          return new Response(JSON.stringify({
+            data: [{ url: "https://images.example/avatar.png" }],
+          }), {
+            status: 200,
+            headers: { "Content-Type": "application/json" },
+          });
+        }
+
+        return new Response(new Uint8Array([0x89, 0x50, 0x4e, 0x47]), {
+          status: 200,
+          headers: { "Content-Type": "image/png" },
+        });
+      },
+    });
+
+    const response = await route(new Request("http://localhost:4311/island-avatar-api/generate", {
+      method: "POST",
+      headers: {
+        Origin: "http://localhost:4320",
+        "Content-Type": "application/json",
+      },
+      body: JSON.stringify({ image: "data:image/jpeg;base64,cGhvdG8=" }),
+    }));
+
+    assert.equal(response.status, 200);
+    assert.deepEqual(await response.json(), {
+      data: [{ b64_json: "iVBORw==" }],
+      model: "legacy-vite-seedream-model",
+    });
+    assert.equal(new Headers(calls[0]?.init?.headers).get("Authorization"), "Bearer legacy-vite-seedream-secret");
+    const upstreamRequest = JSON.parse(String(calls[0]?.init?.body)) as Record<string, unknown>;
+    assert.equal(upstreamRequest.model, "legacy-vite-seedream-model");
+  });
+
   test("uses the newest historical photo when the separate current file is missing", async () => {
     const jpeg = Uint8Array.from([0xff, 0xd8, 0x05, 0xff, 0xd9]);
     const archived = {
@@ -287,6 +333,39 @@ describe("admin router", () => {
       headers: { Authorization: "Bearer board-secret" },
     }));
     assert.equal(deviceTokenDownload.status, 401);
+  });
+
+  test("accepts the legacy photo token env name for read-only photo access", async () => {
+    const route = createAdminRouter({
+      env: {
+        ...env,
+        PF_PHOTO_TOKEN: "legacy-photo-read-secret",
+      },
+      registry: new DeviceStatusRegistry(),
+      now: () => 10_000,
+    });
+    const jpeg = Uint8Array.from([0xff, 0xd8, 0x03, 0xff, 0xd9]);
+
+    assert.equal((await route(new Request("http://localhost/api/photos?deviceId=board-a", {
+      method: "POST",
+      headers: {
+        Authorization: "Bearer board-secret",
+        "Content-Type": "image/jpeg",
+      },
+      body: jpeg,
+    }))).status, 204);
+
+    const history = await route(new Request("http://localhost/api/photos/board-a/history", {
+      headers: { Authorization: "Bearer legacy-photo-read-secret" },
+    }));
+    assert.equal(history.status, 200);
+    const body = await history.json() as { photos: Array<{ url: string }> };
+
+    const downloaded = await route(new Request(`http://localhost${body.photos[0]?.url}`, {
+      headers: { Authorization: "Bearer legacy-photo-read-secret" },
+    }));
+    assert.equal(downloaded.status, 200);
+    assert.deepEqual(new Uint8Array(await downloaded.arrayBuffer()), jpeg);
   });
 
   test("lets admins delete archived photos without granting deletion to download tokens", async () => {

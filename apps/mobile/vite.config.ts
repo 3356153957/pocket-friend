@@ -24,6 +24,7 @@ export default defineConfig(({ mode }) => {
   const photoApiUrl = safeProxyUrl(
     env.PF_PHOTO_API_URL ?? process.env.PF_PHOTO_API_URL ?? "http://127.0.0.1:4311",
     "PF_PHOTO_API_URL",
+    { allowHttpRemote: true },
   );
 
   return {
@@ -76,11 +77,12 @@ export default defineConfig(({ mode }) => {
   };
 });
 
-function safeProxyUrl(value: string, name: string): string {
+function safeProxyUrl(value: string, name: string, options: { allowHttpRemote?: boolean } = {}): string {
   const url = new URL(value);
   const loopback = url.hostname === "localhost" || url.hostname === "127.0.0.1" || url.hostname === "[::1]";
-  if (url.protocol !== "https:" && !(url.protocol === "http:" && loopback)) {
-    throw new Error(`${name} must use HTTPS unless it targets loopback.`);
+  const allowedHttp = loopback || options.allowHttpRemote;
+  if (url.protocol !== "https:" && !(url.protocol === "http:" && allowedHttp)) {
+    throw new Error(`${name} must use HTTPS unless HTTP is explicitly allowed for this proxy.`);
   }
   return url.toString();
 }

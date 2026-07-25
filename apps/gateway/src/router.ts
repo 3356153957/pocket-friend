@@ -40,6 +40,14 @@ function corsOrigin(env: GatewayEnvironment): string {
   return env.NODE_ENV === "production" ? "" : "*";
 }
 
+function seedreamApiKey(env: GatewayEnvironment): string {
+  return env.DOUBAO_API_KEY ?? env.VITE_DOUBAO_API_KEY ?? "";
+}
+
+function seedreamModel(env: GatewayEnvironment): string | undefined {
+  return env.DOUBAO_MODEL ?? env.VITE_DOUBAO_MODEL;
+}
+
 function jsonResponse(
   body: unknown,
   status: number,
@@ -221,10 +229,11 @@ async function handleAvatarGeneration(
       }, 400, options.env);
     }
 
+    const model = seedreamModel(options.env);
     const result = await generateSeedreamAvatar({
-      apiKey: options.env.DOUBAO_API_KEY ?? "",
+      apiKey: seedreamApiKey(options.env),
       image: body.image,
-      ...(options.env.DOUBAO_MODEL ? { model: options.env.DOUBAO_MODEL } : {}),
+      ...(model ? { model } : {}),
       ...(options.env.DOUBAO_ENDPOINT ? { endpoint: options.env.DOUBAO_ENDPOINT } : {}),
       ...(options.fetcher ? { fetcher: options.fetcher } : {}),
     });

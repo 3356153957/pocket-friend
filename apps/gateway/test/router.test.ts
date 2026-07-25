@@ -335,6 +335,46 @@ describe("Pocket Friend Gateway router", () => {
     assert.equal(calls[1]?.input, "https://images.example/avatar.png");
   });
 
+  test("accepts legacy Vite Seedream env names for avatar generation", async () => {
+    const calls: Array<{ input: string; init?: RequestInit }> = [];
+    const route = createGatewayRouter({
+      env: {
+        VITE_DOUBAO_API_KEY: "legacy-vite-seedream-secret",
+        VITE_DOUBAO_MODEL: "legacy-vite-seedream-model",
+      },
+      fetcher: async (input, init) => {
+        calls.push({ input: input.toString(), ...(init ? { init } : {}) });
+        if (calls.length === 1) {
+          return new Response(JSON.stringify({
+            data: [{ url: "https://images.example/avatar.png" }],
+          }), {
+            status: 200,
+            headers: { "Content-Type": "application/json" },
+          });
+        }
+
+        return new Response(new Uint8Array([0x89, 0x50, 0x4e, 0x47]), {
+          status: 200,
+          headers: { "Content-Type": "image/png" },
+        });
+      },
+    });
+    const response = await route(new Request("http://localhost/api/avatar/generate", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ image: "data:image/jpeg;base64,cGhvdG8=" }),
+    }));
+
+    assert.equal(response.status, 200);
+    assert.deepEqual(await response.json(), {
+      data: [{ b64_json: "iVBORw==" }],
+      model: "legacy-vite-seedream-model",
+    });
+    assert.equal(new Headers(calls[0]?.init?.headers).get("Authorization"), "Bearer legacy-vite-seedream-secret");
+    const upstreamRequest = JSON.parse(String(calls[0]?.init?.body)) as Record<string, unknown>;
+    assert.equal(upstreamRequest.model, "legacy-vite-seedream-model");
+  });
+
   test("rejects untrusted Seedream endpoints and private generated image URLs", async () => {
     const untrustedEndpointRoute = createGatewayRouter({
       env: {

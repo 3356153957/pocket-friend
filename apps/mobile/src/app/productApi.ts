@@ -28,6 +28,7 @@ export interface ProductScene {
   shortName: string;
   description: string;
   assetUrl: string;
+  sceneKind?: "lakeside" | "garden" | "lab" | "stage";
   outerX: number;
   outerY: number;
   walk: {
@@ -52,40 +53,44 @@ export const fallbackProductScenes: ProductScene[] = [
     name: "湖畔创业中心",
     shortName: "创业中心",
     description: "项目共创、桌游和临时灵感碰撞。",
-    assetUrl: "/assets/scenes/venture-center.png",
+    assetUrl: "/assets/scene-alt.png",
+    sceneKind: "garden",
     outerX: 0.43,
     outerY: 0.52,
-    walk: { x1: 0.18, x2: 0.88, y1: 0.48, y2: 0.86 },
+    walk: { x1: 0.18, x2: 0.78, y1: 0.55, y2: 0.88 },
   },
   {
     id: "all-night-lab",
     name: "通宵实验室",
     shortName: "通宵实验室",
     description: "适合一起调试、完善演示和安静并肩。",
-    assetUrl: "/assets/scenes/all-night-lab.png",
+    assetUrl: "",
+    sceneKind: "lab",
     outerX: 0.24,
     outerY: 0.38,
-    walk: { x1: 0.10, x2: 0.90, y1: 0.42, y2: 0.82 },
+    walk: { x1: 0.12, x2: 0.88, y1: 0.58, y2: 0.90 },
   },
   {
     id: "pitch-stage",
     name: "路演舞台",
     shortName: "路演舞台",
     description: "适合展示、鼓掌和互相记住作品。",
-    assetUrl: "/assets/scenes/pitch-stage.png",
+    assetUrl: "",
+    sceneKind: "stage",
     outerX: 0.70,
     outerY: 0.45,
-    walk: { x1: 0.16, x2: 0.86, y1: 0.52, y2: 0.90 },
+    walk: { x1: 0.15, x2: 0.85, y1: 0.62, y2: 0.92 },
   },
   {
     id: "academic-center",
     name: "杭州未来科技城学术交流中心",
     shortName: "学术交流中心",
     description: "适合正式相遇、会后聊天和深度交换。",
-    assetUrl: "/assets/scenes/academic-center.png",
+    assetUrl: "/assets/scene-lakeside-clean.png",
+    sceneKind: "lakeside",
     outerX: 0.58,
     outerY: 0.30,
-    walk: { x1: 0.12, x2: 0.88, y1: 0.42, y2: 0.88 },
+    walk: { x1: 0.16, x2: 0.84, y1: 0.34, y2: 0.86 },
   },
 ];
 
@@ -148,6 +153,7 @@ export function toScreenResident(resident: ProductResident): ScreenResident {
   if (resident.portraitUrl) screenResident.portraitUrl = resident.portraitUrl;
   if (resident.seedreamModel) screenResident.seedreamModel = resident.seedreamModel;
   if (resident.activeSceneId) screenResident.activeSceneId = resident.activeSceneId;
+  if (resident.warning) screenResident.warning = resident.warning;
   return screenResident;
 }
 

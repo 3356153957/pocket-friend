@@ -58,7 +58,8 @@ describe("4311 photo resident synchronization", () => {
     assert.equal(synced[0]?.id, "2026-07-25T12:00:00.000Z");
     assert.equal(synced[0]?.name, "小岛居民");
     assert.equal(synced[0]?.pixelPortraitUrl, "http://localhost/photo-a.jpg");
-    assert.equal(needsPixelGeneration(synced[0]!), true);
+    assert.equal(synced[0]?.tags.includes("4311照片"), true);
+    assert.equal(needsPixelGeneration(synced[0]!), false);
   });
 
   test("keeps generated cached sprites while syncing 4311 rename and delete", () => {
@@ -82,5 +83,18 @@ describe("4311 photo resident synchronization", () => {
     assert.equal(synced[0]?.pixelPortraitUrl, "data:image/png;base64,PIXEL");
     assert.equal(needsPixelGeneration(synced[0]!), false);
     assert.deepEqual(syncPhotoResidents([cached], [], () => cached), []);
+  });
+
+  test("only queues Seedream for residents marked as new arrivals", () => {
+    const localFallback = {
+      ...resident,
+      spriteSource: "local-fallback" as const,
+      pixelPortraitUrl: "data:image/png;base64,REALPHOTO",
+      portraitUrl: "http://localhost/photo.jpg",
+    };
+
+    assert.equal(needsPixelGeneration(localFallback), false);
+    assert.equal(needsPixelGeneration({ ...localFallback, needsSeedream: true }), true);
+    assert.equal(needsPixelGeneration({ ...localFallback, needsSeedream: true, warning: "Seedream failed" }), false);
   });
 });

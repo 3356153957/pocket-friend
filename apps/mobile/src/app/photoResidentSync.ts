@@ -23,6 +23,45 @@ export interface ManagedPhotoResident extends ManagedResident {
   spriteSource: "seedream" | "local-fallback";
   seedreamModel?: string;
   activeSceneId?: string;
+  needsSeedream?: boolean;
+  spriteRotation?: 0 | 180;
+  realPhotoRotation?: 0 | 180;
+  warning?: string;
+}
+
+const PROFILE_ARCHETYPES: Archetype[] = ["安静观察者", "话痨点火机", "好奇选手", "松弛派"];
+
+const PROFILE_TAG_GROUPS = [
+  ["安静观察", "细节捕手", "慢热"],
+  ["主动聊天", "气氛担当", "表达欲"],
+  ["探索欲", "项目搭子", "新鲜事"],
+  ["松弛感", "自然相处", "舒服节奏"],
+  ["夜间灵感", "展览市集", "音乐现场"],
+  ["共同任务", "手作脑洞", "协作派"],
+] as const;
+
+function stableHash(input: string): number {
+  let hash = 2166136261;
+  for (let index = 0; index < input.length; index += 1) {
+    hash ^= input.charCodeAt(index);
+    hash = Math.imul(hash, 16777619);
+  }
+  return hash >>> 0;
+}
+
+function deterministicProfileForPhoto(photo: ManagedPhotoSummary, index: number): Pick<ManagedPhotoResident, "magnetType" | "tags"> {
+  const seed = stableHash(`${photo.capturedAt ?? ""}|${photo.id}|${photo.name ?? ""}|${index}`);
+  const magnetType = PROFILE_ARCHETYPES[seed % PROFILE_ARCHETYPES.length] ?? "好奇选手";
+  const group = PROFILE_TAG_GROUPS[Math.floor(seed / PROFILE_ARCHETYPES.length) % PROFILE_TAG_GROUPS.length] ?? PROFILE_TAG_GROUPS[0];
+  const accent = PROFILE_TAG_GROUPS[(index + seed) % PROFILE_TAG_GROUPS.length]?.[index % 3] ?? "pocket friend";
+  return {
+    magnetType,
+    tags: Array.from(new Set(["4311照片", ...group.slice(0, 2), accent])),
+  };
+}
+
+function hasLegacyGeneratingTag(resident: ManagedPhotoResident): boolean {
+  return resident.tags.some((tag) => tag.includes("正在生成"));
 }
 
 export function normalizeManagedPhotoName(rawName: string): string {
@@ -71,11 +110,12 @@ export function createPlaceholderResidentFromPhoto(
 ): ManagedPhotoResident {
   const createdAt = photo.capturedAt ?? new Date().toISOString();
   const sceneId = sceneIds[index % Math.max(1, sceneIds.length)] ?? "venture-center";
+  const profile = deterministicProfileForPhoto(photo, index);
   return {
     id: residentIdForPhoto(photo),
     name: normalizeManagedPhotoName(photo.name ?? photo.id),
-    magnetType: "好奇选手",
-    tags: ["4311照片", "正在生成像素形象"],
+    magnetType: profile.magnetType,
+    tags: profile.tags,
     portraitUrl: photoUrl,
     pixelPortraitUrl: photoUrl,
     createdAt,
@@ -83,6 +123,9 @@ export function createPlaceholderResidentFromPhoto(
     source: "hardware",
     spriteSource: "local-fallback",
     activeSceneId: sceneId,
+    needsSeedream: false,
+    spriteRotation: 180,
+    realPhotoRotation: 180,
   };
 }
 
@@ -100,15 +143,29 @@ export function syncPhotoResidents<T extends ManagedPhotoResident>(
     const id = residentIdForPhoto(photo);
     const cached = (photo.capturedAt ? cachedByCapturedAt.get(photo.capturedAt) : undefined) ?? cachedById.get(id);
     const base = cached ?? createPlaceholder(photo, index);
+    const shouldMigrateInitialResident = Boolean(
+      cached &&
+      cached.spriteSource === "local-fallback" &&
+      cached.needsSeedream !== true &&
+      !cached.warning &&
+      hasLegacyGeneratingTag(cached),
+    );
+    const migratedProfile = shouldMigrateInitialResident ? deterministicProfileForPhoto(photo, index) : null;
     return {
       ...base,
+      ...(migratedProfile ? { magnetType: migratedProfile.magnetType, tags: migratedProfile.tags } : {}),
       id,
       name: photo.name ? normalizeManagedPhotoName(photo.name) : base.name,
       createdAt: photo.capturedAt ?? base.createdAt,
+      needsSeedream: base.needsSeedream === true,
+      spriteRotation: base.spriteRotation ?? (base.spriteSource === "local-fallback" ? 180 : 0),
+      realPhotoRotation: base.realPhotoRotation ?? 180,
     };
   });
 }
 
 export function needsPixelGeneration(resident: ManagedPhotoResident): boolean {
-  return resident.pixelPortraitUrl === resident.portraitUrl || !resident.pixelPortraitUrl.startsWith("data:image/");
+  if (resident.spriteSource === "seedream") return false;
+  if (resident.warning) return false;
+  return resident.needsSeedream === true;
 }

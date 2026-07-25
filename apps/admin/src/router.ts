@@ -95,7 +95,7 @@ async function isPhotoDownloadAuthorized(
   env: AdminEnvironment,
   tokenStore: PhotoDownloadTokenStore,
 ): Promise<boolean> {
-  const expected = env.PF_PHOTO_DOWNLOAD_TOKEN;
+  const expected = env.PF_PHOTO_DOWNLOAD_TOKEN ?? env.PF_PHOTO_TOKEN;
   const supplied = request.headers.get("authorization")?.replace(/^Bearer\s+/u, "") ?? "";
   if (!supplied) return false;
   if (expected && constantTimeEqual(supplied, expected)) return true;
@@ -123,6 +123,14 @@ function allowedWebOrigin(request: Request, env: AdminEnvironment): string | nul
   } catch {
     return null;
   }
+}
+
+function seedreamApiKey(env: AdminEnvironment): string {
+  return env.DOUBAO_API_KEY ?? env.VITE_DOUBAO_API_KEY ?? "";
+}
+
+function seedreamModel(env: AdminEnvironment): string | undefined {
+  return env.DOUBAO_MODEL ?? env.VITE_DOUBAO_MODEL;
 }
 
 function isDeviceId(value: unknown): value is DeviceId {
@@ -237,10 +245,11 @@ export function createAdminRouter(options: AdminRouterOptions): AdminRouter {
         if (typeof body.image !== "string" || !body.image.startsWith("data:image/")) {
           return withIslandCors(json({ error: { code: "SEEDREAM_IMAGE_REQUIRED", message: "A data URL image is required." } }, 400), origin);
         }
+        const model = seedreamModel(options.env);
         const result = await generateSeedreamAvatar({
-          apiKey: options.env.DOUBAO_API_KEY ?? "",
+          apiKey: seedreamApiKey(options.env),
           image: body.image,
-          ...(options.env.DOUBAO_MODEL ? { model: options.env.DOUBAO_MODEL } : {}),
+          ...(model ? { model } : {}),
           ...(options.env.DOUBAO_ENDPOINT ? { endpoint: options.env.DOUBAO_ENDPOINT } : {}),
           ...(options.seedreamFetch ? { fetcher: options.seedreamFetch } : {}),
         });

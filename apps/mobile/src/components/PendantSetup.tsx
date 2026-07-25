@@ -75,7 +75,7 @@ export default function PendantSetup({
         <span><span className="block font-pixel text-[8px]">安静模式</span><span className="font-mono-pixel text-sm text-ink/70">工作时段只记录，不震动</span></span>
       </label>
 
-      <PixelButton onClick={onNext} disabled={!prefs.buzz} variant="pink" fullWidth>进入口袋朋友 <ArrowRight size={16} /></PixelButton>
+      <PixelButton onClick={onNext} disabled={!prefs.buzz} variant="pink" fullWidth>进入 pocket friend <ArrowRight size={16} /></PixelButton>
     </section>
   );
 }

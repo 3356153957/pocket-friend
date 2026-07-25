@@ -123,7 +123,7 @@ export class InMemoryProductStore implements ProductStore {
     const existing = this.state.profiles.find((profile) => profile.id === id);
     const profile: ProductProfile = {
       id,
-      name: input.name.trim() || "口袋朋友",
+      name: input.name.trim() || "pocket friend",
       handle: input.handle?.trim() || existing?.handle || "",
       role: input.role?.trim() || existing?.role || "",
       bio: input.bio?.trim() || existing?.bio || "",

@@ -9,7 +9,7 @@ const demoLogin = {
   password: "pocket2026",
   name: "演示主持人",
   role: "黑客松",
-  bio: "口袋朋友演示账号",
+  bio: "pocket friend 演示账号",
 };
 
 export default function Welcome({
@@ -53,10 +53,10 @@ export default function Welcome({
   return (
     <form onSubmit={submitProfile} className="flex h-full min-h-0 flex-col bg-mint-screen text-center">
       <div className="min-h-0 flex-1 overflow-y-auto px-5 py-5 pb-4">
-        <div className="font-pixel text-[8px] text-ink/60">已发现信号 · 口袋朋友</div>
+        <div className="font-pixel text-[8px] text-ink/60">已发现信号 · pocket friend</div>
 
         <div className="mt-4 flex w-full flex-col items-center gap-4">
-          <div className="relative grid aspect-square w-28 place-items-center overflow-hidden" aria-label="口袋朋友像素挂坠">
+          <div className="relative grid aspect-square w-28 place-items-center overflow-hidden" aria-label="pocket friend 像素挂坠">
             <div className="absolute h-24 w-24 border-2 border-ink/20" />
             <div className="absolute h-20 w-20 border-2 border-pink animate-ping-slow" />
             <div className="pixel-border relative grid h-16 w-16 place-items-center bg-pink animate-float">
@@ -66,7 +66,7 @@ export default function Welcome({
 
           <div>
             <p className="font-pixel text-[9px] text-pink">遇见同频的人</p>
-            <h1 className="mt-2 font-pixel text-[18px] leading-relaxed text-ink">口袋<br />朋友</h1>
+            <h1 className="mt-2 font-pixel text-[18px] leading-relaxed text-ink">pocket<br />friend</h1>
           </div>
 
           <PixelCard className="w-full" color="card">

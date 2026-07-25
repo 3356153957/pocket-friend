@@ -17,7 +17,7 @@ export function AppLogo({ size = 40 }: { size?: number }) {
   return (
     <img
       src="/favicon.svg"
-      alt="口袋朋友"
+      alt="pocket friend"
       width={size}
       height={size}
       className="pixel-image"

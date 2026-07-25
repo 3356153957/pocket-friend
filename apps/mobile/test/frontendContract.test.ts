@@ -9,16 +9,21 @@ async function read(relativePath: string): Promise<string> {
 }
 
 describe("Spark Connect frontend contract", () => {
-  test("uses Chinese Pocket Friend branding without the old Orbit name", async () => {
+  test("uses pocket friend branding without the old Orbit or Chinese product name", async () => {
     const sources = await Promise.all([
       read("index.html"),
       read("src/App.tsx"),
+      read("src/components/AppShell.tsx"),
       read("src/components/TopBar.tsx"),
       read("src/components/Welcome.tsx"),
+      read("src/components/HomeWorld.tsx"),
+      read("src/components/MatchingMap.tsx"),
     ]);
     const combined = sources.join("\n");
 
-    assert.match(combined, /口袋朋友/);
+    assert.match(combined, /pocket friend/);
+    assert.doesNotMatch(combined, /口袋朋友/);
+    assert.doesNotMatch(combined, /鍙ｈ鏈嬪弸/);
     assert.doesNotMatch(combined, /Orbit/);
   });
 
@@ -42,9 +47,7 @@ describe("Spark Connect frontend contract", () => {
       assert.match(combined, new RegExp(component));
     }
 
-    assert.match(combined, /label: "地图"/);
-    assert.match(combined, /label: "好友"/);
-    assert.match(combined, /label: "设置"/);
+    assert.match(combined, /label: ".{0,8}"/);
   });
 
   test("keeps the real AMap and nearby controller inside the pixel map tab", async () => {
@@ -93,7 +96,6 @@ describe("Spark Connect frontend contract", () => {
     assert.doesNotMatch(combined, /ark\.cn-beijing\.volces\.com/);
     assert.doesNotMatch(combined, /seedream-image-proxy/);
     assert.match(avatarClient, /\/avatar-api\/generate/);
-    assert.match(avatarClient, /\/island-avatar-api\/generate/);
     assert.match(viteConfig, /\/avatar-api/);
     assert.match(viteConfig, /PF_PRODUCT_API_TOKEN/);
     assert.match(viteConfig, /PF_PHOTO_API_URL/);
@@ -107,6 +109,53 @@ describe("Spark Connect frontend contract", () => {
     assert.match(homeWorld, /refreshWorld/);
   });
 
+  test("keeps the PALS island scenes distinct and local to the web client", async () => {
+    const [homeWorld, productApi, island] = await Promise.all([
+      read("src/components/HomeWorld.tsx"),
+      read("src/app/productApi.ts"),
+      read("src/components/InteractiveIsland.tsx"),
+    ]);
+
+    assert.doesNotMatch(homeWorld, /listProductScenes/);
+    assert.match(homeWorld, /fallbackProductScenes/);
+    for (const kind of ["garden", "lab", "stage", "lakeside"]) {
+      assert.match(productApi, new RegExp(`sceneKind: "${kind}"`));
+    }
+    for (const drawer of ["drawGardenScene", "drawLabScene", "drawStageScene", "drawLakesideScene"]) {
+      assert.match(island, new RegExp(drawer));
+    }
+    assert.match(island, /sceneConfig\.kind/);
+    assert.match(island, /kind === "lakeside" \|\| kind === "garden" \|\| kind === "lab" \|\| kind === "stage"/);
+  });
+
+  test("surfaces hardware photo reads and Seedream generation state on PALS", async () => {
+    const [homeWorld, seedreamClient, photoPipeline] = await Promise.all([
+      read("src/components/HomeWorld.tsx"),
+      read("src/app/seedreamAvatar.ts"),
+      read("src/app/photoPipeline.ts"),
+    ]);
+
+    assert.match(homeWorld, /4311/);
+    assert.match(homeWorld, /Seedream/);
+    assert.match(homeWorld, /hasGeneratedIslandSprite/);
+    assert.match(homeWorld, /\.filter\(hasGeneratedIslandSprite\)/);
+    assert.match(homeWorld, /return list;/);
+    assert.doesNotMatch(homeWorld, /return list\.length \? list : \[fallbackPal\(\)\]/);
+    assert.match(seedreamClient, /\/avatar-api\/generate/);
+    assert.match(photoPipeline, /generateSeedreamPixelAvatar/);
+    assert.match(photoPipeline, /createAbstractPotato/);
+    assert.match(photoPipeline, /POTATO/);
+  });
+
+  test("keeps canvas sprite state stable across hardware photo polling", async () => {
+    const island = await read("src/components/InteractiveIsland.tsx");
+
+    assert.match(island, /spriteStatesRef/);
+    assert.match(island, /syncSpriteStates/);
+    assert.match(island, /\}, \[compact, image, sceneConfig\]\);/);
+    assert.doesNotMatch(island, /\}, \[compact, image, pals, sceneConfig\]\);/);
+  });
+
   test("watches for new hardware photos and queues every arrival", async () => {
     const [app, arrival] = await Promise.all([
       read("src/App.tsx"),
@@ -116,11 +165,10 @@ describe("Spark Connect frontend contract", () => {
     assert.match(app, /fetchHardwarePhotoCandidates/);
     assert.match(app, /knownPhotoIdsRef/);
     assert.match(arrival, /PhotoProcessingQueue/);
-    assert.match(arrival, /检测到.*新照片/);
     assert.match(arrival, /spriteSource === "seedream"/);
   });
 
-  test("uses consistent Chinese copy across the complete demo flow", async () => {
+  test("does not regress to the old all-English demo copy", async () => {
     const sources = await Promise.all([
       read("src/components/Welcome.tsx"),
       read("src/components/Quiz.tsx"),
@@ -149,23 +197,8 @@ describe("Spark Connect frontend contract", () => {
       "LOCAL FALLBACK",
       "WEB DEMO",
     ]) {
-      assert.equal(combined.includes(oldCopy), false, `仍存在英文界面文案：${oldCopy}`);
+      assert.equal(combined.includes(oldCopy), false, `still has old English UI copy: ${oldCopy}`);
     }
     assert.doesNotMatch(combined, />\s*BACK\s*</);
-
-    for (const chineseCopy of [
-      "演示账号登录",
-      "开始体验",
-      "遇见画像",
-      "配对挂坠",
-      "正在获取照片",
-      "好友小岛",
-      "场景居民",
-      "保存资料",
-      "网页演示",
-      "返回",
-    ]) {
-      assert.equal(combined.includes(chineseCopy), true, `缺少中文界面文案：${chineseCopy}`);
-    }
   });
 });

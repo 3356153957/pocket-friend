@@ -29,7 +29,7 @@ export async function generateSeedreamPixelAvatar(referenceDataUrl: string): Pro
   const payload = await response.json().catch(() => null) as SeedreamGenerationResponse | null;
 
   if (!response.ok) {
-    throw new Error(`像素形象生成失败，状态码 ${response.status}。`);
+    throw new Error(payload?.error?.message ?? `像素形象生成失败，状态码 ${response.status}。`);
   }
 
   const rawImageUrl = payload?.data?.[0]?.url ?? payload?.data?.[0]?.b64_json;
@@ -70,10 +70,7 @@ async function fetchSeedreamWithTimeout(body: Record<string, unknown>): Promise<
 }
 
 function defaultAvatarGenerationEndpoint(): string {
-  if (typeof window === "undefined") return "/avatar-api/generate";
-  const { hostname, protocol } = window.location;
-  if (hostname === "localhost" || hostname === "127.0.0.1" || hostname === "::1") return "/avatar-api/generate";
-  return `${protocol}//${hostname}:4311/island-avatar-api/generate`;
+  return "/avatar-api/generate";
 }
 
 async function isolateSpriteFromWhiteCanvas(imageUrl: string): Promise<string> {
