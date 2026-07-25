@@ -113,7 +113,7 @@ export async function createDemoDownloadedPhoto(warning = "Photo API is unavaila
   const fallback = await createDemoPixelPortrait();
   return {
     id: `demo-${Date.now()}`,
-    name: "Luna",
+    name: "Waiting",
     capturedAt: new Date().toISOString(),
     originalDataUrl: fallback,
     pixelPortraitUrl: fallback,
@@ -156,7 +156,7 @@ function extractDisplayName(rawName: string): string {
   const withoutExtension = decoded.replace(/\.[a-z0-9]+$/i, "");
   const withoutTimestamp = withoutExtension.replace(/-\d{4}-\d{2}-\d{2}T.*$/i, "");
   const beforeCounter = withoutTimestamp.split("_")[0]?.trim();
-  return beforeCounter || withoutTimestamp || "Luna";
+  return beforeCounter || withoutTimestamp || "Hardware Photo";
 }
 
 function selectHardwarePhoto(photos: NonNullable<PhotoHistoryResponse["photos"]>) {

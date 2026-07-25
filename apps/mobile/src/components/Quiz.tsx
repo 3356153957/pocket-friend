@@ -21,7 +21,12 @@ import {
 import type { Prefs } from "../app/appFlow.ts";
 import { PixelButton, PixelCard, PixelLabel, StepPips } from "./PixelUi.tsx";
 
-export default function Quiz({ prefs, setPrefs, onNext, onBack }: {
+export default function Quiz({
+  prefs,
+  setPrefs,
+  onNext,
+  onBack,
+}: {
   prefs: Prefs;
   setPrefs: (prefs: Prefs) => void;
   onNext: () => void;
@@ -114,7 +119,7 @@ export default function Quiz({ prefs, setPrefs, onNext, onBack }: {
         </div>
 
         <div>
-          <div className="font-pixel text-[8px] text-pink">01 · ENCOUNTER PROFILE</div>
+          <div className="font-pixel text-[8px] text-pink">01 / ENCOUNTER PROFILE</div>
           <h1 className="mt-3 font-pixel text-[14px] leading-7 text-ink">你的岛民<span className="text-pink">磁场</span></h1>
         </div>
 
@@ -200,13 +205,13 @@ export default function Quiz({ prefs, setPrefs, onNext, onBack }: {
       </div>
 
       <div>
-        <div className="font-pixel text-[8px] text-pink">01 · ABOUT YOU</div>
+        <div className="font-pixel text-[8px] text-pink">01 / ABOUT YOU</div>
         <h1 className="mt-3 font-pixel text-[14px] leading-7 text-ink">遇见画像<span className="text-pink">问卷</span></h1>
       </div>
 
       {quizQuestions.map((question, index) => (
         <fieldset key={question.id} className="space-y-2">
-          <PixelLabel>Q{index + 1} · {question.title}</PixelLabel>
+          <PixelLabel>Q{index + 1} / {question.title}</PixelLabel>
           <div className="grid grid-cols-1 gap-2">
             {question.options.map((option) => {
               const active = answers[question.id] === option.key;
@@ -228,7 +233,7 @@ export default function Quiz({ prefs, setPrefs, onNext, onBack }: {
       ))}
 
       <div className="pixel-border-sm bg-card p-3 font-mono-pixel text-sm text-ink/70">
-        已回答 {answeredCount} / {quizQuestions.length}。系统会根据你的选择生成磁场、推荐场景和捕捉边界。
+        已回答 {answeredCount} / {quizQuestions.length}。系统会根据选择生成磁场、推荐场景和捕捉边界。
       </div>
 
       <PixelButton onClick={generateProfile} disabled={!complete} variant="pink" fullWidth>生成遇见画像 <ArrowRight size={16} /></PixelButton>

@@ -40,17 +40,20 @@ function palFromResident(resident: ScreenResident, index: number, sceneId?: stri
   const color = palColors[index % palColors.length] ?? palColors[0];
   const baseX = [0.46, 0.58, 0.34, 0.68][index % 4] ?? 0.5;
   const baseY = [0.66, 0.58, 0.72, 0.50][index % 4] ?? 0.62;
+  const isDemo = resident.source === "demo";
   const pal: IslandPal = {
     id: resident.id,
-    name: resident.name,
-    label: labelFromName(resident.name),
+    name: isDemo ? "Waiting" : resident.name,
+    label: labelFromName(isDemo ? "Waiting" : resident.name),
     hair: color.hair,
     body: color.body,
-    tags: resident.tags.length ? resident.tags : ["入岛", "像素小人"],
-    bio: `${resident.magnetType}。真人照片已识别，Seedream 像素小人已进入场景。`,
+    tags: isDemo ? ["waiting for hardware photo", "no resident saved"] : resident.tags.length ? resident.tags : ["island", "pixel friend"],
+    bio: isDemo
+      ? "No real hardware photo has been saved yet. Capture a real photo to generate a resident."
+      : `${resident.magnetType}. Real photo recognized; Seedream pixel sprite entered the scene.`,
     metAt: formatMetAt(resident.createdAt),
-    rx: sceneId ? baseX : 0.50,
-    ry: sceneId ? baseY : 0.60,
+    rx: sceneId ? baseX : 0.5,
+    ry: sceneId ? baseY : 0.6,
   };
   if (resident.pixelPortraitUrl) pal.spriteUrl = resident.pixelPortraitUrl;
   if (resident.portraitUrl) pal.realPhotoUrl = resident.portraitUrl;
@@ -60,12 +63,12 @@ function palFromResident(resident: ScreenResident, index: number, sceneId?: stri
 function fallbackPal(): IslandPal {
   return {
     id: "local-preview",
-    name: "Luna",
-    label: "L",
+    name: "Waiting",
+    label: "W",
     hair: "#f472b6",
     body: "#ec4899",
-    tags: ["等待硬件照片", "像素居民"],
-    bio: "完成照片采集后，真实像素小人会出现在这里。",
+    tags: ["waiting for photo", "pixel resident"],
+    bio: "After hardware photo capture, the generated pixel friend will appear here.",
     metAt: "Pocket Friend",
     rx: 0.5,
     ry: 0.62,
@@ -74,7 +77,7 @@ function fallbackPal(): IslandPal {
 
 function mergeResidents(current: ScreenResident | null | undefined, backendResidents: ProductResident[]) {
   const merged = new Map<string, ScreenResident>();
-  for (const resident of backendResidents) merged.set(resident.id, toScreenResident(resident));
+  for (const item of backendResidents) merged.set(item.id, toScreenResident(item));
   if (current) merged.set(current.id, current);
   return [...merged.values()];
 }
@@ -90,11 +93,9 @@ function sceneConfigFromProduct(scene: ProductScene): IslandSceneConfig {
 function OuterIsland({
   scenes,
   onEnter,
-  compact = false,
 }: {
   scenes: ProductScene[];
   onEnter: (scene: ProductScene) => void;
-  compact?: boolean;
 }) {
   return (
     <div className="relative h-full w-full overflow-hidden bg-ink">
@@ -111,20 +112,34 @@ function OuterIsland({
           type="button"
           key={scene.id}
           onClick={() => onEnter(scene)}
-          className="absolute max-w-[118px] -translate-x-1/2 -translate-y-1/2 border-2 border-ink bg-card px-2 py-1 text-left shadow-[2px_2px_0_var(--ink)] transition-transform hover:scale-105"
+          aria-label={`Enter ${scene.name}`}
+          className="group absolute h-16 w-20 -translate-x-1/2 -translate-y-1/2 bg-transparent p-0"
           style={{ left: `${scene.outerX * 100}%`, top: `${scene.outerY * 100}%` }}
         >
-          <span className={`mb-1 grid h-7 w-7 place-items-center border-2 border-ink ${palColors[index % palColors.length]?.bg ?? "bg-pink"} font-pixel text-[8px]`}>
-            {index + 1}
+          <span className="pointer-events-none absolute left-1/2 top-0 max-w-[94px] -translate-x-1/2 -translate-y-full whitespace-nowrap border-2 border-ink bg-card px-1.5 py-0.5 text-center font-mono-pixel text-xs leading-3 text-ink shadow-[1px_1px_0_var(--ink)] group-hover:bg-lime">
+            {scene.shortName}
           </span>
-          <span className="block font-pixel text-[6px] leading-3 text-ink">{scene.shortName}</span>
-          {!compact && <span className="mt-1 block font-mono-pixel text-xs leading-3 text-ink/70">ENTER</span>}
+          <span className={`pointer-events-none absolute left-1/2 top-1/2 grid h-4 w-4 -translate-x-1/2 -translate-y-1/2 place-items-center border-2 border-ink ${palColors[index % palColors.length]?.bg ?? "bg-pink"} shadow-[1px_1px_0_var(--ink)]`}>
+            <span className="h-1.5 w-1.5 bg-ink" />
+          </span>
         </button>
       ))}
-      <div className="absolute bottom-2 left-2 right-14 border-2 border-ink bg-mint px-2 py-1 font-mono-pixel text-sm leading-4 shadow-[2px_2px_0_var(--ink)]">
-        点击岛上的入口，进入真实场景查看居民动效。
+      <div className="absolute bottom-2 left-2 right-14 border-2 border-ink bg-mint px-2 py-1 font-pixel text-[6px] leading-3 shadow-[2px_2px_0_var(--ink)]">
+        TAP BUILDING TO ENTER
       </div>
     </div>
+  );
+}
+
+function SceneBackButton({ onBack }: { onBack: () => void }) {
+  return (
+    <button
+      type="button"
+      onClick={onBack}
+      className="absolute left-3 top-3 z-10 inline-flex min-h-9 items-center gap-1 border-2 border-ink bg-lime px-2 py-1 font-pixel text-[7px] text-ink shadow-[2px_2px_0_var(--ink)]"
+    >
+      <ArrowLeft size={14} /> BACK
+    </button>
   );
 }
 
@@ -160,17 +175,15 @@ export default function HomeWorld({ resident }: { resident?: ScreenResident | nu
     };
   }, []);
 
-  const residents = useMemo(() => mergeResidents(resident, backendResidents), [backendResidents, resident]);
+  const allResidents = useMemo(() => mergeResidents(resident, backendResidents), [backendResidents, resident]);
   const currentSceneId = activeScene?.id;
   const sceneResidents = useMemo(() => {
-    if (!currentSceneId) return residents;
-    const inScene = backendResidents
-      .filter((item) => item.activeSceneId === currentSceneId)
-      .map((item) => toScreenResident(item));
-    const merged = mergeResidents(resident, inScene as ProductResident[]);
-    return merged.length ? merged : residents;
-  }, [backendResidents, currentSceneId, resident, residents]);
-  const visibleResidents = activeScene ? sceneResidents : residents;
+    if (!currentSceneId) return allResidents;
+    const inScene = backendResidents.filter((item) => item.activeSceneId === currentSceneId);
+    const merged = mergeResidents(resident, inScene);
+    return merged.length ? merged : allResidents;
+  }, [allResidents, backendResidents, currentSceneId, resident]);
+  const visibleResidents = activeScene ? sceneResidents : allResidents;
   const pals = useMemo(() => {
     const source = visibleResidents.length ? visibleResidents : resident ? [resident] : [];
     const list = source.map((item, index) => palFromResident(item, index + sceneSlot(currentSceneId ?? ""), currentSceneId));
@@ -192,6 +205,10 @@ export default function HomeWorld({ resident }: { resident?: ScreenResident | nu
     setSelectedId(resident?.id ?? pals[0]?.id ?? "local-preview");
   }
 
+  function leaveScene() {
+    setActiveScene(null);
+  }
+
   const sceneTitle = activeScene ? activeScene.name : "PALS ISLAND";
 
   return (
@@ -200,19 +217,19 @@ export default function HomeWorld({ resident }: { resident?: ScreenResident | nu
         <div className="min-w-0">
           <h1 className="font-pixel text-[10px]">POCKET FRIEND</h1>
           <p className="truncate font-mono-pixel text-sm text-ink/70">
-            {activeScene ? `${activeScene.shortName} · ${pals.length} RESIDENTS` : "PALS · 选择真实场景"}
+            {activeScene ? `${activeScene.shortName} · ${pals.length} RESIDENTS` : "PALS · choose a building"}
           </p>
         </div>
         <div className="flex gap-1">
           {activeScene && (
-            <button type="button" aria-label="返回小岛总览" onClick={() => setActiveScene(null)} className="pixel-icon-button bg-card">
+            <button type="button" aria-label="Back to island overview" onClick={leaveScene} className="pixel-icon-button bg-card">
               <ArrowLeft size={16} />
             </button>
           )}
-          <button type="button" aria-label="刷新居民数据" onClick={() => window.location.reload()} className="pixel-icon-button bg-card">
+          <button type="button" aria-label="Refresh resident data" onClick={() => window.location.reload()} className="pixel-icon-button bg-card">
             <RefreshCw size={15} />
           </button>
-          <button type="button" aria-label="横屏查看小岛" onClick={() => setLandscape(true)} className="pixel-icon-button bg-card">
+          <button type="button" aria-label="Open landscape island" onClick={() => setLandscape(true)} className="pixel-icon-button bg-card">
             <Maximize2 size={16} />
           </button>
         </div>
@@ -220,13 +237,16 @@ export default function HomeWorld({ resident }: { resident?: ScreenResident | nu
 
       <div className="pixel-border-sm relative h-[285px] overflow-hidden bg-ink">
         {activeScene && activeSceneConfig ? (
-          <InteractiveIsland sceneConfig={activeSceneConfig} pals={pals} selectedId={selected.id} onSelect={setSelectedId} compact />
+          <>
+            <InteractiveIsland sceneConfig={activeSceneConfig} pals={pals} selectedId={selected.id} onSelect={setSelectedId} compact />
+            <SceneBackButton onBack={leaveScene} />
+          </>
         ) : (
-          <OuterIsland scenes={scenes} onEnter={enterScene} compact />
+          <OuterIsland scenes={scenes} onEnter={enterScene} />
         )}
         <button
           type="button"
-          aria-label="横屏查看小岛"
+          aria-label="Open landscape island"
           onClick={() => setLandscape(true)}
           className="absolute bottom-3 right-3 grid h-10 w-10 place-items-center border-2 border-ink bg-lime shadow-[2px_2px_0_var(--ink)]"
         >
@@ -238,10 +258,10 @@ export default function HomeWorld({ resident }: { resident?: ScreenResident | nu
         <div className="flex items-center gap-3">
           <div className="grid grid-cols-2 gap-2">
             <div className="grid h-12 w-12 place-items-center overflow-hidden border-[3px] border-ink bg-card font-pixel text-[8px]">
-              {selected.realPhotoUrl ? <img src={selected.realPhotoUrl} alt={`${selected.name} 真人照片`} className="h-full w-full object-cover" /> : "REF"}
+              {selected.realPhotoUrl ? <img src={selected.realPhotoUrl} alt={`${selected.name} real photo`} className="h-full w-full object-cover" /> : "REF"}
             </div>
             <div className={`grid h-12 w-12 place-items-center overflow-hidden border-[3px] border-ink ${selectedColor.bg} font-pixel text-[10px]`}>
-              {selected.spriteUrl ? <img src={selected.spriteUrl} alt={`${selected.name} 像素小人`} className="h-full w-full object-contain pixel-image" /> : selected.label}
+              {selected.spriteUrl ? <img src={selected.spriteUrl} alt={`${selected.name} pixel sprite`} className="h-full w-full object-contain pixel-image" /> : selected.label}
             </div>
           </div>
           <div className="min-w-0 flex-1">
@@ -294,16 +314,21 @@ export default function HomeWorld({ resident }: { resident?: ScreenResident | nu
         <div className="fixed inset-0 z-50 bg-ink p-3">
           <div className="relative h-full overflow-hidden border-[3px] border-lime bg-ink shadow-[4px_4px_0_var(--lime)]">
             {activeScene && activeSceneConfig ? (
-              <InteractiveIsland sceneConfig={activeSceneConfig} pals={pals} selectedId={selected.id} onSelect={setSelectedId} />
+              <>
+                <InteractiveIsland sceneConfig={activeSceneConfig} pals={pals} selectedId={selected.id} onSelect={setSelectedId} />
+                <SceneBackButton onBack={leaveScene} />
+              </>
             ) : (
               <OuterIsland scenes={scenes} onEnter={enterScene} />
             )}
-            <div className="absolute left-3 top-3 border-2 border-ink bg-lime px-3 py-2 font-pixel text-[8px] text-ink shadow-[2px_2px_0_var(--ink)]">
-              {activeScene ? activeScene.shortName : "PALS ISLAND"}
-            </div>
+            {!activeScene && (
+              <div className="absolute left-3 top-3 border-2 border-ink bg-lime px-3 py-2 font-pixel text-[8px] text-ink shadow-[2px_2px_0_var(--ink)]">
+                PALS ISLAND
+              </div>
+            )}
             <button
               type="button"
-              aria-label="退出横屏"
+              aria-label="Exit landscape"
               onClick={() => setLandscape(false)}
               className="absolute bottom-3 right-3 grid h-11 w-11 place-items-center border-2 border-ink bg-pink shadow-[2px_2px_0_var(--ink)]"
             >

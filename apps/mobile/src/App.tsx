@@ -68,6 +68,16 @@ export default function App() {
   }
 
   async function finishArrival(resident: ScreenResident) {
+    if (resident.source === "demo") {
+      setBackendWarning(resident.spriteSource === "local-fallback"
+        ? "Hardware photo was not available, so no resident was saved. Please capture a real photo and run arrival again."
+        : null);
+      setScreenResident(resident);
+      setTab("pals");
+      setPhase("app");
+      return;
+    }
+
     try {
       const savedResident = await saveProductResident({
         profile: productProfile,

@@ -124,24 +124,24 @@ input:focus-visible {
 }
 
 .phone-frame {
-  width: min(100%, 420px);
+  width: min(100%, 408px);
   margin-inline: auto;
 }
 
 .phone-hardware {
   position: relative;
-  border: 3px solid var(--ink);
-  border-radius: 36px;
-  background: var(--ink);
-  padding: 8px;
-  box-shadow: 8px 8px 0 var(--ink);
+  border: 2px solid var(--ink);
+  border-radius: 28px;
+  background: color-mix(in oklab, var(--ink) 92%, var(--mint));
+  padding: 5px;
+  box-shadow: 5px 5px 0 var(--ink);
 }
 
 .phone-screen {
   position: relative;
   overflow: hidden;
-  border: 3px solid var(--ink);
-  border-radius: 28px;
+  border: 2px solid var(--ink);
+  border-radius: 22px;
   background: var(--background);
 }
 
@@ -434,8 +434,8 @@ input:focus-visible {
 
 @media (max-width: 480px) {
   .phone-viewport {
-    height: calc(100dvh - 88px);
-    min-height: 560px;
+    height: calc(100dvh - 72px);
+    min-height: 0;
   }
 
   .amap-shell,

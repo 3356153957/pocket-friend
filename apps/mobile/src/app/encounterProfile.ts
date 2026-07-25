@@ -58,7 +58,7 @@ export const quizQuestions: QuizQuestion[] = [
   },
   {
     id: "q2",
-    title: "你旁边来了一个不太熟的人，你更容易因为哪件事打开话题？",
+    title: "你旁边来了一个不太熟的人，你更容易因为什么事打开话题？",
     options: [
       { key: "A", label: "对方随口说了一个轻松、有趣的话题", scores: { 直接聊天: 3, 话痨点火机: 1 } },
       { key: "B", label: "你们刚好要一起完成一个小任务", scores: { 一起做事: 3, 好奇选手: 1 } },
@@ -113,17 +113,17 @@ const archetypeCopy: Record<Archetype, string> = {
 };
 
 const firstMeetCopy: Record<FirstMeetStyle, string> = {
-  直接聊天: "适合从一句轻松的话开始",
-  一起做事: "适合先一起完成一个小任务",
-  安静陪伴: "适合先待在同一个空间里",
-  被邀请更舒服: "适合由对方先靠近，你再回应",
+  直接聊天: "适合从一句轻松的话开始。",
+  一起做事: "适合先一起完成一个小任务。",
+  安静陪伴: "适合先待在同一个空间里。",
+  被邀请更舒服: "适合由对方先靠近，你再回应。",
 };
 
 const privacyCopy: Record<PrivacyMode, string> = {
-  需确认: "需要确认后进入小岛",
-  匿名优先: "可以先进入小岛，但优先匿名展示",
-  熟后公开: "先用默认形象，熟一点后再解锁照片",
-  开放捕捉: "当下感觉不错时，可以直接加入",
+  需确认: "对方捕捉前需要先确认。",
+  匿名优先: "可以先进入小岛，但优先匿名展示。",
+  熟后公开: "先用像素形象，熟一点后再解锁照片。",
+  开放捕捉: "当下感觉不错时，可以直接成为对方岛民。",
 };
 
 function addScores(target: Map<ScoreKey, number>, patch: ScorePatch) {
@@ -134,9 +134,7 @@ function addScores(target: Map<ScoreKey, number>, patch: ScorePatch) {
 
 function pickHighest<T extends ScoreKey>(scores: Map<ScoreKey, number>, order: readonly T[]): T {
   const initial = order[0];
-  if (!initial) {
-    throw new Error("Cannot pick a score without candidates.");
-  }
+  if (!initial) throw new Error("Cannot pick a score without candidates.");
 
   return order.reduce((best, candidate) => {
     const bestScore = scores.get(best) ?? 0;
@@ -185,7 +183,7 @@ export function calculateEncounterProfile(answers: CompletedQuizAnswers): Encoun
     sceneType,
     sceneTags,
     privacyMode,
-    displayText: `${archetypeCopy[archetype]} ${firstMeetCopy[firstMeetStyle]}，推荐从 ${sceneTags.slice(0, 3).join(" / ")} 这样的场景里开始。${privacyCopy[privacyMode]}。`,
+    displayText: `${archetypeCopy[archetype]} ${firstMeetCopy[firstMeetStyle]} 推荐从 ${sceneTags.slice(0, 3).join(" / ")} 这样的场景里开始。${privacyCopy[privacyMode]}`,
   };
 }
 
@@ -225,7 +223,7 @@ export function buildAdjustedEncounterProfile(
     firstMeetStyle,
     privacyMode,
     sceneTags,
-    displayText: `${archetypeCopy[archetype]} ${firstMeetCopy[firstMeetStyle]}，推荐从 ${sceneTags.slice(0, 3).join(" / ")} 这样的场景里开始。${privacyCopy[privacyMode]}。`,
+    displayText: `${archetypeCopy[archetype]} ${firstMeetCopy[firstMeetStyle]} 推荐从 ${sceneTags.slice(0, 3).join(" / ")} 这样的场景里开始。${privacyCopy[privacyMode]}`,
   };
 }
 

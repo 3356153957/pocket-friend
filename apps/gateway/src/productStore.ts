@@ -143,7 +143,7 @@ export class InMemoryProductStore implements ProductStore {
     const existing = this.state.residents.find((resident) => resident.id === input.id);
     const resident: ProductResident = {
       id: input.id,
-      name: input.name.trim() || "Pocket Friend",
+      name: input.name.trim() || "Hardware Photo",
       magnetType: input.magnetType ?? existing?.magnetType ?? "好奇选手",
       tags: input.tags?.length ? input.tags : existing?.tags ?? [],
       pixelPortraitUrl: input.pixelPortraitUrl,
@@ -175,9 +175,10 @@ export class InMemoryProductStore implements ProductStore {
   }
 
   async listResidents(sceneId?: string): Promise<ProductResident[]> {
-    const residents = sceneId
-      ? this.state.residents.filter((resident) => resident.activeSceneId === sceneId)
-      : this.state.residents;
+    const residents = this.state.residents.filter((resident) => {
+      if (resident.source === "demo") return false;
+      return sceneId ? resident.activeSceneId === sceneId : true;
+    });
     return structuredClone(residents);
   }
 

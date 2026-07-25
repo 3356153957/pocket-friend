@@ -113,7 +113,6 @@ export async function saveProductResident(input: {
     body: JSON.stringify({
       ...input.resident,
       profileId: input.profile?.id,
-      name: input.profile?.name || input.resident.name,
       quizAnswers: input.prefs.quizAnswers,
       activeSceneId,
     }),
@@ -169,5 +168,5 @@ function sceneIdForProfile(profile?: EncounterProfile | undefined): string {
   if (profile.sceneTags.some((tag) => /路演|展示|pitch/i.test(tag))) return "pitch-stage";
   if (profile.sceneTags.some((tag) => /实验|项目|共创|桌游|手作|game/i.test(tag))) return "venture-center";
   if (profile.sceneTags.some((tag) => /深聊|学术|交流|书店|咖啡/i.test(tag))) return "academic-center";
-  return profile.sceneTags.some((tag) => /夜|live|电影/i.test(tag)) ? "all-night-lab" : "venture-center";
+  return profile.sceneTags.some((tag) => /夜晚|live|电影/i.test(tag)) ? "all-night-lab" : "venture-center";
 }

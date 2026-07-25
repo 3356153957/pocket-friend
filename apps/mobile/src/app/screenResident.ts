@@ -14,7 +14,7 @@ export interface ScreenResident {
   seedreamModel?: string;
 }
 
-const FALLBACK_RESIDENT_NAME = "Luna";
+const FALLBACK_RESIDENT_NAME = "Hardware Photo";
 
 export function buildScreenResident(profile: EncounterProfile, photo: DownloadedPhoto): ScreenResident {
   return {

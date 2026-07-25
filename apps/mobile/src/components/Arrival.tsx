@@ -12,7 +12,10 @@ const ARRIVAL_TOTAL_TIMEOUT_MS = 75000;
 const GENERATING_STATUS_DELAY_MS = 2600;
 const FALLBACK_BUTTON_DELAY_MS = 18000;
 
-export default function Arrival({ profile, onDone }: {
+export default function Arrival({
+  profile,
+  onDone,
+}: {
   profile: EncounterProfile;
   onDone: (resident: ScreenResident) => void;
 }) {
@@ -23,7 +26,7 @@ export default function Arrival({ profile, onDone }: {
   const [portraitUrl, setPortraitUrl] = useState<string | null>(null);
   const [warning, setWarning] = useState<string | null>(null);
   const [canUseDemo, setCanUseDemo] = useState(false);
-  const [residentName, setResidentName] = useState("硬件照片");
+  const [residentName, setResidentName] = useState("Hardware Photo");
 
   useEffect(() => {
     profileRef.current = profile;
@@ -46,7 +49,7 @@ export default function Arrival({ profile, onDone }: {
       let totalTimeout: ReturnType<typeof setTimeout> | undefined;
       const timedFallback = new Promise<DownloadedPhoto>((resolve) => {
         totalTimeout = setTimeout(() => {
-          void createDemoDownloadedPhoto("照片和 Seedream 处理超过 75 秒，已使用演示头像继续。").then(resolve);
+          void createDemoDownloadedPhoto("Photo and Seedream processing took over 75 seconds. Demo fallback was used and will not be saved as a real resident.").then(resolve);
         }, ARRIVAL_TOTAL_TIMEOUT_MS);
       });
       const clickedFallback = new Promise<DownloadedPhoto>((resolve) => {
@@ -63,7 +66,7 @@ export default function Arrival({ profile, onDone }: {
 
       setStage("pixelating");
       setCanUseDemo(false);
-      setResidentName(photo.name ?? "Luna");
+      setResidentName(photo.name ?? "Hardware Photo");
       setPortraitUrl(photo.pixelPortraitUrl);
       setWarning(photo.warning ?? null);
 
@@ -72,7 +75,6 @@ export default function Arrival({ profile, onDone }: {
         setStage("entering");
         const resident = buildScreenResident(profileRef.current, photo);
         console.log("[screen-resident]", resident);
-        window.localStorage.setItem("pf:last-screen-resident", JSON.stringify(resident));
         timers.push(setTimeout(() => {
           if (cancelled) return;
           setStage("done");
@@ -93,18 +95,20 @@ export default function Arrival({ profile, onDone }: {
   const copy = stage === "fetching"
     ? "FETCHING PHOTO..."
     : stage === "generating"
-      ? "GENERATING SPRITE..."
-    : stage === "pixelating"
-      ? "PIXELATING..."
-      : stage === "entering"
-        ? "ENTERING ISLAND..."
-        : "DONE";
+      ? "GENERATING SEEDREAM SPRITE..."
+      : stage === "pixelating"
+        ? "PIXEL SPRITE READY..."
+        : stage === "entering"
+          ? "ENTERING ISLAND..."
+          : "DONE";
 
   return (
     <section className="flex min-h-full flex-col justify-center gap-5 px-4 py-5">
       <div>
-        <div className="font-pixel text-[8px] text-pink">03 · ARRIVAL</div>
-        <h1 className="mt-3 font-pixel text-[14px] leading-7 text-ink">正在把 <span className="text-pink">{residentName}</span> 接入小岛</h1>
+        <div className="font-pixel text-[8px] text-pink">03 / ARRIVAL</div>
+        <h1 className="mt-3 font-pixel text-[14px] leading-7 text-ink">
+          Connecting <span className="text-pink">{residentName}</span> to island
+        </h1>
       </div>
 
       <div className="pixel-border bg-mint-screen p-4">
@@ -130,20 +134,22 @@ export default function Arrival({ profile, onDone }: {
           {stage === "done" ? <Check size={18} /> : <Loader2 size={18} className="animate-spin" />}
           <div>
             <div className="font-pixel text-[9px] text-ink">{copy}</div>
-            <p className="mt-1 font-mono-pixel text-sm text-ink/70">磁场: {profile.archetype} · {profile.sceneTags.slice(0, 3).join(" / ")}</p>
+            <p className="mt-1 font-mono-pixel text-sm text-ink/70">
+              Magnet: {profile.archetype} / {profile.sceneTags.slice(0, 3).join(" / ")}
+            </p>
           </div>
         </div>
-        {warning && <p className="font-mono-pixel text-xs leading-4 text-ink/60">提示：{warning}</p>}
+        {warning && <p className="font-mono-pixel text-xs leading-4 text-ink/60">Notice: {warning}</p>}
         {(stage === "fetching" || stage === "generating") && canUseDemo && (
           <button
             type="button"
             className="pixel-border bg-lime px-3 py-2 font-pixel text-[8px] text-ink shadow-[3px_3px_0_var(--ink)] active:translate-x-[2px] active:translate-y-[2px] active:shadow-[1px_1px_0_var(--ink)]"
             onClick={() => {
               setCanUseDemo(false);
-              void createDemoDownloadedPhoto("已手动使用演示头像继续。").then((photo) => manualFallback.current?.(photo));
+              void createDemoDownloadedPhoto("Manual demo fallback was used and will not be saved as a real resident.").then((photo) => manualFallback.current?.(photo));
             }}
           >
-            使用演示头像继续
+            USE DEMO FALLBACK
           </button>
         )}
       </PixelCard>
