@@ -761,10 +761,33 @@ $waitingPage = [regex]::Match(
     'case PF_STATE_WAITING_CONFIRM:[\s\S]*?break;'
 )
 if (-not $peerFoundPage.Success -or
+    $peerFoundPage.Value -notmatch 'tal_sw_timer_stop\(sg_flow_timer\)' -or
     $peerFoundPage.Value -match 'tal_sw_timer_start' -or
     -not $waitingPage.Success -or
     $waitingPage.Value -notmatch 'tal_sw_timer_start\(sg_flow_timer,\s*PF_CONFIRM_TIMEOUT_MS') {
     throw 'Friend match page must stay visible; timeout begins only after confirmation'
+}
+$transportPeerFound = [regex]::Match(
+    $app,
+    'case PF_TRANSPORT_PEER_FOUND:[\s\S]*?(?=case PF_TRANSPORT_PEER_LOST:)'
+)
+$transportPeerLost = [regex]::Match(
+    $app,
+    'case PF_TRANSPORT_PEER_LOST:[\s\S]*?(?=case PF_TRANSPORT_MESSAGE:)'
+)
+if (-not $transportPeerFound.Success -or
+    $transportPeerFound.Value -notmatch 'sg_state\.state == PF_STATE_PEER_FOUND[\s\S]*pf_ui_set_peer\(PF_PEER_ID,\s*true\)' -or
+    -not $transportPeerLost.Success -or
+    $transportPeerLost.Value -notmatch 'sg_state\.state == PF_STATE_PEER_FOUND[\s\S]*pf_ui_set_peer\(PF_PEER_ID,\s*false\)') {
+    throw 'Transient peer heartbeat loss must update match status without leaving or re-vibrating the page'
+}
+$timerHandler = [regex]::Match(
+    $app,
+    'static void pf_handle_timer\(PF_EVENT_E timer_event\)[\s\S]*?(?=static void pf_app_task)'
+)
+if (-not $timerHandler.Success -or
+    $timerHandler.Value -match 'sg_state\.state == PF_STATE_PEER_FOUND') {
+    throw 'Friend-found page must ignore stale flow-timer events'
 }
 if ($stateSource -notmatch 'case PF_EVENT_PEER_FOUND:[\s\S]*PF_STATE_PEER_FOUND;[\s\S]*PF_EFFECT_UI_REFRESH\s*\|\s*PF_EFFECT_MOTOR_FEEDBACK' -or
     $app -notmatch 'sg_state\.state == PF_STATE_PEER_FOUND[\s\S]*PF_MOTOR_PATTERN_PEER_FOUND') {

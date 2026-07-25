@@ -260,6 +260,7 @@ static void pf_refresh_ui(PF_STATE_E previous_state)
         pf_ui_show_photo_name_input();
         break;
     case PF_STATE_PEER_FOUND:
+        tal_sw_timer_stop(sg_flow_timer);
         pf_input_set_mode(PF_INPUT_MODE_MATCH);
         pf_ui_set_peer(PF_PEER_ID, true);
         pf_ui_set_confirmed(false, false);
@@ -638,13 +639,19 @@ static void pf_handle_transport(const PF_APP_EVENT_T *event)
         pf_dispatch(PF_EVENT_WIFI_LOST);
         break;
     case PF_TRANSPORT_PEER_FOUND:
-        pf_dispatch(PF_EVENT_PEER_FOUND);
+        if (sg_state.state == PF_STATE_PEER_FOUND) {
+            pf_ui_set_peer(PF_PEER_ID, true);
+        } else {
+            pf_dispatch(PF_EVENT_PEER_FOUND);
+        }
         break;
     case PF_TRANSPORT_PEER_LOST:
-        if (sg_state.state != PF_STATE_DND &&
-            ((sg_state.state >= PF_STATE_PEER_FOUND &&
-              sg_state.state <= PF_STATE_SUCCESS) ||
-             sg_state.state == PF_STATE_ERROR)) {
+        if (sg_state.state == PF_STATE_PEER_FOUND) {
+            pf_ui_set_peer(PF_PEER_ID, false);
+        } else if (sg_state.state != PF_STATE_DND &&
+                   ((sg_state.state >= PF_STATE_WAITING_CONFIRM &&
+                     sg_state.state <= PF_STATE_SUCCESS) ||
+                    sg_state.state == PF_STATE_ERROR)) {
             pf_dispatch(PF_EVENT_RESET);
         }
         break;
@@ -690,8 +697,7 @@ static void pf_handle_timer(PF_EVENT_E timer_event)
         tal_semaphore_post(sg_capture_request);
         return;
     }
-    if (sg_state.state == PF_STATE_PEER_FOUND ||
-        sg_state.state == PF_STATE_WAITING_CONFIRM) {
+    if (sg_state.state == PF_STATE_WAITING_CONFIRM) {
         pf_dispatch(PF_EVENT_RESET);
         return;
     }
