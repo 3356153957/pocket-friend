@@ -63,6 +63,7 @@ static void pf_wifi_post_command(PF_WIFI_COMMAND_TYPE_E type)
     }
 }
 
+#if !PF_DEFAULT_WIFI_ENABLED
 static OPERATE_RET pf_wifi_read_kv_string(const char *key, char *out,
                                           size_t capacity)
 {
@@ -114,6 +115,7 @@ static OPERATE_RET pf_wifi_load_credentials(char *ssid, char *password)
     }
     return OPRT_OK;
 }
+#endif
 
 static OPERATE_RET pf_wifi_save_credentials(void)
 {
@@ -310,18 +312,17 @@ static void pf_wifi_worker(void *arg)
         case PF_WIFI_COMMAND_START:
             memset(ssid, 0, sizeof(ssid));
             memset(password, 0, sizeof(password));
+#if PF_DEFAULT_WIFI_ENABLED
+            (void)pf_wifi_begin_connect(PF_DEFAULT_WIFI_SSID,
+                                        PF_DEFAULT_WIFI_PASSWORD,
+                                        false, true);
+#else
             if (pf_wifi_load_credentials(ssid, password) == OPRT_OK) {
                 (void)pf_wifi_begin_connect(ssid, password, false, true);
-#if PF_DEFAULT_WIFI_ENABLED
-            } else {
-                (void)pf_wifi_begin_connect(PF_DEFAULT_WIFI_SSID,
-                                            PF_DEFAULT_WIFI_PASSWORD,
-                                            false, true);
-#else
             } else {
                 pf_wifi_notify(PF_WIFI_EVENT_UNCONFIGURED);
-#endif
             }
+#endif
             memset(password, 0, sizeof(password));
             break;
         case PF_WIFI_COMMAND_SCAN:

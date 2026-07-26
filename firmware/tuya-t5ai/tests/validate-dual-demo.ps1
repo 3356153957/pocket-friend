@@ -97,11 +97,14 @@ $savedWifiIndex = $wifiStartBlock.IndexOf(
     'pf_wifi_load_credentials(ssid, password)')
 $defaultWifiIndex = $wifiStartBlock.IndexOf('PF_DEFAULT_WIFI_ENABLED')
 if ($savedWifiIndex -lt 0 -or $defaultWifiIndex -lt 0 -or
-    $savedWifiIndex -gt $defaultWifiIndex) {
-    throw 'Saved Wi-Fi credentials must take priority over the build default'
+    $defaultWifiIndex -gt $savedWifiIndex) {
+    throw 'Build-default Wi-Fi must take priority over previously saved credentials'
 }
 if ($wifiStartBlock -notmatch 'pf_wifi_begin_connect\(PF_DEFAULT_WIFI_SSID,\s*PF_DEFAULT_WIFI_PASSWORD,\s*false,\s*true\)') {
     throw 'Default Wi-Fi must auto-connect without being saved to KV'
+}
+if ($wifi -notmatch '#if !PF_DEFAULT_WIFI_ENABLED[\s\S]*pf_wifi_read_kv_string[\s\S]*pf_wifi_load_credentials[\s\S]*#endif') {
+    throw 'Saved-credential readers must be omitted when build-default Wi-Fi is enabled'
 }
 
 $protocolHeaderPath = Join-Path $root 'overlays\lvgl_camera\include\pf_protocol.h'
