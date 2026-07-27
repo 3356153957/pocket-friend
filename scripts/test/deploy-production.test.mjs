@@ -357,7 +357,10 @@ test("生产工作流只允许 master 和人工触发并使用受限 Runner", as
     workflow,
     /git remote set-url origin "https:\/\/github\.com\/\$\{GITHUB_REPOSITORY\}\.git"/u,
   );
-  assert.doesNotMatch(workflow, /uses:\s*actions\/checkout@v/u);
+  const deployJobIndex = workflow.indexOf("\n  deploy:");
+  assert.ok(deployJobIndex >= 0, "workflow must define a deploy job");
+  const deployJob = workflow.slice(deployJobIndex);
+  assert.doesNotMatch(deployJob, /uses:\s*[\w./-]+@/u);
   assert.match(workflow, /if:\s*github\.ref == 'refs\/heads\/master'/u);
   assert.match(
     workflow,
@@ -368,6 +371,22 @@ test("生产工作流只允许 master 和人工触发并使用受限 Runner", as
     workflow,
     /PF_DEPLOY_ENV_FILE:\s*\/etc\/pocket-friend\/mobile\.env/u,
   );
+});
+
+test("生产部署前必须通过 GitHub 托管 Runner 上的测试关卡", async () => {
+  const workflow = await readFile(
+    path.resolve(".github/workflows/deploy-production.yml"),
+    "utf8",
+  );
+
+  assert.match(workflow, /^\s{2}test:\s*$/mu);
+  assert.match(workflow, /\btest:[\s\S]*?runs-on:\s*ubuntu-latest/u);
+  assert.match(workflow, /run:\s*npm ci/u);
+  assert.match(workflow, /run:\s*npm run typecheck/u);
+  assert.match(workflow, /run:\s*npm test/u);
+  assert.match(workflow, /run:\s*npm run test:deploy/u);
+  assert.match(workflow, /\bdeploy:[\s\S]*?needs:\s*test/u);
+  assert.match(workflow, /\bdeploy:[\s\S]*?environment:\s*production/u);
 });
 
 test("生产构建显式声明 Node 类型依赖", async () => {

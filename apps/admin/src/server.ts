@@ -32,7 +32,13 @@ async function readBody(request: IncomingMessage): Promise<Uint8Array | undefine
   return Buffer.concat(chunks);
 }
 
+const LOOPBACK_ADDRESSES = new Set(["127.0.0.1", "::1", "::ffff:127.0.0.1"]);
+
 function clientIp(incoming: IncomingMessage): string {
+  const remote = incoming.socket.remoteAddress ?? "Unknown";
+  // Only trust proxy headers when the direct peer is the local reverse proxy;
+  // otherwise clients could spoof their reported address.
+  if (!LOOPBACK_ADDRESSES.has(remote)) return remote;
   const forwarded = incoming.headers["x-forwarded-for"];
   if (typeof forwarded === "string") {
     const first = forwarded.split(",")[0];
@@ -45,16 +51,18 @@ function clientIp(incoming: IncomingMessage): string {
       if (ip) return ip.trim();
     }
   }
-  return incoming.socket.remoteAddress ?? "Unknown";
+  return remote;
 }
 
 export function createAdminServer(options: AdminServerOptions = {}): Server {
   const env = options.env ?? process.env;
+  const retentionDays = Number.parseFloat(env.PF_PHOTO_RETENTION_DAYS ?? "");
   const route = createAdminRouter({
     env,
     registry: options.registry ?? new DeviceStatusRegistry(),
     photos: options.photos ?? new LatestPhotoStore({
       directory: env.PF_PHOTO_UPLOAD_DIR ?? "/var/lib/pocket-friend-admin/photos",
+      ...(Number.isFinite(retentionDays) && retentionDays > 0 ? { retentionDays } : {}),
     }),
     photoDownloadTokens: options.photoDownloadTokens ?? new PhotoDownloadTokenStore({
       file: env.PF_PHOTO_DOWNLOAD_TOKEN_FILE ?? "/srv/pocket-friend-admin/photo-download-token.json",

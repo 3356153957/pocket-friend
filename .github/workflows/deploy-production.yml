@@ -13,8 +13,38 @@ concurrency:
   cancel-in-progress: false
 
 jobs:
+  test:
+    if: github.ref == 'refs/heads/master'
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - name: Check out the triggering commit
+        uses: actions/checkout@v4
+
+      - name: Set up Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: "22"
+          cache: npm
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Check TypeScript project references
+        run: npm run typecheck
+
+      - name: Run unit and contract tests
+        run: npm test
+
+      - name: Run deployment-script tests
+        run: npm run test:deploy
+
   deploy:
     if: github.ref == 'refs/heads/master'
+    needs: test
+    # Configure required reviewers for this environment in repository settings
+    # to gate what the self-hosted production runner executes.
+    environment: production
     runs-on: [self-hosted, linux, x64, pocket-friend-prod]
     timeout-minutes: 30
     env:

@@ -24,6 +24,8 @@ export interface ArchivedPhotoSummary {
 
 export interface LatestPhotoStoreOptions {
   directory?: string;
+  /** Days to keep archived history photos. Unset keeps photos indefinitely. */
+  retentionDays?: number;
 }
 
 export interface PutPhotoOptions {
@@ -38,9 +40,13 @@ export class LatestPhotoStore {
   private readonly photos = new Map<BoardDeviceId, LatestPhoto>();
   private readonly history = new Map<BoardDeviceId, ArchivedPhoto[]>();
   private readonly directory: string | undefined;
+  private readonly retentionMs: number | undefined;
 
   constructor(options: LatestPhotoStoreOptions = {}) {
     this.directory = options.directory;
+    this.retentionMs = options.retentionDays && options.retentionDays > 0
+      ? options.retentionDays * 24 * 60 * 60 * 1000
+      : undefined;
   }
 
   private photoPath(deviceId: BoardDeviceId): string {
@@ -115,6 +121,45 @@ export class LatestPhotoStore {
       capturedAt: archived.capturedAt,
       ...(archived.name ? { name: archived.name } : {}),
     }));
+    await this.pruneExpired(deviceId, capturedAtMs);
+  }
+
+  /** Removes archived photos older than the configured retention window. */
+  async pruneExpired(deviceId: BoardDeviceId, nowMs = Date.now()): Promise<void> {
+    if (!this.retentionMs) return;
+    const cutoff = nowMs - this.retentionMs;
+    const expired = (capturedAt: string): boolean => {
+      const parsed = Date.parse(capturedAt);
+      return Number.isFinite(parsed) && parsed < cutoff;
+    };
+
+    const cached = this.history.get(deviceId);
+    if (cached) {
+      this.history.set(deviceId, cached.filter((photo) => !expired(photo.capturedAt)));
+    }
+
+    if (!this.directory) return;
+    let entries: string[];
+    try {
+      entries = await readdir(this.historyDirectory(deviceId));
+    } catch {
+      return;
+    }
+    await Promise.all(entries
+      .filter((entry) => entry.endsWith(".jpg"))
+      .map(async (id) => {
+        try {
+          const metadata = await readFile(this.historyMetadataPath(deviceId, id), "utf8");
+          const parsed = JSON.parse(metadata) as { capturedAt?: unknown };
+          if (typeof parsed.capturedAt !== "string" || !expired(parsed.capturedAt)) return;
+          await Promise.all([
+            rm(this.historyPhotoPath(deviceId, id), { force: true }),
+            rm(this.historyMetadataPath(deviceId, id), { force: true }),
+          ]);
+        } catch {
+          // Ignore unreadable entries; they are skipped by listHistory as well.
+        }
+      }));
   }
 
   async get(deviceId: BoardDeviceId): Promise<LatestPhoto | undefined> {

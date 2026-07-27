@@ -46,6 +46,47 @@ test("photo history persists across store instances", async () => {
   }
 });
 
+test("retention prunes expired history photos from memory and disk", async () => {
+  const directory = await mkdtemp(join(tmpdir(), "pf-admin-photos-"));
+  try {
+    const expired = Uint8Array.from([0xff, 0xd8, 0x01, 0xff, 0xd9]);
+    const fresh = Uint8Array.from([0xff, 0xd8, 0x02, 0xff, 0xd9]);
+    const store = new LatestPhotoStore({ directory, retentionDays: 7 });
+    await store.put("board-a", expired, Date.parse("2026-07-10T12:00:00.000Z"));
+    await store.put("board-a", fresh, Date.parse("2026-07-24T12:00:00.000Z"));
+
+    const history = await store.listHistory("board-a");
+    const files = await readdir(join(directory, "history", "board-a"));
+
+    assert.deepEqual(history.map(({ capturedAt }) => capturedAt), [
+      "2026-07-24T12:00:00.000Z",
+    ]);
+    assert.equal(files.filter((file) => file.endsWith(".jpg")).length, 1);
+  } finally {
+    await rm(directory, { recursive: true, force: true });
+  }
+});
+
+test("retention keeps history photos inside the window", async () => {
+  const directory = await mkdtemp(join(tmpdir(), "pf-admin-photos-"));
+  try {
+    const older = Uint8Array.from([0xff, 0xd8, 0x01, 0xff, 0xd9]);
+    const newer = Uint8Array.from([0xff, 0xd8, 0x02, 0xff, 0xd9]);
+    const store = new LatestPhotoStore({ directory, retentionDays: 7 });
+    await store.put("board-a", older, Date.parse("2026-07-20T12:00:00.000Z"));
+    await store.put("board-a", newer, Date.parse("2026-07-24T12:00:00.000Z"));
+
+    const history = await store.listHistory("board-a");
+
+    assert.deepEqual(history.map(({ capturedAt }) => capturedAt), [
+      "2026-07-24T12:00:00.000Z",
+      "2026-07-20T12:00:00.000Z",
+    ]);
+  } finally {
+    await rm(directory, { recursive: true, force: true });
+  }
+});
+
 test("photo history persists uploaded subject names", async () => {
   const directory = await mkdtemp(join(tmpdir(), "pf-admin-photos-"));
   try {
