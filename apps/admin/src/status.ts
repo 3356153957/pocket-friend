@@ -1,4 +1,7 @@
-﻿export type DeviceId = "web" | "board-a" | "board-b";
+﻿import { mkdir, readFile, writeFile } from "node:fs/promises";
+import { dirname } from "node:path";
+
+export type DeviceId = "web" | "board-a" | "board-b";
 
 export interface Heartbeat {
   deviceId: DeviceId;
@@ -92,9 +95,52 @@ export class DeviceStatusRegistry {
   readonly offlineAfterMs: number;
   private readonly devices = new Map<DeviceId, DeviceRecord>();
   private readonly webSessions = new Map<string, WebSession>();
+  private readonly file: string | undefined;
+  private writeChain: Promise<void> = Promise.resolve();
 
-  constructor(options: { offlineAfterMs?: number } = {}) {
+  constructor(options: { offlineAfterMs?: number; file?: string } = {}) {
     this.offlineAfterMs = options.offlineAfterMs ?? 45_000;
+    this.file = options.file;
+  }
+
+  /** Reloads board device records saved by a previous process. */
+  async restore(): Promise<void> {
+    if (!this.file) return;
+    try {
+      const parsed = JSON.parse(await readFile(this.file, "utf8")) as {
+        devices?: Record<string, { lastSeenMs?: unknown; firmwareVersion?: unknown; batteryPercent?: unknown }>;
+      };
+      for (const definition of definitions) {
+        const record = parsed.devices?.[definition.id];
+        if (!record || typeof record.lastSeenMs !== "number" || this.devices.has(definition.id)) continue;
+        this.devices.set(definition.id, {
+          lastSeenMs: record.lastSeenMs,
+          ...(typeof record.firmwareVersion === "string" ? { firmwareVersion: record.firmwareVersion } : {}),
+          ...(typeof record.batteryPercent === "number" ? { batteryPercent: record.batteryPercent } : {}),
+        });
+      }
+    } catch {
+      // Missing or unreadable state files start the registry empty.
+    }
+  }
+
+  private persist(): void {
+    const file = this.file;
+    if (!file) return;
+    const devices = Object.fromEntries(this.devices);
+    this.writeChain = this.writeChain
+      .then(async () => {
+        await mkdir(dirname(file), { recursive: true });
+        await writeFile(file, JSON.stringify({ devices }));
+      })
+      .catch(() => {
+        // Persistence failures must never break heartbeat handling.
+      });
+  }
+
+  /** Resolves when queued state writes have finished. Used by tests. */
+  flush(): Promise<void> {
+    return this.writeChain;
   }
 
   record(heartbeat: Heartbeat, receivedAtMs = Date.now()): void {
@@ -123,6 +169,7 @@ export class DeviceStatusRegistry {
           ? { batteryPercent: previous.batteryPercent }
           : {}),
     });
+    this.persist();
   }
 
   snapshot(nowMs = Date.now()): StatusSnapshot {

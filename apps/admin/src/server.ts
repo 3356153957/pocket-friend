@@ -57,9 +57,12 @@ function clientIp(incoming: IncomingMessage): string {
 export function createAdminServer(options: AdminServerOptions = {}): Server {
   const env = options.env ?? process.env;
   const retentionDays = Number.parseFloat(env.PF_PHOTO_RETENTION_DAYS ?? "");
+  const registry = options.registry ?? new DeviceStatusRegistry({
+    file: env.PF_DEVICE_STATE_FILE ?? "/var/lib/pocket-friend-admin/device-state.json",
+  });
   const route = createAdminRouter({
     env,
-    registry: options.registry ?? new DeviceStatusRegistry(),
+    registry,
     photos: options.photos ?? new LatestPhotoStore({
       directory: env.PF_PHOTO_UPLOAD_DIR ?? "/var/lib/pocket-friend-admin/photos",
       ...(Number.isFinite(retentionDays) && retentionDays > 0 ? { retentionDays } : {}),
@@ -104,7 +107,11 @@ export async function startAdminServer(options: AdminServerOptions = {}): Promis
   }
   const configuredPort = Number.parseInt(env.ADMIN_PORT ?? "4311", 10);
   const port = Number.isFinite(configuredPort) ? configuredPort : 4311;
-  const server = createAdminServer({ ...options, env });
+  const registry = options.registry ?? new DeviceStatusRegistry({
+    file: env.PF_DEVICE_STATE_FILE ?? "/var/lib/pocket-friend-admin/device-state.json",
+  });
+  await registry.restore();
+  const server = createAdminServer({ ...options, env, registry });
   await new Promise<void>((resolve, reject) => {
     server.once("error", reject);
     server.listen(port, env.ADMIN_HOST ?? "0.0.0.0", () => {

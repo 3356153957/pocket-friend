@@ -384,6 +384,7 @@ test("生产部署前必须通过 GitHub 托管 Runner 上的测试关卡", asyn
   assert.match(workflow, /run:\s*npm ci/u);
   assert.match(workflow, /run:\s*npm run typecheck/u);
   assert.match(workflow, /run:\s*npm test/u);
+  assert.match(workflow, /run:\s*npm run test:ui/u);
   assert.match(workflow, /run:\s*npm run test:deploy/u);
   assert.match(workflow, /\bdeploy:[\s\S]*?needs:\s*test/u);
   assert.match(workflow, /\bdeploy:[\s\S]*?environment:\s*production/u);

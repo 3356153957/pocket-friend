@@ -19,10 +19,10 @@ jobs:
     timeout-minutes: 15
     steps:
       - name: Check out the triggering commit
-        uses: actions/checkout@v4
+        uses: actions/checkout@v5
 
       - name: Set up Node.js
-        uses: actions/setup-node@v4
+        uses: actions/setup-node@v5
         with:
           node-version: "22"
           cache: npm
@@ -35,6 +35,9 @@ jobs:
 
       - name: Run unit and contract tests
         run: npm test
+
+      - name: Run React component tests
+        run: npm run test:ui
 
       - name: Run deployment-script tests
         run: npm run test:deploy

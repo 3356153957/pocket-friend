@@ -56,6 +56,13 @@ Open Pocket Friend
 - Big-screen character movement and richer scene interactions are handled outside this mobile web experience.
 - The public repository should document the reusable software experience without exposing private credentials, production data, or onsite-only secrets.
 
+## Privacy
+
+- Visitor photos taken during the demo are stored only on the self-hosted admin service and are never committed to this repository or sent to third parties beyond the configured pixelation provider.
+- Photos are deleted automatically after `PF_PHOTO_RETENTION_DAYS` days (default deployment uses 7); operators can also delete them manually from the upload directory.
+- Heartbeats record coarse client info (browser, OS, IP) solely to show device online status on the admin dashboard; nothing is used for tracking or profiling.
+- Location sharing in the mobile demo stays in the browser session and is only used for the on-site proximity matching demo.
+
 ## Quick Start
 
 Install Node.js `>=22.18`, then install dependencies:
