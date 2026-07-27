@@ -12,6 +12,7 @@ import {
   type BoardDeviceId,
 } from "./photos.ts";
 import { PhotoDownloadTokenStore } from "./photoDownloadTokens.ts";
+import { AuthThrottle } from "./authThrottle.ts";
 import {
   generateSeedreamAvatar,
   SeedreamAdminError,
@@ -25,6 +26,7 @@ export interface AdminRouterOptions {
   registry: DeviceStatusRegistry;
   photos?: LatestPhotoStore;
   photoDownloadTokens?: PhotoDownloadTokenStore;
+  authThrottle?: AuthThrottle;
   seedreamFetch?: (input: string | URL, init?: RequestInit) => Promise<Response>;
   now?: () => number;
 }
@@ -215,6 +217,38 @@ export function createAdminRouter(options: AdminRouterOptions): AdminRouter {
   const now = options.now ?? Date.now;
   const photos = options.photos ?? new LatestPhotoStore();
   const photoDownloadTokens = options.photoDownloadTokens ?? new PhotoDownloadTokenStore();
+  const authThrottle = options.authThrottle ?? new AuthThrottle();
+
+  const tooManyAttempts = (retryAfterSeconds: number): Response => {
+    const result = json({ error: { code: "TOO_MANY_ATTEMPTS", message: "Too many failed attempts. Try again later." } }, 429);
+    result.headers.set("Retry-After", String(retryAfterSeconds));
+    return result;
+  };
+
+  // Locks an auth scope per client after repeated bad credentials; requests
+  // without an Authorization header only prompt and are never penalized.
+  const requireAuth = async (
+    scope: string,
+    request: Request,
+    verify: () => boolean | Promise<boolean>,
+  ): Promise<Response | null> => {
+    const key = `${scope}:${request.headers.get("x-real-ip") ?? "unknown"}`;
+    const retryAfter = authThrottle.retryAfterSeconds(key, now());
+    if (retryAfter > 0) return tooManyAttempts(retryAfter);
+    if (await verify()) {
+      authThrottle.recordSuccess(key);
+      return null;
+    }
+    if (request.headers.has("authorization")) authThrottle.recordFailure(key, now());
+    return unauthorized();
+  };
+  const requireAdmin = (request: Request) =>
+    requireAuth("admin", request, () => isAdminAuthorized(request, options.env));
+  const requireDevice = (request: Request) =>
+    requireAuth("device", request, () => isDeviceAuthorized(request, options.env));
+  const requirePhotoReader = (request: Request) =>
+    requireAuth("photo", request, () => isPhotoReaderAuthorized(request, options.env, photoDownloadTokens));
+
   return async (request) => {
     const url = new URL(request.url);
 
@@ -331,7 +365,8 @@ export function createAdminRouter(options: AdminRouterOptions): AdminRouter {
         if (ip) heartbeat.ip = ip;
         options.registry.record(heartbeat, now());
       } else {
-        if (!isDeviceAuthorized(request, options.env)) return unauthorized();
+        const denied = await requireDevice(request);
+        if (denied) return denied;
         options.registry.record(heartbeat, now());
       }
 
@@ -344,7 +379,8 @@ export function createAdminRouter(options: AdminRouterOptions): AdminRouter {
     }
 
     if (url.pathname === "/api/photos" && request.method === "POST") {
-      if (!isDeviceAuthorized(request, options.env)) return unauthorized();
+      const denied = await requireDevice(request);
+      if (denied) return denied;
       const deviceId = url.searchParams.get("deviceId");
       if (!isBoardDeviceId(deviceId)) {
         return json({ error: { code: "INVALID_DEVICE", message: "Board device is invalid." } }, 400);
@@ -365,13 +401,15 @@ export function createAdminRouter(options: AdminRouterOptions): AdminRouter {
     }
 
     if (url.pathname === "/api/photo-download-token" && request.method === "POST") {
-      if (!isAdminAuthorized(request, options.env)) return unauthorized();
+      const denied = await requireAdmin(request);
+      if (denied) return denied;
       return json(await photoDownloadTokens.generate(now()), 201);
     }
 
     const archivedPhotoMutationMatch = /^\/api\/photos\/(board-a)\/history\/([^/]+)$/u.exec(url.pathname);
     if (archivedPhotoMutationMatch && request.method === "DELETE") {
-      if (!isAdminAuthorized(request, options.env)) return unauthorized();
+      const denied = await requireAdmin(request);
+      if (denied) return denied;
       const deleted = await photos.deleteHistoryPhoto(
         archivedPhotoMutationMatch[1] as BoardDeviceId,
         decodeURIComponent(archivedPhotoMutationMatch[2] ?? ""),
@@ -380,7 +418,8 @@ export function createAdminRouter(options: AdminRouterOptions): AdminRouter {
       return response(null, 204, "text/plain; charset=utf-8");
     }
     if (archivedPhotoMutationMatch && request.method === "PATCH") {
-      if (!isAdminAuthorized(request, options.env)) return unauthorized();
+      const denied = await requireAdmin(request);
+      if (denied) return denied;
       let body: unknown;
       try {
         body = await request.json();
@@ -410,12 +449,14 @@ export function createAdminRouter(options: AdminRouterOptions): AdminRouter {
     }
 
     if (url.pathname === "/api/status") {
-      if (!isAdminAuthorized(request, options.env)) return unauthorized();
+      const denied = await requireAdmin(request);
+      if (denied) return denied;
       return json(options.registry.snapshot(now()));
     }
     const photoHistoryMatch = /^\/api\/photos\/(board-a)\/history$/u.exec(url.pathname);
     if (photoHistoryMatch) {
-      if (!await isPhotoReaderAuthorized(request, options.env, photoDownloadTokens)) return unauthorized();
+      const denied = await requirePhotoReader(request);
+      if (denied) return denied;
       const deviceId = photoHistoryMatch[1] as BoardDeviceId;
       return json({
         photos: (await photos.listHistory(deviceId)).map((photo) => ({
@@ -427,7 +468,8 @@ export function createAdminRouter(options: AdminRouterOptions): AdminRouter {
 
     const archivedPhotoMatch = /^\/api\/photos\/(board-a)\/history\/([^/]+)$/u.exec(url.pathname);
     if (archivedPhotoMatch) {
-      if (!await isPhotoReaderAuthorized(request, options.env, photoDownloadTokens)) return unauthorized();
+      const denied = await requirePhotoReader(request);
+      if (denied) return denied;
       const photo = await photos.getHistoryPhoto(
         archivedPhotoMatch[1] as BoardDeviceId,
         decodeURIComponent(archivedPhotoMatch[2] ?? ""),
@@ -441,7 +483,8 @@ export function createAdminRouter(options: AdminRouterOptions): AdminRouter {
 
     const photoMatch = /^\/api\/photos\/(board-a)\/latest$/u.exec(url.pathname);
     if (photoMatch) {
-      if (!await isPhotoReaderAuthorized(request, options.env, photoDownloadTokens)) return unauthorized();
+      const denied = await requirePhotoReader(request);
+      if (denied) return denied;
       const photo = await latestAvailablePhoto(photos, photoMatch[1] as BoardDeviceId);
       if (!photo) return json({ error: { code: "PHOTO_NOT_FOUND", message: "No photo has been uploaded." } }, 404);
       const result = response(photo.bytes, 200, "image/jpeg");
@@ -450,15 +493,18 @@ export function createAdminRouter(options: AdminRouterOptions): AdminRouter {
       return result;
     }
     if (url.pathname === "/" || url.pathname === "/index.html") {
-      if (!isAdminAuthorized(request, options.env)) return unauthorized();
+      const denied = await requireAdmin(request);
+      if (denied) return denied;
       return response(request.method === "HEAD" ? null : adminHtml, 200, "text/html; charset=utf-8");
     }
     if (url.pathname === "/assets/admin.css") {
-      if (!isAdminAuthorized(request, options.env)) return unauthorized();
+      const denied = await requireAdmin(request);
+      if (denied) return denied;
       return response(request.method === "HEAD" ? null : adminCss, 200, "text/css; charset=utf-8");
     }
     if (url.pathname === "/assets/admin.js") {
-      if (!isAdminAuthorized(request, options.env)) return unauthorized();
+      const denied = await requireAdmin(request);
+      if (denied) return denied;
       return response(request.method === "HEAD" ? null : adminJavaScript, 200, "text/javascript; charset=utf-8");
     }
     return json({ error: { code: "NOT_FOUND", message: "Route not found." } }, 404);

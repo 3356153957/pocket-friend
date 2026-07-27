@@ -28,6 +28,65 @@ describe("admin router", () => {
     assert.equal((await status.json()).devices.length, 3);
   });
 
+  test("locks out repeated bad admin credentials per client", async () => {
+    let now = 10_000;
+    const route = createAdminRouter({ env, registry: new DeviceStatusRegistry(), now: () => now });
+    const badCredentials = Buffer.from("operator:wrong-password").toString("base64");
+    const attempt = (auth?: string, ip = "203.0.113.9") => route(new Request("http://localhost/api/status", {
+      headers: {
+        "x-real-ip": ip,
+        ...(auth ? { Authorization: auth } : {}),
+      },
+    }));
+
+    // Prompting without credentials never counts as a failure.
+    for (let i = 0; i < 10; i += 1) {
+      assert.equal((await attempt()).status, 401);
+    }
+
+    for (let i = 0; i < 5; i += 1) {
+      assert.equal((await attempt(`Basic ${badCredentials}`)).status, 401);
+    }
+    const locked = await attempt(`Basic ${badCredentials}`);
+    assert.equal(locked.status, 429);
+    assert.equal((await locked.json()).error.code, "TOO_MANY_ATTEMPTS");
+    assert.ok(Number(locked.headers.get("retry-after")) > 0);
+
+    // Correct credentials are also rejected while the client is locked.
+    assert.equal((await attempt(`Basic ${credentials}`)).status, 429);
+
+    // Another client and another auth scope are unaffected.
+    assert.equal((await attempt(`Basic ${credentials}`, "198.51.100.7")).status, 200);
+
+    // The lockout expires and a successful login clears the counter.
+    now += 5 * 60 * 1000 + 1_000;
+    assert.equal((await attempt(`Basic ${credentials}`)).status, 200);
+    assert.equal((await attempt(`Basic ${badCredentials}`)).status, 401);
+  });
+
+  test("locks out repeated bad device tokens", async () => {
+    let now = 10_000;
+    const route = createAdminRouter({ env, registry: new DeviceStatusRegistry(), now: () => now });
+    const heartbeat = (token: string) => route(new Request("http://localhost/api/heartbeat", {
+      method: "POST",
+      headers: {
+        Authorization: `Bearer ${token}`,
+        "Content-Type": "application/json",
+        "x-real-ip": "203.0.113.9",
+      },
+      body: JSON.stringify({ deviceId: "board-b" }),
+    }));
+
+    for (let i = 0; i < 5; i += 1) {
+      assert.equal((await heartbeat("wrong")).status, 401);
+    }
+    assert.equal((await heartbeat("wrong")).status, 429);
+    assert.equal((await heartbeat("board-secret")).status, 429);
+
+    now += 5 * 60 * 1000 + 1_000;
+    assert.equal((await heartbeat("board-secret")).status, 204);
+  });
+
   test("accepts authenticated board heartbeats and rejects a bad token", async () => {
     let now = 10_000;
     const registry = new DeviceStatusRegistry();
