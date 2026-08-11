@@ -17,7 +17,10 @@
     "dev:gateway": "npm run dev --workspace @pf/gateway",
     "dev:admin": "npm run dev --workspace @pf/admin",
     "build:web": "npm run build:web --workspace @pf/mobile",
-    "build:sites": "npm run build:web --workspace @pf/mobile && node scripts/prepare-sites-static.mjs"
+    "build:sites": "npm run build:web --workspace @pf/mobile && node scripts/prepare-sites-static.mjs",
+    "build:cloudflare": "npm run build:web --workspace @pf/mobile -- --mode public-demo && node scripts/prepare-cloudflare-static.mjs && node scripts/scan-public-build.mjs dist/cloudflare",
+    "scan:cloudflare": "node scripts/scan-public-build.mjs dist/cloudflare",
+    "deploy:cloudflare": "npm run build:cloudflare && npx wrangler pages deploy dist/cloudflare --project-name pocket-friend"
   },
   "engines": {
     "node": ">=22.18"

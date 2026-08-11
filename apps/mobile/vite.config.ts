@@ -2,21 +2,53 @@ import tailwindcss from "@tailwindcss/vite";
 import react from "@vitejs/plugin-react";
 import path from "node:path";
 import { fileURLToPath } from "node:url";
-import { defineConfig, loadEnv } from "vite";
+import { defineConfig, loadEnv, type ServerOptions } from "vite";
 
 export default defineConfig(({ mode }) => {
   const mobileRoot = path.dirname(fileURLToPath(import.meta.url));
   const repoRoot = path.resolve(mobileRoot, "../..");
+  const publicDemo = mode === "public-demo";
+
+  return {
+    envPrefix: ["VITE_", "EXPO_PUBLIC_"],
+    plugins: [react(), tailwindcss()],
+    resolve: {
+      alias: publicDemo
+        ? [
+          {
+            find: "./app/productApi.ts",
+            replacement: path.resolve(mobileRoot, "src/public-demo/productApi.ts"),
+          },
+          {
+            find: "../app/productApi.ts",
+            replacement: path.resolve(mobileRoot, "src/public-demo/productApi.ts"),
+          },
+          {
+            find: "./app/photoPipeline.ts",
+            replacement: path.resolve(mobileRoot, "src/public-demo/photoPipeline.ts"),
+          },
+          {
+            find: "../app/photoPipeline.ts",
+            replacement: path.resolve(mobileRoot, "src/public-demo/photoPipeline.ts"),
+          },
+        ]
+        : [],
+    },
+    ...(publicDemo ? {} : { server: createDevServerConfig(mode, repoRoot, mobileRoot) }),
+    build: {
+      emptyOutDir: true,
+      outDir: "../../dist/web",
+    },
+  };
+});
+
+function createDevServerConfig(mode: string, repoRoot: string, mobileRoot: string): ServerOptions {
   const env = {
     ...loadEnv(mode, repoRoot, ["VITE_", "EXPO_PUBLIC_", "PF_"]),
     ...loadEnv(mode, mobileRoot, ["VITE_", "EXPO_PUBLIC_", "PF_"]),
   };
-  const photoToken =
-    env.PF_PHOTO_TOKEN
-    ?? process.env.PF_PHOTO_TOKEN;
-  const productToken =
-    env.PF_PRODUCT_API_TOKEN
-    ?? process.env.PF_PRODUCT_API_TOKEN;
+  const photoToken = env.PF_PHOTO_TOKEN ?? process.env.PF_PHOTO_TOKEN;
+  const productToken = env.PF_PRODUCT_API_TOKEN ?? process.env.PF_PRODUCT_API_TOKEN;
   const gatewayUrl = safeProxyUrl(
     env.EXPO_PUBLIC_GATEWAY_URL ?? env.VITE_GATEWAY_URL ?? "http://127.0.0.1:4310",
     "Gateway proxy target",
@@ -27,9 +59,6 @@ export default defineConfig(({ mode }) => {
   );
 
   return {
-    envPrefix: ["VITE_", "EXPO_PUBLIC_"],
-    plugins: [react(), tailwindcss()],
-    server: {
       proxy: {
         "/avatar-api": {
           target: gatewayUrl,
@@ -68,13 +97,8 @@ export default defineConfig(({ mode }) => {
           },
         },
       },
-    },
-    build: {
-      emptyOutDir: true,
-      outDir: "../../dist/web",
-    },
   };
-});
+}
 
 function safeProxyUrl(value: string, name: string): string {
   const url = new URL(value);
