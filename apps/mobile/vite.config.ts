@@ -31,6 +31,10 @@ export default defineConfig(({ mode }) => {
             find: "../app/photoPipeline.ts",
             replacement: path.resolve(mobileRoot, "src/public-demo/photoPipeline.ts"),
           },
+          {
+            find: "../app/demoCredentials.ts",
+            replacement: path.resolve(mobileRoot, "src/public-demo/demoCredentials.ts"),
+          },
         ]
         : [],
     },

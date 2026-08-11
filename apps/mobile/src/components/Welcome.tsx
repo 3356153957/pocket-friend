@@ -1,29 +1,26 @@
 import { LogIn, Play, UserRound } from "lucide-react";
 import { useState, type FormEvent } from "react";
 
+import { DEMO_LOGIN } from "../app/demoCredentials.ts";
 import type { ProductProfileDraft } from "../app/productApi.ts";
+import { PUBLIC_DEMO_MODE } from "../app/publicDemoRuntime.ts";
 import { AppLogo, PixelButton, PixelCard } from "./PixelUi.tsx";
-
-const demoLogin = {
-  account: "演示账号",
-  password: "pocket2026",
-  name: "演示主持人",
-  role: "黑客松",
-  bio: "口袋朋友演示账号",
-};
 
 export default function Welcome({
   onStart,
 }: {
   onStart: (profile: ProductProfileDraft) => Promise<void> | void;
 }) {
-  const [account, setAccount] = useState(demoLogin.account);
-  const [password, setPassword] = useState(demoLogin.password);
-  const [name, setName] = useState(demoLogin.name);
-  const [role, setRole] = useState(demoLogin.role);
-  const [bio, setBio] = useState(demoLogin.bio);
+  const [account, setAccount] = useState(DEMO_LOGIN.account);
+  const [password, setPassword] = useState(DEMO_LOGIN.password);
+  const [name, setName] = useState(DEMO_LOGIN.name);
+  const [role, setRole] = useState(DEMO_LOGIN.role);
+  const [bio, setBio] = useState(DEMO_LOGIN.bio);
   const [saving, setSaving] = useState(false);
-  const canStart = account.trim().length > 0 && password.trim().length > 0 && name.trim().length > 0 && !saving;
+  const canStart = account.trim().length > 0
+    && (PUBLIC_DEMO_MODE || password.trim().length > 0)
+    && name.trim().length > 0
+    && !saving;
 
   async function submitProfile(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
@@ -43,11 +40,11 @@ export default function Welcome({
   }
 
   function fillDemoLogin() {
-    setAccount(demoLogin.account);
-    setPassword(demoLogin.password);
-    setName(demoLogin.name);
-    setRole(demoLogin.role);
-    setBio(demoLogin.bio);
+    setAccount(DEMO_LOGIN.account);
+    setPassword(DEMO_LOGIN.password);
+    setName(DEMO_LOGIN.name);
+    setRole(DEMO_LOGIN.role);
+    setBio(DEMO_LOGIN.bio);
   }
 
   return (
@@ -72,9 +69,13 @@ export default function Welcome({
           <PixelCard className="w-full" color="card">
             <div className="flex items-center justify-center gap-2">
               <UserRound size={17} />
-              <p className="font-pixel text-[8px] leading-5 text-ink">演示账号登录</p>
+              <p className="font-pixel text-[8px] leading-5 text-ink">
+                {PUBLIC_DEMO_MODE ? "公开脱敏演示" : "演示账号登录"}
+              </p>
             </div>
-            <p className="mt-1 font-mono-pixel text-sm leading-4 text-ink/70">资料会保存到产品服务中。</p>
+            <p className="mt-1 font-mono-pixel text-sm leading-4 text-ink/70">
+              {PUBLIC_DEMO_MODE ? "资料仅保留在当前页面，不会上传。" : "资料会保存到产品服务中。"}
+            </p>
           </PixelCard>
 
           <div className="w-full space-y-2 text-left">
@@ -89,17 +90,19 @@ export default function Welcome({
               />
             </label>
 
-            <label className="block">
-              <span className="font-pixel text-[8px] text-ink">密码</span>
-              <input
-                value={password}
-                onChange={(event) => setPassword(event.target.value)}
-                className="mt-1 w-full border-[3px] border-ink bg-card px-3 py-2 font-mono-pixel text-sm text-ink outline-none"
-                placeholder="请输入演示密码"
-                type="password"
-                autoComplete="current-password"
-              />
-            </label>
+            {!PUBLIC_DEMO_MODE && (
+              <label className="block">
+                <span className="font-pixel text-[8px] text-ink">密码</span>
+                <input
+                  value={password}
+                  onChange={(event) => setPassword(event.target.value)}
+                  className="mt-1 w-full border-[3px] border-ink bg-card px-3 py-2 font-mono-pixel text-sm text-ink outline-none"
+                  placeholder="请输入演示密码"
+                  type="password"
+                  autoComplete="current-password"
+                />
+              </label>
+            )}
 
             <label className="block">
               <span className="font-pixel text-[8px] text-ink">昵称</span>
@@ -143,7 +146,7 @@ export default function Welcome({
           onClick={fillDemoLogin}
           className="mt-2 inline-flex min-h-9 items-center justify-center gap-2 font-pixel text-[8px] text-ink/70 underline underline-offset-4"
         >
-          <LogIn size={15} /> 使用演示账号
+          <LogIn size={15} /> {PUBLIC_DEMO_MODE ? "恢复演示资料" : "使用演示账号"}
         </button>
       </div>
     </form>

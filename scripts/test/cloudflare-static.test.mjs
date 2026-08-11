@@ -14,6 +14,7 @@ test("scanner rejects credential signatures without returning their values", () 
 
   assert.deepEqual(bearer, ["bearer-token"]);
   assert.deepEqual(privateKey, ["private-key"]);
+  assert.deepEqual(findSensitiveMatches("pocket2026"), ["demo-credential"]);
 });
 
 test("scanner rejects legacy hosting and private service addresses", () => {

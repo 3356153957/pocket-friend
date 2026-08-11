@@ -5,6 +5,7 @@ import test from "node:test";
 const guardedFiles = [
   "src/App.tsx",
   "src/app/useNearbyDemo.ts",
+  "src/components/Welcome.tsx",
   "src/components/Arrival.tsx",
   "src/components/HomeWorld.tsx",
   "src/components/Settings.tsx",
@@ -29,13 +30,16 @@ test("Vite public-demo build aliases every credential-aware browser module", asy
   const config = await readFile(new URL("../vite.config.ts", import.meta.url), "utf8");
   assert.match(config, /public-demo\/productApi\.ts/);
   assert.match(config, /public-demo\/photoPipeline\.ts/);
+  assert.match(config, /public-demo\/demoCredentials\.ts/);
 
   for (const path of [
     "src/public-demo/productApi.ts",
     "src/public-demo/photoPipeline.ts",
+    "src/public-demo/demoCredentials.ts",
   ]) {
     const source = await readFile(new URL(`../${path}`, import.meta.url), "utf8");
     assert.doesNotMatch(source, /fetch\s*\(|:431[01]|\/product-api|\/photo-api|\/avatar-api/);
+    assert.doesNotMatch(source, /pocket2026/);
   }
 });
 

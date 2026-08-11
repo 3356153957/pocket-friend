@@ -7,6 +7,7 @@ const sensitiveRules = [
   ["bearer-token", /\bbearer\s+[A-Za-z0-9._~+/=-]{20,}/i],
   ["jwt-token", /\beyJ[A-Za-z0-9_-]{8,}\.[A-Za-z0-9_-]{8,}\.[A-Za-z0-9_-]{8,}\b/],
   ["provider-secret", /\bsk-[A-Za-z0-9_-]{16,}\b/],
+  ["demo-credential", /\bpocket2026\b/i],
   ["secret-assignment", /(?:api[_-]?key|access[_-]?token|client[_-]?secret|password)["']?\s*[:=]\s*["'][^"'\s]{12,}["']/i],
   ["legacy-sites-host", /\b[a-z0-9-]+\.[a-z0-9]+\.chatgpt\.site\b/i],
   ["private-service-port", /:43(?:10|11)\b/i],
