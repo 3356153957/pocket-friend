@@ -7,6 +7,7 @@ import {
 } from "../../../../packages/nearby-core/src/index.ts";
 import type { Prefs } from "./appFlow.ts";
 import { DEMO_CURRENT_PLAYER, DEMO_PRESENCES } from "./demoData.ts";
+import { PUBLIC_DEMO_MODE } from "./publicDemoRuntime.ts";
 import { createDemoProfile } from "../demoSettings.ts";
 import {
   watchBrowserPosition,
@@ -113,9 +114,14 @@ export function useNearbyDemo(prefs: Prefs): NearbyDemoController {
   }, [stopSampling]);
 
   useEffect(() => {
+    if (PUBLIC_DEMO_MODE) {
+      void useDemoLocation();
+      return stopSampling;
+    }
+
     void retryGps();
     return stopSampling;
-  }, [retryGps, stopSampling]);
+  }, [retryGps, stopSampling, useDemoLocation]);
 
   const currentPlayer = useMemo(() => createDemoProfile(DEMO_CURRENT_PLAYER, {
     discoverable: true,
@@ -142,7 +148,7 @@ export function useNearbyDemo(prefs: Prefs): NearbyDemoController {
     message,
     mode,
     state,
-    retryGps,
+    retryGps: PUBLIC_DEMO_MODE ? useDemoLocation : retryGps,
     useDemoLocation,
   };
 }

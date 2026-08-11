@@ -4,6 +4,7 @@ import test from "node:test";
 
 const guardedFiles = [
   "src/App.tsx",
+  "src/app/useNearbyDemo.ts",
   "src/components/Arrival.tsx",
   "src/components/HomeWorld.tsx",
   "src/components/Settings.tsx",
@@ -41,4 +42,10 @@ test("Vite public-demo build aliases every credential-aware browser module", asy
 test("public demo map copy never exposes environment variable names", async () => {
   const source = await readFile(new URL("../src/map/AmapNearbyMap.tsx", import.meta.url), "utf8");
   assert.match(source, /公开演示版未连接在线地图/);
+});
+
+test("public demo location starts and retries with simulated data", async () => {
+  const source = await readFile(new URL("../src/app/useNearbyDemo.ts", import.meta.url), "utf8");
+  assert.match(source, /PUBLIC_DEMO_MODE[\s\S]+void useDemoLocation\(\)/);
+  assert.match(source, /retryGps:\s*PUBLIC_DEMO_MODE\s*\?\s*useDemoLocation\s*:\s*retryGps/);
 });
