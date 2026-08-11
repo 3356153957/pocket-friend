@@ -2,6 +2,7 @@ import { Check, Loader2 } from "lucide-react";
 import { useEffect, useRef, useState } from "react";
 
 import type { EncounterProfile } from "../app/encounterProfile.ts";
+import { PUBLIC_DEMO_MODE } from "../app/publicDemoMode.ts";
 import {
   createDemoDownloadedPhoto,
   fetchHardwarePhotoCandidates,
@@ -178,6 +179,16 @@ export default function Arrival({
     async function runArrival() {
       let current: HardwarePhotoCandidate | null = null;
       let lastAttemptedPhotoId: string | null = null;
+
+      if (PUBLIC_DEMO_MODE) {
+        const fallback = await createDemoDownloadedPhoto("公开演示版使用本地形象，不会读取或上传照片。");
+        await animateAndSave(fallback, null);
+        if (!cancelled) {
+          setStage("done");
+          onCompleteRef.current(null);
+        }
+        return;
+      }
 
       try {
         current = await loadInitialCandidate();

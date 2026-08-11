@@ -17,6 +17,7 @@ import {
   type HardwarePhotoCandidate,
 } from "./app/photoPipeline.ts";
 import { photosInUploadOrder } from "./app/photoUpdateQueue.ts";
+import { PUBLIC_DEMO_MODE } from "./app/publicDemoMode.ts";
 import { useNearbyDemo } from "./app/useNearbyDemo.ts";
 import type { ScreenResident } from "./app/screenResident.ts";
 import Arrival from "./components/Arrival.tsx";
@@ -50,6 +51,8 @@ export default function App() {
   const nearby = useNearbyDemo(prefs);
 
   useEffect(() => {
+    if (PUBLIC_DEMO_MODE) return undefined;
+
     try {
       const clientId = getPresenceClientId(window.localStorage, () => crypto.randomUUID());
       return startPresenceHeartbeat({
@@ -62,6 +65,7 @@ export default function App() {
   }, []);
 
   useEffect(() => {
+    if (PUBLIC_DEMO_MODE) return undefined;
     if (phase !== "app" || !prefs.encounterProfile) return undefined;
 
     let disposed = false;
@@ -106,6 +110,22 @@ export default function App() {
 
   async function startWithProfile(profile: ProductProfileDraft) {
     setBackendWarning(null);
+    if (PUBLIC_DEMO_MODE) {
+      const now = new Date().toISOString();
+      setProductProfile({
+        id: `local-${Date.now().toString(36)}`,
+        name: profile.name,
+        handle: profile.handle ?? profile.name,
+        role: profile.role ?? "",
+        bio: profile.bio ?? "",
+        createdAt: now,
+        updatedAt: now,
+      });
+      setBackendWarning("公开演示版：资料仅保存在当前页面，不会上传。");
+      setStep("quiz");
+      return;
+    }
+
     try {
       const savedProfile = await upsertProductProfile(profile);
       setProductProfile(savedProfile);
@@ -125,8 +145,10 @@ export default function App() {
   }
 
   async function saveArrivalResident(resident: ScreenResident, _attemptedPhotoId: string | null) {
-    if (resident.source === "demo") {
-      setBackendWarning(resident.spriteSource === "local-fallback"
+    if (PUBLIC_DEMO_MODE || resident.source === "demo") {
+      setBackendWarning(PUBLIC_DEMO_MODE
+        ? "公开演示版：居民仅在当前页面显示，不会上传。"
+        : resident.spriteSource === "local-fallback"
         ? "未获取到硬件照片，因此没有保存居民。请拍摄真实照片后重新进入。"
         : null);
       setScreenResident((current) => current ?? resident);

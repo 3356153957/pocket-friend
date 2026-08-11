@@ -16,6 +16,7 @@ import {
   useState,
 } from "react";
 
+import { PUBLIC_DEMO_MODE } from "../app/publicDemoMode.ts";
 import { createMarkerSelectionHandlers } from "./mapInteraction.ts";
 import {
   DEFAULT_MAP_LAYER_MODE,
@@ -118,7 +119,24 @@ function createMarkerElement(
   };
 }
 
-export default function AmapNearbyMap({
+export default function AmapNearbyMap(props: AmapNearbyMapProps) {
+  if (PUBLIC_DEMO_MODE) {
+    return (
+      <div className="amap-shell">
+        <div className="amap-canvas bg-dotgrid" aria-label="本地演示地图" />
+        <div className="amap-message" role="status">
+          <strong>公开演示版未连接在线地图</strong>
+          <span>位置和人物来自本地演示数据，不会上传信息或请求第三方服务。</span>
+          <span>{props.sourceLabel} · {props.markers.length} 个本地标记</span>
+        </div>
+      </div>
+    );
+  }
+
+  return <LiveAmapNearbyMap {...props} />;
+}
+
+function LiveAmapNearbyMap({
   focusRequest,
   markers,
   sourceLabel,

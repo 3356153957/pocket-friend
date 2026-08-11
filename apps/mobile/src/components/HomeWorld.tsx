@@ -6,6 +6,7 @@ import {
   listProductScenes,
   type ProductScene,
 } from "../app/productApi.ts";
+import { PUBLIC_DEMO_MODE } from "../app/publicDemoMode.ts";
 import {
   fetchHardwarePhotoCandidates,
   makePhotoApiUrl,
@@ -215,6 +216,13 @@ export default function HomeWorld({ resident }: { resident?: ScreenResident | nu
   const generatingPhotoIdsRef = useRef(new Set<string>());
 
   async function refreshWorld() {
+    if (PUBLIC_DEMO_MODE) {
+      setScenes(fallbackProductScenes);
+      setBackendResidents([]);
+      setBackendNotice("公开演示版使用本地场景，不会连接产品或照片服务");
+      return;
+    }
+
     try {
       const [loadedScenes, managedPhotos] = await Promise.all([
         listProductScenes().catch(() => fallbackProductScenes),
@@ -278,6 +286,7 @@ export default function HomeWorld({ resident }: { resident?: ScreenResident | nu
 
   useEffect(() => {
     void refreshWorld();
+    if (PUBLIC_DEMO_MODE) return undefined;
     const timer = window.setInterval(() => void refreshWorld(), 3000);
     return () => window.clearInterval(timer);
   }, []);

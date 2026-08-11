@@ -2,6 +2,7 @@ import { Bell, Bluetooth, Database, LockKeyhole, Save, UserRound } from "lucide-
 import { useEffect, useMemo, useState } from "react";
 
 import type { Prefs } from "../app/appFlow.ts";
+import { PUBLIC_DEMO_MODE } from "../app/publicDemoMode.ts";
 import {
   listProductResidents,
   toScreenResident,
@@ -48,6 +49,11 @@ export default function Settings({
   }, [productProfile]);
 
   useEffect(() => {
+    if (PUBLIC_DEMO_MODE) {
+      setSavedResidents([]);
+      return undefined;
+    }
+
     let disposed = false;
     async function loadResidents() {
       try {
@@ -73,6 +79,19 @@ export default function Settings({
   async function saveProfile() {
     if (!productProfile || !name.trim()) return;
     setSaving(true);
+    if (PUBLIC_DEMO_MODE) {
+      setProductProfile?.({
+        ...productProfile,
+        name: name.trim(),
+        role: role.trim(),
+        bio: bio.trim(),
+        updatedAt: new Date().toISOString(),
+      });
+      setBackendWarning?.("公开演示版：资料仅保存在当前页面，不会上传。");
+      setSaving(false);
+      return;
+    }
+
     try {
       const saved = await upsertProductProfile({
         id: productProfile.id,
