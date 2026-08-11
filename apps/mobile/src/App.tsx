@@ -17,7 +17,7 @@ import {
   type HardwarePhotoCandidate,
 } from "./app/photoPipeline.ts";
 import { photosInUploadOrder } from "./app/photoUpdateQueue.ts";
-import { PUBLIC_DEMO_MODE } from "./app/publicDemoMode.ts";
+import { PUBLIC_DEMO_MODE } from "./app/publicDemoRuntime.ts";
 import { useNearbyDemo } from "./app/useNearbyDemo.ts";
 import type { ScreenResident } from "./app/screenResident.ts";
 import Arrival from "./components/Arrival.tsx";

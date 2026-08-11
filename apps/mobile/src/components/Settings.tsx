@@ -2,7 +2,7 @@ import { Bell, Bluetooth, Database, LockKeyhole, Save, UserRound } from "lucide-
 import { useEffect, useMemo, useState } from "react";
 
 import type { Prefs } from "../app/appFlow.ts";
-import { PUBLIC_DEMO_MODE } from "../app/publicDemoMode.ts";
+import { PUBLIC_DEMO_MODE } from "../app/publicDemoRuntime.ts";
 import {
   listProductResidents,
   toScreenResident,

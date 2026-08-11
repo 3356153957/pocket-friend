@@ -6,7 +6,7 @@ import {
   listProductScenes,
   type ProductScene,
 } from "../app/productApi.ts";
-import { PUBLIC_DEMO_MODE } from "../app/publicDemoMode.ts";
+import { PUBLIC_DEMO_MODE } from "../app/publicDemoRuntime.ts";
 import {
   fetchHardwarePhotoCandidates,
   makePhotoApiUrl,

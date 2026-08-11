@@ -16,7 +16,7 @@ import {
   useState,
 } from "react";
 
-import { PUBLIC_DEMO_MODE } from "../app/publicDemoMode.ts";
+import { PUBLIC_DEMO_MODE } from "../app/publicDemoRuntime.ts";
 import { createMarkerSelectionHandlers } from "./mapInteraction.ts";
 import {
   DEFAULT_MAP_LAYER_MODE,

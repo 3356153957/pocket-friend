@@ -2,7 +2,7 @@ import { Check, Loader2 } from "lucide-react";
 import { useEffect, useRef, useState } from "react";
 
 import type { EncounterProfile } from "../app/encounterProfile.ts";
-import { PUBLIC_DEMO_MODE } from "../app/publicDemoMode.ts";
+import { PUBLIC_DEMO_MODE } from "../app/publicDemoRuntime.ts";
 import {
   createDemoDownloadedPhoto,
   fetchHardwarePhotoCandidates,
