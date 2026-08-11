@@ -187,7 +187,35 @@ npm run build:web
 
 # Build and prepare the static site bundle
 npm run build:sites
+
+# Build and scan the credential-free Cloudflare Pages bundle
+npm run build:cloudflare
 ```
+
+## Credential-Free Cloudflare Pages Deployment
+
+The public Cloudflare build uses Vite's `public-demo` mode. It replaces the product and photo clients with local-only modules, disables presence and AMap initialization, writes restrictive Pages headers, and scans the exact upload directory before deployment.
+
+Build and scan locally:
+
+```bash
+npm run build:cloudflare
+```
+
+Authenticate with browser OAuth. Do not paste an API token into the repository, `.env`, command history, or Pages environment variables:
+
+```bash
+npx wrangler login
+npx wrangler whoami
+```
+
+Deploy only the scanned directory:
+
+```bash
+npm run deploy:cloudflare
+```
+
+The public demo intentionally does not deploy backend services, Cloudflare Functions, Workers, databases, secrets, AMap credentials, AI generation credentials, device heartbeat, or photo storage. Bind a custom domain from the Pages project's **Custom domains** page after the default `pages.dev` address has been verified.
 
 ## Public Repository Boundaries
 

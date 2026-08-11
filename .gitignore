@@ -36,6 +36,7 @@ apps/gateway/data/
 # Temporary files and caches
 .cache/
 .playwright-cli/
+.wrangler/
 .worktrees/
 background-preview-raw/
 tmp/

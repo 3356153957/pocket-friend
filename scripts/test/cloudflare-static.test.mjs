@@ -32,3 +32,12 @@ test("Pages packaging writes an SPA fallback and restrictive security headers", 
   assert.match(source, /Content-Security-Policy/);
   assert.match(source, /connect-src 'none'/);
 });
+
+test("legacy Sites binding is absent and Wrangler state is ignored", async () => {
+  const ignore = await readFile(new URL("../../.gitignore", import.meta.url), "utf8");
+  assert.match(ignore, /^\.wrangler\/$/m);
+  await assert.rejects(
+    readFile(new URL("../../.openai/hosting.json", import.meta.url), "utf8"),
+    { code: "ENOENT" },
+  );
+});
